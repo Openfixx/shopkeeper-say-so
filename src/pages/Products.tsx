@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Package2, 
   Plus, 
-  Search 
+  Search,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useInventory, Product } from '@/context/InventoryContext';
 import ProductCard from '@/components/ui-custom/ProductCard';
@@ -24,6 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { extractProductDetails, searchProductImage } from '@/utils/voiceCommandUtils';
 
 interface ProductFormData {
   name: string;
@@ -52,6 +56,10 @@ const Products: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [isVoiceDialogOpen, setIsVoiceDialogOpen] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const navigate = useNavigate();
   
   const filteredProducts = searchQuery
     ? products.filter(product => 
@@ -63,54 +71,83 @@ const Products: React.FC = () => {
     setSearchQuery(query);
   };
   
-  const handleVoiceCommand = (command: string) => {
+  const handleVoiceCommand = async (command: string) => {
+    setCurrentTranscript(command);
     const lowerCommand = command.toLowerCase();
     
-    if (lowerCommand.includes('add')) {
-      // Extract product information using regex
-      const productInfo = lowerCommand.replace(/add/i, '').trim();
+    // Handle navigation to add product page with voice data
+    if (lowerCommand.includes('add product') || lowerCommand.startsWith('add ')) {
+      setIsProcessingVoice(true);
       
-      // Simple regex patterns to extract information
-      const quantityMatch = productInfo.match(/(\d+)\s*(kg|g|l|ml)/i);
-      const expiryMatch = productInfo.match(/expiry\s+(\w+\s+\d{4})/i);
-      const rackMatch = productInfo.match(/rack\s+(\d+)/i);
+      // Extract product details from the command
+      const productDetails = extractProductDetails(command);
       
-      if (quantityMatch) {
-        const quantity = parseInt(quantityMatch[1]);
-        const unit = quantityMatch[2].toLowerCase();
-        
-        // Get product name by removing extracted parts
-        let productName = productInfo
-          .replace(quantityMatch[0], '')
-          .replace(expiryMatch ? expiryMatch[0] : '', '')
-          .replace(rackMatch ? rackMatch[0] : '', '')
-          .trim();
-        
-        // Remove common words like "of", "on", "with"
-        productName = productName.replace(/\s+(of|on|with)\s+/g, ' ').trim();
-        
-        setFormData({
-          name: productName.charAt(0).toUpperCase() + productName.slice(1),
-          quantity,
-          unit,
-          position: rackMatch ? `Rack ${rackMatch[1]}` : '',
-          expiry: expiryMatch ? expiryMatch[1] : '',
-          price: 0,
-          image: '',
-        });
-        
-        setIsAddDialogOpen(true);
+      if (Object.keys(productDetails).length > 0) {
+        if (productDetails.name) {
+          // If we don't have an image but have a name, try to fetch one
+          if (!productDetails.image && productDetails.name) {
+            try {
+              const imageUrl = await searchProductImage(productDetails.name);
+              if (imageUrl) {
+                productDetails.image = imageUrl;
+                toast.success('Product image found automatically');
+              }
+            } catch (error) {
+              console.error('Failed to fetch product image:', error);
+            }
+          }
+          
+          setFormData({
+            name: productDetails.name || '',
+            quantity: productDetails.quantity || 0,
+            unit: productDetails.unit || 'kg',
+            position: productDetails.position || '',
+            expiry: productDetails.expiry || '',
+            price: productDetails.price || 0,
+            image: productDetails.image || '',
+          });
+          
+          setIsAddDialogOpen(true);
+          toast.success(`Product details extracted: ${productDetails.name}`);
+        } else {
+          // If we can't determine a product name, just open the add dialog
+          navigate('/add-product');
+        }
       } else {
-        toast.info('Could not identify product details from voice command');
+        navigate('/add-product');
       }
-    } else if (lowerCommand.includes('search') || lowerCommand.includes('find')) {
-      const searchTerm = lowerCommand
-        .replace(/search|find/i, '')
-        .trim();
+      
+      setIsProcessingVoice(false);
+    } else if (lowerCommand.includes('create bill') || 
+               lowerCommand.includes('add bill') || 
+               lowerCommand.includes('bill banao') || 
+               lowerCommand.includes('bill banado') ||
+               lowerCommand.includes('bill')) {
+      navigate('/billing');
+      toast.success('Opening billing page');
+    } else if (lowerCommand.includes('search') || 
+               lowerCommand.includes('find') || 
+               lowerCommand.includes('where is') ||
+               lowerCommand.includes('locate')) {
+      // Extract search term
+      let searchTerm = '';
+      if (lowerCommand.includes('search for')) {
+        searchTerm = lowerCommand.split('search for')[1].trim();
+      } else if (lowerCommand.includes('find')) {
+        searchTerm = lowerCommand.split('find')[1].trim();
+      } else if (lowerCommand.includes('search')) {
+        searchTerm = lowerCommand.split('search')[1].trim();
+      } else if (lowerCommand.includes('where is')) {
+        searchTerm = lowerCommand.split('where is')[1].trim();
+      } else if (lowerCommand.includes('locate')) {
+        searchTerm = lowerCommand.split('locate')[1].trim();
+      }
       
       if (searchTerm) {
         setSearchQuery(searchTerm);
         toast.info(`Searching for "${searchTerm}"`);
+      } else {
+        toast.info('Please specify what to search for');
       }
     } else {
       toast.info(`Command not recognized: "${command}"`);
@@ -124,6 +161,77 @@ const Products: React.FC = () => {
       ...prev,
       [name]: type === 'number' ? Number(value) : value,
     }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imageUrl = reader.result as string;
+        setFormData(prev => ({
+          ...prev,
+          image: imageUrl
+        }));
+        toast.success('Product image uploaded');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const captureImage = () => {
+    // Create an input element to capture image
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const imageUrl = reader.result as string;
+          setFormData(prev => ({
+            ...prev,
+            image: imageUrl
+          }));
+          toast.success('Product image captured');
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    input.click();
+  };
+
+  const findProductImage = async () => {
+    if (!formData.name) {
+      toast.error('Please enter a product name first');
+      return;
+    }
+    
+    toast.loading('Searching for product image...');
+    
+    try {
+      const imageUrl = await searchProductImage(formData.name);
+      if (imageUrl) {
+        setFormData(prev => ({
+          ...prev,
+          image: imageUrl
+        }));
+        toast.dismiss();
+        toast.success('Product image found');
+      } else {
+        toast.dismiss();
+        toast.error('No image found for this product');
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to find product image');
+      console.error('Error finding product image:', error);
+    }
   };
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -176,13 +284,24 @@ const Products: React.FC = () => {
         
         <div className="space-y-2">
           <Label htmlFor="image">Image URL</Label>
-          <Input
-            id="image"
-            name="image"
-            value={formData.image}
-            onChange={handleInputChange}
-            placeholder="https://example.com/image.jpg"
-          />
+          <div className="flex space-x-2">
+            <Input
+              id="image"
+              name="image"
+              value={formData.image}
+              onChange={handleInputChange}
+              placeholder="https://example.com/image.jpg"
+              className="flex-1"
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={findProductImage}
+              title="Search for product image online"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -246,6 +365,48 @@ const Products: React.FC = () => {
             onChange={handleInputChange}
           />
         </div>
+        
+        <div className="space-y-2 md:col-span-2">
+          <Label>Product Image</Label>
+          <div className="flex flex-col space-y-3">
+            <div className="flex space-x-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="flex-1"
+                onClick={captureImage}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Capture Image
+              </Button>
+              
+              <Label
+                htmlFor="product-image-upload"
+                className="flex-1 cursor-pointer flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent hover:text-accent-foreground"
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Upload from Gallery
+                <input
+                  id="product-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleImageUpload}
+                />
+              </Label>
+            </div>
+            
+            {formData.image && (
+              <div className="relative border rounded-md overflow-hidden h-40">
+                <img 
+                  src={formData.image} 
+                  alt={formData.name || 'Product'} 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       
       <DialogFooter>
@@ -268,6 +429,9 @@ const Products: React.FC = () => {
         <div className="flex space-x-2">
           <VoiceCommandButton 
             onVoiceCommand={handleVoiceCommand}
+            showDialog={true}
+            label="Voice Command"
+            size="default"
           />
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -277,7 +441,7 @@ const Products: React.FC = () => {
                 Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Add New Product</DialogTitle>
                 <DialogDescription>
@@ -365,6 +529,24 @@ const Products: React.FC = () => {
           {renderForm()}
         </DialogContent>
       </Dialog>
+
+      {/* Current Transcript Dialog (for debugging) */}
+      {currentTranscript && (
+        <Dialog open={isVoiceDialogOpen} onOpenChange={setIsVoiceDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Voice Command</DialogTitle>
+              <DialogDescription>
+                Processing your voice command...
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm font-medium mb-1">Transcript:</p>
+              <p className="text-sm">{currentTranscript}</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

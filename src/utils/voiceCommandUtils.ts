@@ -89,51 +89,46 @@ export function detectCommandType(command: string): RecognizedCommand {
   };
 }
 
-// Extract product details from voice command
+// Extract product details from voice command with improved pattern recognition
 export function extractProductDetails(command: string): Record<string, any> {
   const lowerCommand = command.toLowerCase();
   const productDetails: Record<string, any> = {};
   
-  // Extract product name
-  const productNamePatterns = [
-    /add\s+(\w+)/i,
-    /add\s+(\d+)\s*(kg|g|l|ml|packet|box)?\s+(?:of\s+)?([a-z\s]+)/i
-  ];
+  // Extract product name - improved patterns
+  const nameMatches = lowerCommand.match(/add\s+(?:(\d+)\s*(?:kg|g|l|ml|packet|box)?\s+)?(?:of\s+)?([a-z\s]+?)(?:\s+(?:at|on|in|with|expiry|expires|rack|shelf|price)|\s*$)/i);
   
-  for (const pattern of productNamePatterns) {
-    const match = lowerCommand.match(pattern);
-    if (match) {
-      if (match.length === 2) {
-        productDetails.name = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-        break;
-      } else if (match.length === 4) {
-        productDetails.name = match[3].trim().charAt(0).toUpperCase() + match[3].trim().slice(1);
-        productDetails.quantity = parseInt(match[1]);
-        productDetails.unit = match[2] || 'pcs';
-        break;
-      }
+  if (nameMatches && nameMatches[2]) {
+    productDetails.name = nameMatches[2].trim().charAt(0).toUpperCase() + nameMatches[2].trim().slice(1);
+    
+    // If we have quantity in the same pattern
+    if (nameMatches[1]) {
+      productDetails.quantity = parseInt(nameMatches[1]);
     }
   }
   
-  // Extract quantity and unit
-  const quantityMatch = lowerCommand.match(/(\d+)(?:\s*)(kg|g|l|ml|packet|box|packets|boxes|pieces)/i);
+  // Extract quantity and unit - more specific patterns
+  const quantityMatch = lowerCommand.match(/(\d+)\s*(kg|g|l|ml|packet|box|packets|boxes|pieces)/i);
   if (quantityMatch) {
     productDetails.quantity = parseInt(quantityMatch[1]);
     productDetails.unit = quantityMatch[2].toLowerCase();
   }
   
-  // Extract position/rack
-  const rackMatch = lowerCommand.match(/(?:at|on|in)\s+(?:rack|shelf)\s+(\d+)/i);
+  // Extract position/rack - more variations
+  const rackMatch = lowerCommand.match(/(?:at|on|in)\s+(?:rack|shelf|position)\s+(\d+)/i) || 
+                   lowerCommand.match(/rack\s+(\d+)/i) || 
+                   lowerCommand.match(/shelf\s+(\d+)/i);
   if (rackMatch) {
     productDetails.position = `Rack ${rackMatch[1]}`;
   }
   
-  // Extract expiry date
+  // Extract expiry date - improved patterns
   const expiryPatterns = [
     /expir(?:y|es|ed)\s+(?:date\s+)?(?:is\s+)?(?:on\s+)?([a-z]+\s+\d{4})/i,
     /expir(?:y|es|ed)\s+(?:date\s+)?(?:is\s+)?(?:on\s+)?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
     /expir(?:y|es|ed)\s+(?:date\s+)?(?:is\s+)?(?:on\s+)?(\d{1,2}\s+[a-z]+\s+\d{2,4})/i,
-    /expir(?:y|es|ed)\s+(?:to be\s+)?(?:on\s+)?([a-z]+\s+\d{4})/i
+    /expir(?:y|es|ed)\s+(?:to be\s+)?(?:on\s+)?([a-z]+\s+\d{4})/i,
+    /expires?\s+(?:in|on)?\s+([a-z]+\s+\d{4})/i,
+    /(?:in|on)\s+([a-z]+\s+\d{4})/i
   ];
   
   for (const pattern of expiryPatterns) {
@@ -156,7 +151,7 @@ export function extractProductDetails(command: string): Record<string, any> {
   }
   
   // Extract price
-  const priceMatch = lowerCommand.match(/price\s+(?:is\s+)?(\d+)/i);
+  const priceMatch = lowerCommand.match(/price\s+(?:is\s+)?(\d+)/i) || lowerCommand.match(/costs?\s+(\d+)/i) || lowerCommand.match(/(\d+)\s+rupees/i);
   if (priceMatch) {
     productDetails.price = parseInt(priceMatch[1]);
   }
@@ -207,7 +202,7 @@ export function extractBillItems(command: string): { name: string, quantity: num
 export async function fetchProductImageUrl(productName: string): Promise<string | null> {
   try {
     // In a real app, you would call an image search API
-    // For demo purposes, we'll just use placeholder images
+    // For demo purposes, we'll use placeholder images
     const placeholders = [
       'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a',
       'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a',
@@ -270,4 +265,42 @@ export function processBillingVoiceCommand(
     toast.error('Error processing voice command');
     return false;
   }
+}
+
+// Function to simulate automatic image search
+export async function searchProductImage(productName: string): Promise<string> {
+  console.log(`Searching for image of ${productName}...`);
+  
+  // In a real app, you would use Google Custom Search API or similar
+  // For demo purposes, we'll use placeholder images
+  const placeholders = [
+    'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a',
+    'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a',
+    'https://images.unsplash.com/photo-1568347877321-f8935c7dc5a8',
+    'https://images.unsplash.com/photo-1543168256-418811576931',
+    'https://images.unsplash.com/photo-1546549032-9571cd6b27df',
+  ];
+  
+  // Introduce a small delay to simulate network request
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  // Return a random image as a placeholder
+  return placeholders[Math.floor(Math.random() * placeholders.length)];
+}
+
+// Function to identify shelves in rack image
+export function identifyShelves(rackImageUrl: string): { shelfCount: number, shelfCoordinates: Array<{top: number, left: number, width: number, height: number}> } {
+  // This function would use computer vision to identify shelves in the rack image
+  // For demo purposes, we'll return mock data
+  const mockShelfCoordinates = [
+    { top: 0, left: 0, width: 100, height: 20 },
+    { top: 25, left: 0, width: 100, height: 20 },
+    { top: 50, left: 0, width: 100, height: 20 },
+    { top: 75, left: 0, width: 100, height: 20 },
+  ];
+  
+  return {
+    shelfCount: mockShelfCoordinates.length,
+    shelfCoordinates: mockShelfCoordinates
+  };
 }
