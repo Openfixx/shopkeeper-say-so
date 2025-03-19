@@ -23,7 +23,12 @@ import {
 import { Mic, MicOff, Package2, Plus, Receipt, Trash2, X, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { extractBillItems, processBillingVoiceCommand } from '@/utils/voiceCommandUtils';
+import { 
+  extractBillItems, 
+  processBillingVoiceCommand, 
+  detectCommandType, 
+  VOICE_COMMAND_TYPES 
+} from '@/utils/voiceCommandUtils';
 
 interface BillingDialogProps {
   open: boolean;
@@ -49,6 +54,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [transcript, setTranscript] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [interpretedCommand, setInterpretedCommand] = useState<string | null>(null);
   
   // Initialize bill
   useEffect(() => {
@@ -87,7 +93,34 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
           
           if (finalTranscript) {
             setTranscript(finalTranscript);
-            processCommand(finalTranscript);
+            
+            // Analyze the command
+            const commandInfo = detectCommandType(finalTranscript);
+            
+            // Set interpreted command for display
+            let interpretedMsg = '';
+            switch(commandInfo.type) {
+              case VOICE_COMMAND_TYPES.CREATE_BILL:
+                interpretedMsg = 'Creating bill';
+                if (commandInfo.data?.items?.length) {
+                  interpretedMsg += ` with ${commandInfo.data.items.length} item(s)`;
+                  
+                  // Add these items directly
+                  commandInfo.data.items.forEach(item => {
+                    const matchingProducts = findProduct(item.name);
+                    if (matchingProducts.length > 0) {
+                      addToBill(matchingProducts[0].id, item.quantity);
+                    }
+                  });
+                }
+                break;
+              default:
+                // For any command, try to extract bill items
+                processCommand(finalTranscript);
+                interpretedMsg = 'Processed command';
+            }
+            
+            setInterpretedCommand(interpretedMsg);
           }
         };
         
@@ -109,7 +142,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
         recognition.abort();
       }
     };
-  }, []);
+  }, [findProduct, addToBill]);
   
   const toggleListening = () => {
     if (!recognition) {
@@ -124,7 +157,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
       try {
         recognition.start();
         setIsListening(true);
-        toast.info('Speak to add items to the bill');
+        toast.info('Say anything and I will try to add it to the bill');
       } catch (error) {
         console.error('Speech recognition error', error);
         toast.error('Failed to start voice recognition');
@@ -133,7 +166,49 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   };
   
   const processCommand = (command: string) => {
-    processBillingVoiceCommand(command, addToBill, findProduct);
+    // Enhanced processing - any command might contain product information
+    const items = extractBillItems(command);
+    
+    if (items.length > 0) {
+      // If we found items, add them to the bill
+      let addedCount = 0;
+      
+      items.forEach(item => {
+        const matchingProducts = findProduct(item.name);
+        
+        if (matchingProducts.length > 0) {
+          const product = matchingProducts[0];
+          addToBill(product.id, item.quantity);
+          addedCount++;
+        }
+      });
+      
+      if (addedCount > 0) {
+        toast.success(`Added ${addedCount} item(s) to bill`);
+      } else {
+        toast.warning("Found items in your command, but they're not in inventory");
+      }
+    } else {
+      // If no explicit items found, try to find individual products
+      const words = command.toLowerCase().split(/\s+/);
+      let addedAny = false;
+      
+      words.forEach(word => {
+        if (word.length < 3) return; // Skip short words
+        
+        const matchingProducts = findProduct(word);
+        if (matchingProducts.length > 0) {
+          const product = matchingProducts[0];
+          addToBill(product.id, 1);
+          addedAny = true;
+          toast.success(`Added ${product.name} to bill`);
+        }
+      });
+      
+      if (!addedAny) {
+        toast.info(`Couldn't identify any products in "${command}"`);
+      }
+    }
   };
   
   const filteredProducts = searchQuery
@@ -236,12 +311,21 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-5 w-5"
-                    onClick={() => setTranscript('')}
+                    onClick={() => {
+                      setTranscript('');
+                      setInterpretedCommand(null);
+                    }}
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
                 <p>{transcript}</p>
+                
+                {interpretedCommand && (
+                  <div className="mt-2 text-xs text-green-600 dark:text-green-400">
+                    {interpretedCommand}
+                  </div>
+                )}
               </div>
             )}
           </div>

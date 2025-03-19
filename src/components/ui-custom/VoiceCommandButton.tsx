@@ -5,6 +5,7 @@ import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
 
 interface VoiceCommandButtonProps {
   onVoiceCommand: (command: string) => void;
@@ -33,6 +34,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   const [transcript, setTranscript] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
+  const [interpretedCommand, setInterpretedCommand] = useState<string | null>(null);
   
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -65,6 +67,37 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
             console.log("Voice command recognized:", finalTranscript);
             setTranscript(finalTranscript);
             setTranscriptHistory(prev => [...prev, finalTranscript]);
+            
+            // Analyze the command type
+            const commandInfo = detectCommandType(finalTranscript);
+            
+            // Set interpreted command for display
+            let interpretedMsg = '';
+            switch(commandInfo.type) {
+              case VOICE_COMMAND_TYPES.ADD_PRODUCT:
+                interpretedMsg = 'Adding product';
+                if (commandInfo.data?.name) {
+                  interpretedMsg += `: ${commandInfo.data.name}`;
+                }
+                break;
+              case VOICE_COMMAND_TYPES.CREATE_BILL:
+                interpretedMsg = 'Creating bill';
+                if (commandInfo.data?.items?.length) {
+                  interpretedMsg += ` with ${commandInfo.data.items.length} item(s)`;
+                }
+                break;
+              case VOICE_COMMAND_TYPES.SEARCH_PRODUCT:
+                interpretedMsg = 'Searching for';
+                if (commandInfo.data?.searchTerm) {
+                  interpretedMsg += `: ${commandInfo.data.searchTerm}`;
+                }
+                break;
+              default:
+                interpretedMsg = 'Command received';
+            }
+            setInterpretedCommand(interpretedMsg);
+            
+            // Pass the command to the handler
             onVoiceCommand(finalTranscript);
             setIsLoading(false);
             setIsListening(false);
@@ -182,13 +215,31 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                 Voice Command
               </DialogTitle>
               <DialogDescription>
-                Speak your command clearly. Try commands like "Add 5kg sugar on rack 3"
+                Speak your command clearly. Say anything, and I'll figure out what you need.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium text-sm mb-1">Current transcript:</p>
                 <p className="text-sm">{transcript || "Listening..."}</p>
+              </div>
+              
+              {interpretedCommand && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <p className="font-medium text-sm mb-1">Interpretation:</p>
+                  <p className="text-sm">{interpretedCommand}</p>
+                </div>
+              )}
+              
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="font-medium text-sm mb-2">Try saying:</p>
+                <ul className="text-sm space-y-1.5">
+                  <li>"Create a bill with 5kg sugar and 2 packets biscuits"</li>
+                  <li>"Bill banao" (Hindi for "create bill")</li>
+                  <li>"Add 10kg rice to rack 3 expiry July 2025"</li>
+                  <li>"5kg sugar" (this will be added to a bill)</li>
+                  <li>"Where is the salt?"</li>
+                </ul>
               </div>
               
               {transcriptHistory.length > 0 && (
@@ -205,7 +256,10 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
               )}
               
               <div className="flex justify-between">
-                <Button variant="outline" size="sm" onClick={() => setTranscriptHistory([])}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setTranscriptHistory([]);
+                  setInterpretedCommand(null);
+                }}>
                   Clear History
                 </Button>
                 <Button size="sm" onClick={closeDialog}>
