@@ -20,34 +20,36 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'en-US';
-      
-      recognitionInstance.onresult = (event) => {
-        const command = event.results[0][0].transcript;
-        onVoiceCommand(command);
-        setIsLoading(false);
-        setIsListening(false);
-        toast.success(`Command recognized: "${command}"`);
-      };
-      
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
-        setIsLoading(false);
-        setIsListening(false);
-        toast.error('Failed to recognize command');
-      };
-      
-      recognitionInstance.onend = () => {
-        setIsLoading(false);
-        setIsListening(false);
-      };
-      
-      setRecognition(recognitionInstance);
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognitionAPI) {
+        const recognitionInstance = new SpeechRecognitionAPI();
+        
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+        
+        recognitionInstance.onresult = (event) => {
+          const command = event.results[0][0].transcript;
+          onVoiceCommand(command);
+          setIsLoading(false);
+          setIsListening(false);
+          toast.success(`Command recognized: "${command}"`);
+        };
+        
+        recognitionInstance.onerror = (event) => {
+          console.error('Speech recognition error', event.error);
+          setIsLoading(false);
+          setIsListening(false);
+          toast.error('Failed to recognize command');
+        };
+        
+        recognitionInstance.onend = () => {
+          setIsLoading(false);
+          setIsListening(false);
+        };
+        
+        setRecognition(recognitionInstance);
+      }
     }
     
     return () => {
