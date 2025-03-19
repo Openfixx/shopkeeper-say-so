@@ -16,7 +16,7 @@ import AnimatedNumber from '@/components/ui-custom/AnimatedNumber';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart } from '@/components/ui/custom/BarChart';
+import { BarChart } from '@/components/ui-custom/BarChart';
 
 interface StatCardProps {
   title: string;
