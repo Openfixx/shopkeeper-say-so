@@ -8,11 +8,19 @@ import { toast } from 'sonner';
 interface VoiceCommandButtonProps {
   onVoiceCommand: (command: string) => void;
   className?: string;
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?: 'default' | 'outline' | 'secondary' | 'ghost';
+  label?: string;
+  listenMessage?: string;
 }
 
 const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   onVoiceCommand,
   className,
+  size = 'icon',
+  variant = 'outline',
+  label,
+  listenMessage = 'Listening for command...',
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +38,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         
         recognitionInstance.onresult = (event) => {
           const command = event.results[0][0].transcript;
+          console.log("Voice command recognized:", command);
           onVoiceCommand(command);
           setIsLoading(false);
           setIsListening(false);
@@ -73,6 +82,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       try {
         recognition.start();
         setIsListening(true);
+        toast.info(listenMessage);
       } catch (error) {
         console.error('Speech recognition error', error);
         setIsLoading(false);
@@ -83,8 +93,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   
   return (
     <Button
-      variant={isListening ? "default" : "outline"}
-      size="icon"
+      variant={isListening ? "default" : variant}
+      size={size}
       className={cn(
         'relative', 
         isListening && 'bg-primary',
@@ -100,6 +110,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       ) : (
         <MicOff className="h-5 w-5" />
       )}
+      
+      {label && <span className="ml-2">{label}</span>}
       
       {isListening && (
         <span className="absolute -top-1 -right-1 flex h-3 w-3">

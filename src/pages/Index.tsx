@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart } from '@/components/ui-custom/BarChart';
+import DashboardVoiceCommands from '@/components/ui-custom/DashboardVoiceCommands';
+import BillingDialog from '@/components/ui-custom/BillingDialog';
 
 interface StatCardProps {
   title: string;
@@ -65,6 +68,7 @@ const StatCard: React.FC<StatCardProps> = ({
 const Dashboard: React.FC = () => {
   const { products, bills, isLoading } = useInventory();
   const navigate = useNavigate();
+  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
   
   const totalProducts = products.length;
   const totalStock = products.reduce((acc, product) => acc + product.quantity, 0);
@@ -88,6 +92,19 @@ const Dashboard: React.FC = () => {
     minimumFractionDigits: 0,
   });
   
+  // Voice command handlers
+  const handleAddProductCommand = () => {
+    navigate('/products/add');
+  };
+  
+  const handleCreateBillCommand = () => {
+    setIsBillingDialogOpen(true);
+  };
+  
+  const handleSearchProductCommand = (searchTerm: string) => {
+    navigate(`/inventory?search=${encodeURIComponent(searchTerm)}`);
+  };
+  
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -105,7 +122,7 @@ const Dashboard: React.FC = () => {
             <Package2 className="mr-2 h-4 w-4" />
             Add Product
           </Button>
-          <Button onClick={() => navigate('/billing')}>
+          <Button onClick={() => setIsBillingDialogOpen(true)}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             New Bill
           </Button>
@@ -264,6 +281,19 @@ const Dashboard: React.FC = () => {
           )}
         </GlassCard>
       </div>
+      
+      {/* Dashboard Voice Commands */}
+      <DashboardVoiceCommands 
+        onAddProduct={handleAddProductCommand}
+        onCreateBill={handleCreateBillCommand}
+        onSearchProduct={handleSearchProductCommand}
+      />
+      
+      {/* Quick Billing Dialog */}
+      <BillingDialog
+        open={isBillingDialogOpen}
+        onOpenChange={setIsBillingDialogOpen}
+      />
     </div>
   );
 };

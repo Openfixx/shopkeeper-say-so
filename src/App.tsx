@@ -12,6 +12,7 @@ import { InventoryProvider } from "./context/InventoryContext";
 // Pages
 import Index from "./pages/Index";
 import Products from "./pages/Products";
+import AddProduct from "./pages/AddProduct";
 import Inventory from "./pages/Inventory";
 import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
@@ -38,6 +39,7 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/products" element={<Products />} />
+                    <Route path="/products/add" element={<AddProduct />} />
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/billing" element={<Billing />} />
                     <Route path="/settings" element={<Settings />} />

@@ -17,7 +17,9 @@ import {
 } from '@/components/ui/sheet';
 import { useAuth } from '@/context/AuthContext';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
+import BillingDialog from '@/components/ui-custom/BillingDialog';
 import { toast } from 'sonner';
+import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
 
 interface NavbarProps {
   className?: string;
@@ -33,45 +35,48 @@ const Navbar: React.FC<NavbarProps> = ({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
   
   const handleVoiceCommand = (command: string) => {
-    const lowerCommand = command.toLowerCase();
+    const recognizedCommand = detectCommandType(command);
     
-    // Simple navigation commands
-    if (lowerCommand.includes('go to') || lowerCommand.includes('open')) {
-      if (lowerCommand.includes('dashboard') || lowerCommand.includes('home')) {
-        navigate('/');
-      } else if (lowerCommand.includes('product')) {
-        navigate('/products');
-      } else if (lowerCommand.includes('inventory')) {
-        navigate('/inventory');
-      } else if (lowerCommand.includes('billing') || lowerCommand.includes('bill')) {
-        navigate('/billing');
-      } else if (lowerCommand.includes('settings')) {
-        navigate('/settings');
-      }
-    } 
-    // Billing commands
-    else if (lowerCommand.includes('prepare a bill') || lowerCommand.includes('start bill')) {
-      navigate('/billing');
-      // Additional logic to start a bill would be handled in the Billing component
-    }
-    // Search commands
-    else if (lowerCommand.includes('find') || lowerCommand.includes('where is')) {
-      const productName = lowerCommand.replace(/find|where is/gi, '').trim();
-      navigate(`/inventory?search=${encodeURIComponent(productName)}`);
-    }
-    // Add product command - complex, would need to be handled by a dedicated modal/form
-    else if (lowerCommand.includes('add')) {
-      navigate('/products/add');
-    }
-    // Toggle theme
-    else if (lowerCommand.includes('dark mode') || lowerCommand.includes('light mode')) {
-      onToggleTheme();
-    }
-    // Fallback for unrecognized commands
-    else {
-      toast.info(`Command not recognized: "${command}"`);
+    switch (recognizedCommand.type) {
+      case VOICE_COMMAND_TYPES.ADD_PRODUCT:
+        navigate('/products/add');
+        break;
+      case VOICE_COMMAND_TYPES.CREATE_BILL:
+        setIsBillingDialogOpen(true);
+        break;
+      case VOICE_COMMAND_TYPES.SEARCH_PRODUCT:
+        if (recognizedCommand.data?.searchTerm) {
+          navigate(`/inventory?search=${encodeURIComponent(recognizedCommand.data.searchTerm)}`);
+        } else {
+          toast.warning('Please specify what to search for');
+        }
+        break;
+      default:
+        // Basic navigation commands
+        const lowerCommand = command.toLowerCase();
+        if (lowerCommand.includes('go to') || lowerCommand.includes('open')) {
+          if (lowerCommand.includes('dashboard') || lowerCommand.includes('home')) {
+            navigate('/');
+          } else if (lowerCommand.includes('product')) {
+            navigate('/products');
+          } else if (lowerCommand.includes('inventory')) {
+            navigate('/inventory');
+          } else if (lowerCommand.includes('billing') || lowerCommand.includes('bill')) {
+            navigate('/billing');
+          } else if (lowerCommand.includes('settings')) {
+            navigate('/settings');
+          } else {
+            toast.info(`Command not recognized: "${command}"`);
+          }
+        } else if (lowerCommand.includes('dark mode') || lowerCommand.includes('light mode')) {
+          onToggleTheme();
+        } else {
+          toast.info(`Command not recognized: "${command}"`);
+        }
+        break;
     }
   };
   
@@ -110,7 +115,10 @@ const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center space-x-2">
             <VoiceCommandButton 
               onVoiceCommand={handleVoiceCommand}
-              className="hidden sm:flex" 
+              className="hidden sm:flex"
+              variant="ghost"
+              label="Voice"
+              listenMessage="Listening for command... Try 'Add product', 'Create bill', or 'Find [product]'"
             />
             
             <Button variant="ghost" size="icon" onClick={onToggleTheme}>
@@ -132,6 +140,11 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </header>
+      
+      <BillingDialog
+        open={isBillingDialogOpen}
+        onOpenChange={setIsBillingDialogOpen}
+      />
     </div>
   );
 };
