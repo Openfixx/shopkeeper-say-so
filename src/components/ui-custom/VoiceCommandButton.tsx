@@ -12,6 +12,7 @@ interface VoiceCommandButtonProps {
   variant?: 'default' | 'outline' | 'secondary' | 'ghost';
   label?: string;
   listenMessage?: string;
+  pulseColor?: string;
 }
 
 const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
@@ -21,6 +22,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   variant = 'outline',
   label,
   listenMessage = 'Listening for command...',
+  pulseColor,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,16 +35,29 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         const recognitionInstance = new SpeechRecognitionAPI();
         
         recognitionInstance.continuous = false;
-        recognitionInstance.interimResults = false;
+        recognitionInstance.interimResults = true;
         recognitionInstance.lang = 'en-US';
         
         recognitionInstance.onresult = (event) => {
-          const command = event.results[0][0].transcript;
-          console.log("Voice command recognized:", command);
-          onVoiceCommand(command);
-          setIsLoading(false);
-          setIsListening(false);
-          toast.success(`Command recognized: "${command}"`);
+          let interimTranscript = '';
+          let finalTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            console.log("Voice command recognized:", finalTranscript);
+            onVoiceCommand(finalTranscript);
+            setIsLoading(false);
+            setIsListening(false);
+            toast.success(`Command recognized: "${finalTranscript}"`);
+          }
         };
         
         recognitionInstance.onerror = (event) => {
@@ -53,8 +68,20 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         };
         
         recognitionInstance.onend = () => {
-          setIsLoading(false);
-          setIsListening(false);
+          if (isListening) {
+            // Attempt to restart recognition if it was still supposed to be active
+            // This helps with browsers that automatically stop after silence
+            try {
+              recognitionInstance.start();
+            } catch (error) {
+              console.error('Failed to restart recognition', error);
+              setIsLoading(false);
+              setIsListening(false);
+            }
+          } else {
+            setIsLoading(false);
+            setIsListening(false);
+          }
         };
         
         setRecognition(recognitionInstance);
@@ -66,7 +93,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         recognition.abort();
       }
     };
-  }, [onVoiceCommand]);
+  }, [onVoiceCommand, isListening]);
   
   const toggleListening = () => {
     if (!recognition) {
@@ -115,8 +142,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       
       {isListening && (
         <span className="absolute -top-1 -right-1 flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-foreground opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-foreground"></span>
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${pulseColor || 'bg-primary-foreground'} opacity-75`}></span>
+          <span className={`relative inline-flex rounded-full h-3 w-3 ${pulseColor || 'bg-primary-foreground'}`}></span>
         </span>
       )}
     </Button>

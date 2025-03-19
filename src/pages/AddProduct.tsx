@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '@/context/InventoryContext';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Mic, ArrowLeft, Image, Package2, Save, X, Loader2 } from 'lucide-react';
+import { Mic, ArrowLeft, Image, Package2, Save, X, Loader2, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
+import { extractProductDetails, fetchProductImageUrl } from '@/utils/voiceCommandUtils';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Product form data type
 interface ProductFormData {
@@ -32,7 +34,11 @@ const AddProduct: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [rackImage, setRackImage] = useState<string | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isVoiceDialogOpen, setIsVoiceDialogOpen] = useState(false);
+  const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const micButtonRef = useRef<HTMLButtonElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<ProductFormData>({
     defaultValues: {
@@ -70,8 +76,13 @@ const AddProduct: React.FC = () => {
             }
           }
           
+          if (interimTranscript) {
+            setTranscript(interimTranscript);
+          }
+          
           if (finalTranscript) {
             setTranscript(finalTranscript);
+            setTranscriptHistory(prev => [...prev, finalTranscript]);
             processVoiceCommand(finalTranscript);
           }
         };
@@ -83,7 +94,17 @@ const AddProduct: React.FC = () => {
         };
         
         recognitionInstance.onend = () => {
-          setIsListening(false);
+          if (isListening) {
+            // Try to restart if still supposed to be listening
+            try {
+              recognitionInstance.start();
+            } catch (error) {
+              console.error('Failed to restart recognition', error);
+              setIsListening(false);
+            }
+          } else {
+            setIsListening(false);
+          }
         };
         
         setRecognition(recognitionInstance);
@@ -97,7 +118,7 @@ const AddProduct: React.FC = () => {
         recognition.abort();
       }
     };
-  }, []);
+  }, [isListening]);
 
   const toggleListening = () => {
     if (!recognition) {
@@ -106,13 +127,15 @@ const AddProduct: React.FC = () => {
     }
     
     if (isListening) {
-      recognition.stop();
+      recognition.abort();
       setIsListening(false);
+      setIsVoiceDialogOpen(false);
     } else {
       try {
         recognition.start();
         setIsListening(true);
-        toast.info('Listening... Say "Add [quantity] [unit] [product] on rack [number]"');
+        setIsVoiceDialogOpen(true);
+        toast.info('Listening... Try saying "Add 5 kg sugar on rack 7 with expiry July 2026"');
       } catch (error) {
         console.error('Speech recognition error', error);
         toast.error('Failed to start voice recognition');
@@ -120,62 +143,34 @@ const AddProduct: React.FC = () => {
     }
   };
 
-  const processVoiceCommand = (command: string) => {
+  const processVoiceCommand = async (command: string) => {
     const lowerCommand = command.toLowerCase();
     setProcessing(true);
     
     try {
-      // Look for patterns like "add 5 kg sugar on rack 7 with expiry July 2026"
-      if (lowerCommand.includes('add')) {
-        const productInfo = lowerCommand.replace(/add/i, '').trim();
+      if (lowerCommand.includes('add') || lowerCommand.length > 5) {
+        const productDetails = extractProductDetails(command);
         
-        // Extract quantity and unit using regex
-        const quantityMatch = productInfo.match(/(\d+)\s*(kg|g|l|ml|pieces|packet|box)/i);
-        const expiryMatch = productInfo.match(/expiry\s+(\w+\s+\d{4})|expires?\s+(\w+\s+\d{4})/i);
-        const rackMatch = productInfo.match(/rack\s+(\d+)|shelf\s+(\d+)/i);
-        const priceMatch = productInfo.match(/price\s+(\d+)/i);
-        
-        if (quantityMatch) {
-          const quantity = parseInt(quantityMatch[1]);
-          const unit = quantityMatch[2].toLowerCase();
-          
-          // Get product name by removing extracted parts
-          let productName = productInfo
-            .replace(quantityMatch[0], '')
-            .replace(expiryMatch ? expiryMatch[0] : '', '')
-            .replace(rackMatch ? rackMatch[0] : '', '')
-            .replace(priceMatch ? priceMatch[0] : '', '')
-            .trim();
-          
-          // Remove common words like "of", "on", "with"
-          productName = productName
-            .replace(/\s+(of|on|with|at|in)\s+/g, ' ')
-            .replace(/\s+and\s+/g, ' ')
-            .trim();
-          
-          const formValues: ProductFormData = {
-            name: productName.charAt(0).toUpperCase() + productName.slice(1),
-            quantity,
-            unit,
-            position: rackMatch ? `Rack ${rackMatch[1] || rackMatch[2]}` : '',
-            expiry: expiryMatch ? (expiryMatch[1] || expiryMatch[2]) : undefined,
-            price: priceMatch ? parseInt(priceMatch[1]) : 0,
-            image: '',
-          };
-          
-          // Update form values
-          Object.entries(formValues).forEach(([key, value]) => {
+        if (productDetails.name) {
+          // Update form values with the extracted details
+          Object.entries(productDetails).forEach(([key, value]) => {
             if (value !== undefined) {
               form.setValue(key as keyof ProductFormData, value);
             }
           });
           
-          toast.success(`Product details captured: ${formValues.name}, ${formValues.quantity} ${formValues.unit}`);
+          toast.success(`Product details captured: ${productDetails.name}`);
           
-          // Fetch a product image
-          fetchProductImage(formValues.name);
+          // Fetch a product image if we have a name
+          if (productDetails.name && !form.getValues('image')) {
+            const imageUrl = await fetchProductImageUrl(productDetails.name);
+            if (imageUrl) {
+              form.setValue('image', imageUrl);
+              toast.success('Product image found');
+            }
+          }
         } else {
-          toast.info('Could not identify product details from voice command');
+          toast.info('Could not identify product details from voice command. Please try again or enter details manually.');
         }
       }
     } catch (error) {
@@ -183,24 +178,6 @@ const AddProduct: React.FC = () => {
       toast.error('Error processing voice command');
     } finally {
       setProcessing(false);
-    }
-  };
-
-  const fetchProductImage = async (productName: string) => {
-    try {
-      // In a real app, you would call an API to get a product image
-      // For demo purposes, we'll just use placeholder images
-      const placeholders = [
-        'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a',
-        'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a',
-        'https://images.unsplash.com/photo-1568347877321-f8935c7dc5a8',
-      ];
-      
-      // Randomly select a placeholder
-      const randomImage = placeholders[Math.floor(Math.random() * placeholders.length)];
-      form.setValue('image', randomImage);
-    } catch (error) {
-      console.error('Error fetching product image:', error);
     }
   };
 
@@ -215,6 +192,19 @@ const AddProduct: React.FC = () => {
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imageUrl = reader.result as string;
+        form.setValue('image', imageUrl);
+        toast.success('Product image uploaded');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleRackImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -224,6 +214,12 @@ const AddProduct: React.FC = () => {
         toast.success('Rack image uploaded');
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const captureImage = () => {
+    if (cameraRef.current) {
+      cameraRef.current.click();
     }
   };
 
@@ -272,8 +268,50 @@ const AddProduct: React.FC = () => {
           </Button>
         </motion.div>
       </div>
+
+      <Dialog open={isVoiceDialogOpen} onOpenChange={setIsVoiceDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Mic className="h-5 w-5 mr-2 text-primary animate-pulse" />
+              Voice Command
+            </DialogTitle>
+            <DialogDescription>
+              Say "add product name, quantity, etc." or speak naturally about the product
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="font-medium text-sm mb-1">Current transcript:</p>
+              <p className="text-sm">{transcript || "Listening..."}</p>
+            </div>
+            
+            {transcriptHistory.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">Command history:</p>
+                <div className="max-h-40 overflow-y-auto space-y-2 text-sm">
+                  {transcriptHistory.map((cmd, i) => (
+                    <div key={i} className="p-2 rounded bg-muted/50">
+                      {cmd}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-between">
+              <Button variant="outline" size="sm" onClick={() => setTranscriptHistory([])}>
+                Clear History
+              </Button>
+              <Button size="sm" onClick={() => setIsVoiceDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       
-      {transcript && (
+      {transcript && !isVoiceDialogOpen && (
         <Card className="bg-muted/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex justify-between">
@@ -410,10 +448,45 @@ const AddProduct: React.FC = () => {
                   name="image"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Image URL (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ''} />
-                      </FormControl>
+                      <FormLabel>Product Image</FormLabel>
+                      <div className="grid grid-cols-3 gap-4">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="col-span-1"
+                          onClick={captureImage}
+                        >
+                          <Camera className="mr-2 h-4 w-4" />
+                          Camera
+                        </Button>
+                        <div className="col-span-2">
+                          <Input
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            placeholder="Image URL or use buttons"
+                            className="hidden"
+                          />
+                          <Label
+                            htmlFor="product-image-upload"
+                            className="cursor-pointer flex items-center justify-center w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <Image className="mr-2 h-4 w-4" />
+                            Upload from Gallery
+                            <input
+                              id="product-image-upload"
+                              type="file"
+                              accept="image/*"
+                              ref={cameraRef}
+                              className="sr-only"
+                              onChange={(e) => {
+                                handleImageUpload(e);
+                                // Clear the input to allow selecting the same file again
+                                e.target.value = '';
+                              }}
+                            />
+                          </Label>
+                        </div>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -461,25 +534,57 @@ const AddProduct: React.FC = () => {
                   <p className="text-sm text-muted-foreground mb-2">
                     Drag and drop or click to upload
                   </p>
-                  <Label
-                    htmlFor="rack-image-upload"
-                    className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                  >
-                    Upload Image
-                    <input
-                      id="rack-image-upload"
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleRackImageUpload}
-                    />
-                  </Label>
+                  <div className="flex space-x-2">
+                    <Label
+                      htmlFor="rack-image-upload"
+                      className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                    >
+                      <Image className="mr-2 h-4 w-4" />
+                      Gallery
+                      <input
+                        id="rack-image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleRackImageUpload}
+                      />
+                    </Label>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if ('mediaDevices' in navigator) {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.capture = 'environment';
+                          input.onchange = (e) => {
+                            const target = e.target as HTMLInputElement;
+                            const file = target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                setRackImage(reader.result as string);
+                                toast.success('Rack image captured');
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          };
+                          input.click();
+                        } else {
+                          toast.error('Camera not supported on this device');
+                        }
+                      }}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Camera
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
             
             <div className="space-y-2">
-              <h3 className="text-sm font-medium">Preview</h3>
+              <h3 className="text-sm font-medium">Product Preview</h3>
               {form.watch('image') ? (
                 <div className="border rounded-md overflow-hidden">
                   <img 
@@ -494,7 +599,7 @@ const AddProduct: React.FC = () => {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Product image preview. Use voice command to automatically fetch an image or enter a URL manually.
+                Product image preview. Use voice command to automatically fetch an image or upload one manually.
               </p>
             </div>
           </CardContent>

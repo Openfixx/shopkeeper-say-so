@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useInventory, BillItem } from '@/context/InventoryContext';
 import SearchBar from '@/components/ui-custom/SearchBar';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
+import QuickBillDialog from '@/components/ui-custom/QuickBillDialog';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -44,11 +45,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ProductCard from '@/components/ui-custom/ProductCard';
+import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
 
 const Billing: React.FC = () => {
   const { products, currentBill, startNewBill, addToBill, removeFromBill, completeBill, cancelBill, isLoading } = useInventory();
   const [searchQuery, setSearchQuery] = useState('');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [isQuickBillOpen, setIsQuickBillOpen] = useState(false);
+  const [quickBillTranscript, setQuickBillTranscript] = useState('');
   
   const filteredProducts = searchQuery
     ? products.filter(product => 
@@ -62,6 +66,17 @@ const Billing: React.FC = () => {
   
   const handleVoiceCommand = (command: string) => {
     const lowerCommand = command.toLowerCase();
+    const recognizedCommand = detectCommandType(command);
+    
+    if (recognizedCommand.type === VOICE_COMMAND_TYPES.CREATE_BILL) {
+      // For Hindi commands like "bill banao" or any bill creation command
+      if (!currentBill) {
+        startNewBill();
+      }
+      setQuickBillTranscript(command);
+      setIsQuickBillOpen(true);
+      return;
+    }
     
     if (lowerCommand.includes('prepare a bill') || lowerCommand.includes('start bill')) {
       if (!currentBill) {
@@ -95,7 +110,9 @@ const Billing: React.FC = () => {
           toast.error(`Product "${productName}" not found`);
         }
       } else {
-        toast.error('Could not understand product details. Try saying "Add 2 kg sugar"');
+        // Open quick bill dialog with the transcript
+        setQuickBillTranscript(command);
+        setIsQuickBillOpen(true);
       }
     }
     else if (lowerCommand.includes('complete') || lowerCommand.includes('finish')) {
@@ -122,7 +139,18 @@ const Billing: React.FC = () => {
       }
     }
     else {
-      toast.info(`Command not recognized: "${command}"`);
+      // If no specific command recognized, but contains product-related words,
+      // open quick bill dialog
+      const containsProductWords = lowerCommand.split(' ').some(word => 
+        products.some(product => product.name.toLowerCase().includes(word))
+      );
+      
+      if (containsProductWords) {
+        setQuickBillTranscript(command);
+        setIsQuickBillOpen(true);
+      } else {
+        toast.info(`Command not recognized: "${command}"`);
+      }
     }
   };
   
@@ -144,6 +172,9 @@ const Billing: React.FC = () => {
         <div className="flex space-x-2">
           <VoiceCommandButton 
             onVoiceCommand={handleVoiceCommand}
+            label="Voice Bill"
+            pulseColor="bg-green-500"
+            listenMessage="Try saying 'bill banao' or list items for a bill"
           />
           
           {!currentBill ? (
@@ -419,6 +450,13 @@ const Billing: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      
+      {/* Quick Bill Dialog with enhanced voice commands */}
+      <QuickBillDialog 
+        open={isQuickBillOpen} 
+        onOpenChange={setIsQuickBillOpen} 
+        initialTranscript={quickBillTranscript}
+      />
     </div>
   );
 };

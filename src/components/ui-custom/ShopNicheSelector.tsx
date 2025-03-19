@@ -1,13 +1,16 @@
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Store, CheckCircle, Store as StoreIcon, Pill, ShoppingBag, Wrench, Laptop, Salad, Beef, Book, Shirt, Circle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Check, Store, Package, Utensils, Pill, Book, Shirt, Gift, ShoppingBag, User, Search, ArrowLeft, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-interface ShopNicheOption {
+interface NicheOption {
   id: string;
   name: string;
   icon: React.ReactNode;
@@ -15,235 +18,258 @@ interface ShopNicheOption {
 }
 
 interface ShopNicheSelectorProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   onSelect: (niche: string) => void;
+  onClose: () => void;
 }
 
-const SHOP_NICHES: ShopNicheOption[] = [
-  {
-    id: 'general-store',
-    name: 'General Store',
-    icon: <Store className="h-5 w-5" />,
-    description: 'Groceries, household items, and daily essentials'
-  },
-  {
-    id: 'pharmacy',
-    name: 'Pharmacy / Medical',
-    icon: <Pill className="h-5 w-5" />,
-    description: 'Medicines, health products, and medical supplies'
-  },
-  {
-    id: 'grocery',
-    name: 'Grocery Store',
-    icon: <ShoppingBag className="h-5 w-5" />,
-    description: 'Food, produce, and grocery items'
-  },
-  {
-    id: 'hardware',
-    name: 'Hardware Store',
-    icon: <Wrench className="h-5 w-5" />,
-    description: 'Tools, building materials, and hardware supplies'
-  },
-  {
-    id: 'electronics',
-    name: 'Electronics',
-    icon: <Laptop className="h-5 w-5" />,
-    description: 'Electronic devices, gadgets, and accessories'
-  },
-  {
-    id: 'produce',
-    name: 'Fruits & Vegetables',
-    icon: <Salad className="h-5 w-5" />,
-    description: 'Fresh fruits, vegetables, and produce'
-  },
-  {
-    id: 'butcher',
-    name: 'Meat & Poultry',
-    icon: <Beef className="h-5 w-5" />,
-    description: 'Meat, poultry, seafood, and related products'
-  },
-  {
-    id: 'stationary',
-    name: 'Stationery & Books',
-    icon: <Book className="h-5 w-5" />,
-    description: 'Books, stationery items, and office supplies'
-  },
-  {
-    id: 'clothing',
-    name: 'Clothing & Apparel',
-    icon: <Shirt className="h-5 w-5" />,
-    description: 'Clothing, apparel, and fashion accessories'
-  },
-];
-
-const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({
-  open,
-  onOpenChange,
-  onSelect,
-}) => {
+const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({ onSelect, onClose }) => {
+  const [step, setStep] = useState<'select' | 'customize'>('select');
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
-  const [otherNiche, setOtherNiche] = useState('');
-  const [step, setStep] = useState(1);
+  const [customNiche, setCustomNiche] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
-  const handleSelect = (nicheId: string) => {
-    setSelectedNiche(nicheId);
+  const nicheOptions: NicheOption[] = [
+    {
+      id: 'general-store',
+      name: 'General Store',
+      icon: <Store className="h-6 w-6" />,
+      description: 'Grocery, household items, and daily essentials'
+    },
+    {
+      id: 'grocery',
+      name: 'Grocery Store',
+      icon: <ShoppingBag className="h-6 w-6" />,
+      description: 'Fresh produce, packaged foods, and beverages'
+    },
+    {
+      id: 'pharmacy',
+      name: 'Pharmacy',
+      icon: <Pill className="h-6 w-6" />,
+      description: 'Medicines, healthcare products, and wellness items'
+    },
+    {
+      id: 'restaurant',
+      name: 'Restaurant',
+      icon: <Utensils className="h-6 w-6" />,
+      description: 'Food ingredients, supplies, and kitchen inventory'
+    },
+    {
+      id: 'bookstore',
+      name: 'Bookstore',
+      icon: <Book className="h-6 w-6" />,
+      description: 'Books, stationery, and educational materials'
+    },
+    {
+      id: 'clothing',
+      name: 'Clothing Store',
+      icon: <Shirt className="h-6 w-6" />,
+      description: 'Apparel, accessories, and fashion items'
+    },
+    {
+      id: 'gift-shop',
+      name: 'Gift Shop',
+      icon: <Gift className="h-6 w-6" />,
+      description: 'Gifts, souvenirs, and decorative items'
+    },
+    {
+      id: 'hardware',
+      name: 'Hardware Store',
+      icon: <Package className="h-6 w-6" />,
+      description: 'Tools, building materials, and home improvement items'
+    },
+    {
+      id: 'electronics',
+      name: 'Electronics Store',
+      icon: <Package className="h-6 w-6" />,
+      description: 'Electronic devices, gadgets, and accessories'
+    },
+    {
+      id: 'convenience',
+      name: 'Convenience Store',
+      icon: <Store className="h-6 w-6" />,
+      description: 'Snacks, beverages, and everyday essentials'
+    },
+    {
+      id: 'beauty',
+      name: 'Beauty Supply Store',
+      icon: <User className="h-6 w-6" />,
+      description: 'Cosmetics, skincare, and personal care products'
+    },
+    {
+      id: 'custom',
+      name: 'Custom Store Type',
+      icon: <Package className="h-6 w-6" />,
+      description: 'Define your own store category'
+    },
+  ];
+  
+  const filteredOptions = searchQuery
+    ? nicheOptions.filter(option => 
+        option.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        option.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : nicheOptions;
+  
+  const handleNicheSelect = (id: string) => {
+    setSelectedNiche(id);
+    if (id === 'custom') {
+      setStep('customize');
+    }
   };
   
   const handleContinue = () => {
-    if (!selectedNiche && step === 1) {
-      toast.error('Please select a shop type');
-      return;
-    }
-    
-    if (selectedNiche === 'other' && !otherNiche && step === 2) {
-      toast.error('Please enter your shop type');
-      return;
-    }
-    
-    if (step === 1) {
-      if (selectedNiche === 'other') {
-        setStep(2);
-      } else {
-        const selectedNicheObj = SHOP_NICHES.find(niche => niche.id === selectedNiche);
-        if (selectedNicheObj) {
-          onSelect(selectedNicheObj.name);
-          onOpenChange(false);
-          toast.success(`Shop type set to ${selectedNicheObj.name}`);
-        }
+    if (selectedNiche === 'custom') {
+      if (!customNiche.trim()) {
+        toast.error('Please enter a custom store type');
+        return;
+      }
+      onSelect(customNiche);
+    } else if (selectedNiche) {
+      const selected = nicheOptions.find(option => option.id === selectedNiche);
+      if (selected) {
+        onSelect(selected.name);
       }
     } else {
-      onSelect(otherNiche);
-      onOpenChange(false);
-      toast.success(`Shop type set to ${otherNiche}`);
+      toast.error('Please select a store type');
+      return;
     }
+    
+    toast.success('Store type selected');
+    onClose();
   };
   
   const handleBack = () => {
-    setStep(1);
-  };
-  
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
+    if (step === 'customize') {
+      setStep('select');
     }
   };
   
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
-  };
-  
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <StoreIcon className="h-5 w-5" />
-            Select Your Shop Type
-          </DialogTitle>
-          <DialogDescription>
-            This helps us customize the app experience for your business
-          </DialogDescription>
-        </DialogHeader>
-        
-        {step === 1 ? (
-          <motion.div
-            className="grid grid-cols-2 gap-3"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {SHOP_NICHES.map((niche) => (
-              <motion.div
-                key={niche.id}
-                variants={itemVariants}
-                className={`border rounded-lg p-3 cursor-pointer transition-all relative ${
-                  selectedNiche === niche.id 
-                    ? 'border-primary bg-primary/5' 
-                    : 'hover:border-primary/50 hover:bg-muted/50'
-                }`}
-                onClick={() => handleSelect(niche.id)}
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div className="mb-2">
-                    {niche.icon}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-medium text-sm">{niche.name}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {niche.description}
-                    </p>
-                  </div>
-                </div>
-                
-                {selectedNiche === niche.id && (
-                  <div className="absolute top-2 right-2">
-                    <CheckCircle className="h-4 w-4 text-primary" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-            
+    <Card className="w-full max-w-3xl mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl">Select Your Shop Type</CardTitle>
+        <CardDescription>
+          This helps us optimize your inventory management experience
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <AnimatePresence mode="wait">
+          {step === 'select' && (
             <motion.div
-              variants={itemVariants}
-              className={`border rounded-lg p-3 cursor-pointer transition-all relative ${
-                selectedNiche === 'other' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'hover:border-primary/50 hover:bg-muted/50'
-              }`}
-              onClick={() => handleSelect('other')}
+              key="select"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
             >
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-2">
-                  <Circle className="h-5 w-5" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-medium text-sm">Other</h3>
-                  <p className="text-xs text-muted-foreground">
-                    A custom shop type not listed above
-                  </p>
-                </div>
+              <div className="flex items-center space-x-2 mb-4">
+                <Search className="h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search store types..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1"
+                />
               </div>
               
-              {selectedNiche === 'other' && (
-                <div className="absolute top-2 right-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredOptions.map((option) => (
+                    <motion.div
+                      key={option.id}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "relative p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        selectedNiche === option.id 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:border-primary/50"
+                      )}
+                      onClick={() => handleNicheSelect(option.id)}
+                    >
+                      <div className="flex flex-col items-center text-center space-y-2">
+                        <div className={cn(
+                          "h-12 w-12 rounded-full flex items-center justify-center",
+                          selectedNiche === option.id ? "bg-primary text-primary-foreground" : "bg-muted"
+                        )}>
+                          {option.icon}
+                        </div>
+                        <h3 className="font-medium text-lg">{option.name}</h3>
+                        <p className="text-sm text-muted-foreground">{option.description}</p>
+                      </div>
+                      
+                      {selectedNiche === option.id && (
+                        <div className="absolute top-2 right-2 h-5 w-5 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="h-3 w-3 text-primary-foreground" />
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                  
+                  {filteredOptions.length === 0 && (
+                    <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
+                      <Package className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                      <h3 className="text-lg font-medium">No matching store types</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Try a different search term or select "Custom Store Type"
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
             </motion.div>
-          </motion.div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Please tell us your shop type
-            </p>
-            <Input 
-              placeholder="e.g. Bakery, Flower Shop, etc."
-              value={otherNiche}
-              onChange={(e) => setOtherNiche(e.target.value)}
-            />
-          </div>
-        )}
-        
-        <DialogFooter className="flex justify-between items-center gap-2 sm:gap-0">
-          {step === 2 ? (
-            <Button variant="outline" onClick={handleBack}>
-              Back
-            </Button>
-          ) : (
-            <div></div> /* Empty div to maintain flex layout */
           )}
-          <Button onClick={handleContinue}>
-            Continue
+          
+          {step === 'customize' && (
+            <motion.div
+              key="customize"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="py-8 space-y-6">
+                <div className="flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Store className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-medium">Custom Store Type</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Let us know what type of store you're managing to help us provide the best experience
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="custom-niche">Store Type</Label>
+                  <Input
+                    id="custom-niche"
+                    placeholder="e.g., Pet Store, Sports Shop, etc."
+                    value={customNiche}
+                    onChange={(e) => setCustomNiche(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        {step === 'customize' ? (
+          <Button variant="outline" onClick={handleBack}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        ) : (
+          <div></div> /* Empty div to maintain flex layout */
+        )}
+        <Button onClick={handleContinue}>
+          Continue
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
