@@ -236,7 +236,7 @@ const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({
               Back
             </Button>
           ) : (
-            <div></div> {/* Empty div to maintain flex layout */}
+            <div></div> /* Empty div to maintain flex layout */
           )}
           <Button onClick={handleContinue}>
             Continue
