@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useInventory, BillItem } from '@/context/InventoryContext';
@@ -25,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Mic, Receipt, MinusCircle, Plus, ShoppingCart, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractBillItems } from '@/utils/voiceCommandUtils';
+import { cn } from '@/lib/utils';
 
 interface QuickBillDialogProps {
   open: boolean;
@@ -59,12 +59,10 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
       return;
     }
     
-    // Start a new bill if one doesn't exist
     if (!currentBill) {
       startNewBill();
     }
     
-    // Init speech recognition
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognitionAPI) {
@@ -118,7 +116,6 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
   }, [open, currentBill, startNewBill]);
   
   useEffect(() => {
-    // Process initial transcript if provided
     if (initialTranscript && open) {
       processVoiceCommand(initialTranscript);
     }
@@ -150,11 +147,9 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
     setIsProcessing(true);
     
     try {
-      // Extract items from the command
       const extractedItems = extractBillItems(command);
       
       if (extractedItems.length === 0) {
-        // Try to find direct product matches
         const words = command.toLowerCase().split(/\s+/);
         const matchedProducts: BillItem[] = [];
         
@@ -166,7 +161,6 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
           );
           
           if (matchingProducts.length > 0) {
-            // Take the first match
             const product = matchingProducts[0];
             matchedProducts.push({
               productId: product.id,
@@ -186,7 +180,6 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
           toast.info("Couldn't identify any products in your command");
         }
       } else {
-        // Process extracted items
         const billItems: BillItem[] = [];
         
         for (const item of extractedItems) {
@@ -228,7 +221,6 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
       return;
     }
     
-    // Add all pending items to the bill
     pendingItems.forEach(item => {
       addToBill(item.productId, item.quantity);
     });
@@ -245,7 +237,6 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
     
     const quantity = parseInt(manualItemQuantity) || 1;
     
-    // Find matching products
     const matchingProducts = products.filter(product => 
       product.name.toLowerCase().includes(manualItemName.toLowerCase())
     );
@@ -271,12 +262,10 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
   };
   
   const handleCompleteBill = () => {
-    // First add any pending items
     if (pendingItems.length > 0) {
       handleAddToBill();
     }
     
-    // Then complete the bill
     completeBill();
     onOpenChange(false);
     toast.success('Bill completed');

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -18,11 +17,12 @@ interface NicheOption {
 }
 
 interface ShopNicheSelectorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSelect: (niche: string) => void;
-  onClose: () => void;
 }
 
-const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({ onSelect, onClose }) => {
+const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({ open, onOpenChange, onSelect }) => {
   const [step, setStep] = useState<'select' | 'customize'>('select');
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
   const [customNiche, setCustomNiche] = useState('');
@@ -135,7 +135,7 @@ const ShopNicheSelector: React.FC<ShopNicheSelectorProps> = ({ onSelect, onClose
     }
     
     toast.success('Store type selected');
-    onClose();
+    onOpenChange(false);
   };
   
   const handleBack = () => {
