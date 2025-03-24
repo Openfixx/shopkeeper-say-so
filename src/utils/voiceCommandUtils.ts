@@ -1,4 +1,3 @@
-
 // Define command types
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
@@ -472,6 +471,20 @@ export function extractBarcodeInfo(barcode: string): Promise<ProductInfo | null>
       }
     }, 300);
   });
+}
+
+// Mock function to identify shelves in a rack image
+export function identifyShelves(imageUrl: string): { shelfCoordinates: Array<{top: number, left: number, width: number, height: number}> } {
+  // In a real implementation, this would use image recognition to identify shelves
+  // For demo purposes, return mock shelf coordinates
+  return {
+    shelfCoordinates: [
+      { top: 10, left: 5, width: 90, height: 15 },
+      { top: 30, left: 5, width: 90, height: 15 },
+      { top: 50, left: 5, width: 90, height: 15 },
+      { top: 70, left: 5, width: 90, height: 15 }
+    ]
+  };
 }
 
 // Main function to detect command type and extract data
