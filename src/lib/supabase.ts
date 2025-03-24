@@ -1,14 +1,20 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Get environment variables with better error handling
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Check for missing environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase credentials. Make sure to set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client with proper error handling
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder-url.supabase.co', // Fallback to prevent runtime errors
+  supabaseAnonKey || 'placeholder-key'
+);
 
 // Database types
 export type DbProduct = {
