@@ -14,7 +14,7 @@ interface CommandData {
 }
 
 // Interface for product data
-interface ProductInfo {
+export interface ProductInfo {
   name?: string;
   quantity?: number;
   position?: string;
@@ -73,7 +73,7 @@ const languageKeywords = {
 };
 
 // Extract product details from the command
-function extractProductDetails(command: string): ProductInfo {
+export function extractProductDetails(command: string): ProductInfo {
   const productInfo: ProductInfo = {};
   const words = command.toLowerCase().split(/\s+/);
   
@@ -190,6 +190,60 @@ function extractProductDetails(command: string): ProductInfo {
   }
   
   return productInfo;
+}
+
+// Extract bill items from a voice command
+export function extractBillItems(command: string): { name: string; quantity: number }[] {
+  const items: { name: string; quantity: number }[] = [];
+  
+  // Extract product details using the existing function
+  const productInfo = extractProductDetails(command);
+  
+  if (productInfo.name) {
+    items.push({
+      name: productInfo.name,
+      quantity: productInfo.quantity || 1
+    });
+  }
+  
+  return items;
+}
+
+// Process a billing voice command
+export function processBillingVoiceCommand(command: string): BillInfo {
+  const billInfo: BillInfo = { items: [] };
+  const items = extractBillItems(command);
+  
+  if (items.length > 0) {
+    billInfo.items = items;
+  }
+  
+  return billInfo;
+}
+
+// For simulating rack mapping and shelf identification
+export function identifyShelves(imageUrl: string): { shelfCoordinates: { top: number; left: number; width: number; height: number; }[] } {
+  // This is a mock function that would normally use computer vision
+  // For demo purposes, generate some random shelf coordinates
+  const mockShelfCoordinates = [
+    { top: 10, left: 0, width: 100, height: 20 },
+    { top: 35, left: 0, width: 100, height: 20 },
+    { top: 60, left: 0, width: 100, height: 20 }
+  ];
+  
+  return { shelfCoordinates: mockShelfCoordinates };
+}
+
+// For product image searches
+export function searchProductImage(productName: string): string {
+  // This would normally call an API to find images
+  return `/placeholder.svg`;
+}
+
+// For fetching product images 
+export function fetchProductImageUrl(productName: string): Promise<string> {
+  // Mock function that would normally fetch from an API
+  return Promise.resolve(`/placeholder.svg`);
 }
 
 // Extract information about a bill from the command

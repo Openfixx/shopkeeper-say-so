@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +14,6 @@ import { useForm } from 'react-hook-form';
 import { extractProductDetails, fetchProductImageUrl } from '@/utils/voiceCommandUtils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-// Product form data type
 interface ProductFormData {
   name: string;
   quantity: number;
@@ -53,7 +51,6 @@ const AddProduct: React.FC = () => {
   });
 
   useEffect(() => {
-    // Initialize speech recognition
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognitionAPI) {
@@ -83,7 +80,7 @@ const AddProduct: React.FC = () => {
           if (finalTranscript) {
             setTranscript(finalTranscript);
             setTranscriptHistory(prev => [...prev, finalTranscript]);
-            processVoiceCommand(finalTranscript);
+            handleVoiceCommand(finalTranscript);
           }
         };
         
@@ -95,7 +92,6 @@ const AddProduct: React.FC = () => {
         
         recognitionInstance.onend = () => {
           if (isListening) {
-            // Try to restart if still supposed to be listening
             try {
               recognitionInstance.start();
             } catch (error) {
@@ -143,41 +139,45 @@ const AddProduct: React.FC = () => {
     }
   };
 
-  const processVoiceCommand = async (command: string) => {
-    const lowerCommand = command.toLowerCase();
-    setProcessing(true);
+  const handleVoiceCommand = (command: string) => {
+    const { name, quantity, unit, position, expiry } = extractProductDetails(command);
     
-    try {
-      if (lowerCommand.includes('add') || lowerCommand.length > 5) {
-        const productDetails = extractProductDetails(command);
-        
-        if (productDetails.name) {
-          // Update form values with the extracted details
-          Object.entries(productDetails).forEach(([key, value]) => {
-            if (value !== undefined) {
-              form.setValue(key as keyof ProductFormData, value);
-            }
-          });
-          
-          toast.success(`Product details captured: ${productDetails.name}`);
-          
-          // Fetch a product image if we have a name
-          if (productDetails.name && !form.getValues('image')) {
-            const imageUrl = await fetchProductImageUrl(productDetails.name);
-            if (imageUrl) {
-              form.setValue('image', imageUrl);
-              toast.success('Product image found');
-            }
-          }
-        } else {
-          toast.info('Could not identify product details from voice command. Please try again or enter details manually.');
-        }
+    if (name) {
+      form.setValue('name', name);
+      toast.success(`Product name set to "${name}"`);
+      
+      if (quantity) {
+        form.setValue('quantity', quantity);
+        toast.success(`Quantity set to ${quantity}`);
       }
-    } catch (error) {
-      console.error('Error processing voice command:', error);
-      toast.error('Error processing voice command');
-    } finally {
-      setProcessing(false);
+      
+      if (unit) {
+        form.setValue('unit', unit);
+        toast.success(`Unit set to ${unit}`);
+      }
+      
+      if (position) {
+        form.setValue('position', position);
+        toast.success(`Position set to ${position}`);
+      }
+      
+      if (expiry) {
+        form.setValue('expiry', expiry);
+        toast.success(`Expiry set to ${expiry}`);
+      }
+      
+      fetchProductImageUrl(name)
+        .then(imageUrl => {
+          if (imageUrl) {
+            form.setValue('image', imageUrl);
+            toast.success('Product image found');
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching product image:', error);
+        });
+    } else {
+      toast.error('Could not identify a product from your command');
     }
   };
 
@@ -370,7 +370,12 @@ const AddProduct: React.FC = () => {
                             min="0"
                             step="0.01"
                             {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))} 
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                field.onChange(Number(value));
+                              }
+                            }} 
                           />
                         </FormControl>
                         <FormMessage />
@@ -480,7 +485,6 @@ const AddProduct: React.FC = () => {
                               className="sr-only"
                               onChange={(e) => {
                                 handleImageUpload(e);
-                                // Clear the input to allow selecting the same file again
                                 e.target.value = '';
                               }}
                             />
