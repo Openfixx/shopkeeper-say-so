@@ -1,4 +1,3 @@
-
 // Define command types
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
@@ -21,6 +20,7 @@ export interface ProductInfo {
   unit?: string;
   expiry?: string;
   price?: number;
+  image?: string;
 }
 
 // Interface for bill data
