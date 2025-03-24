@@ -24,6 +24,16 @@ import NotFound from "./pages/NotFound";
 // For animation libraries
 import { motion, AnimatePresence } from "framer-motion";
 
+// Check if Supabase environment variables are set
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    "Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables. Using mock data instead."
+  );
+}
+
 const queryClient = new QueryClient();
 
 const App = () => {

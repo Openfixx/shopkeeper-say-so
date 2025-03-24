@@ -8,13 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import ShopNicheSelector from '@/components/ui-custom/ShopNicheSelector';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loginInProgress, setLoginInProgress] = useState(false);
   const [isNicheSelectorOpen, setIsNicheSelectorOpen] = useState(false);
   
   // If already authenticated, redirect to dashboard
@@ -38,15 +40,16 @@ const Login: React.FC = () => {
       return;
     }
     
-    setIsLoading(true);
+    setLoginInProgress(true);
     try {
       await login(email, password);
       // Show niche selector after successful login
       setIsNicheSelectorOpen(true);
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('Login failed. Please check your credentials and try again.');
     } finally {
-      setIsLoading(false);
+      setLoginInProgress(false);
     }
   };
   
@@ -67,6 +70,13 @@ const Login: React.FC = () => {
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
+            <Alert variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Use <strong>demo@example.com</strong> and password <strong>password</strong> for demo access
+              </AlertDescription>
+            </Alert>
+          
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input 
@@ -112,9 +122,9 @@ const Login: React.FC = () => {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isLoading}
+              disabled={loginInProgress || isLoading}
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {loginInProgress ? 'Signing in...' : 'Sign in'}
             </Button>
             <div className="text-center text-sm">
               Don't have an account?{' '}

@@ -1,6 +1,8 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase, DbProduct, DbBill, DbBillItem, DbShop, DbStockAlert } from '@/lib/supabase';
+import { useAuth } from './AuthContext';
 import { checkProductInSharedDatabase } from '@/utils/voiceCommandUtils';
 
 export type Product = {
@@ -98,140 +100,325 @@ type InventoryContextType = {
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
-// Mock data
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Sugar',
-    quantity: 25,
-    unit: 'kg',
-    position: 'Rack 7',
-    expiry: '2026-07-01',
-    price: 45,
-    image: 'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Salt',
-    quantity: 30,
-    unit: 'kg',
-    position: 'Rack 3',
-    price: 20,
-    image: 'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Rice',
-    quantity: 50,
-    unit: 'kg',
-    position: 'Rack 1',
-    price: 60,
-    image: 'https://images.unsplash.com/photo-1568347877321-f8935c7dc5a8?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-// Mock shops data
-const mockShops: Shop[] = [
-  {
-    id: '1',
-    name: 'Local Grocery',
-    type: 'Grocery',
-    location: 'Main Street',
-    distance: 2.5,
-    products: ['1', '2', '3'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'City Electronics',
-    type: 'Electronics',
-    location: 'Market Street',
-    distance: 5.1,
-    products: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Fashion Hub',
-    type: 'Clothing',
-    location: 'Mall Road',
-    distance: 8.3,
-    products: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    name: 'MediCare',
-    type: 'Pharmacy',
-    location: 'Hospital Street',
-    distance: 3.2,
-    products: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [currentBill, setCurrentBill] = useState<Bill | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
-  const [currentShopType, setCurrentShopType] = useState<string>('Grocery');
+  const [currentShopType, setCurrentShopType] = useState<string>(() => {
+    return localStorage.getItem('shop_niche') || 'Grocery';
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Initial data loading
   useEffect(() => {
-    // Load mock data
     const loadData = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProducts(mockProducts);
-      setShops(mockShops);
+      if (!user) {
+        // If no user is logged in, we can't load data
+        setIsLoading(false);
+        return;
+      }
+      
+      setIsLoading(true);
+      await Promise.all([
+        fetchProducts(),
+        fetchBills(),
+        fetchShops(),
+        fetchStockAlerts()
+      ]);
       setIsLoading(false);
     };
 
     loadData();
-  }, []);
+  }, [user]);
+
+  // Save shop type to localStorage
+  useEffect(() => {
+    localStorage.setItem('shop_niche', currentShopType);
+  }, [currentShopType]);
+
+  // Fetch products from Supabase
+  const fetchProducts = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error fetching products:', error);
+        return;
+      }
+      
+      const formattedProducts: Product[] = data.map((item: DbProduct) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        position: item.position,
+        expiry: item.expiry,
+        price: item.price,
+        image: item.image_url,
+        barcode: item.barcode,
+        stockAlert: item.stock_alert,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at
+      }));
+      
+      setProducts(formattedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  // Fetch bills from Supabase
+  const fetchBills = async () => {
+    if (!user) return;
+    
+    try {
+      // Fetch bills
+      const { data: billsData, error: billsError } = await supabase
+        .from('bills')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (billsError) {
+        console.error('Error fetching bills:', billsError);
+        return;
+      }
+      
+      // For each bill, fetch its items
+      const billsWithItems = await Promise.all(
+        billsData.map(async (bill: DbBill) => {
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('bill_items')
+            .select('*, products(*)')
+            .eq('bill_id', bill.id);
+            
+          if (itemsError) {
+            console.error(`Error fetching items for bill ${bill.id}:`, itemsError);
+            return null;
+          }
+          
+          const items: BillItem[] = itemsData.map((item: any) => ({
+            productId: item.product_id,
+            name: item.products.name,
+            quantity: item.quantity,
+            unit: item.products.unit,
+            price: item.price,
+            total: item.total
+          }));
+          
+          return {
+            id: bill.id,
+            items,
+            total: bill.total,
+            deliveryOption: bill.delivery_option,
+            paymentMethod: bill.payment_method,
+            partialPayment: bill.partial_payment,
+            createdAt: bill.created_at
+          };
+        })
+      );
+      
+      setBills(billsWithItems.filter(Boolean) as Bill[]);
+    } catch (error) {
+      console.error('Error fetching bills:', error);
+    }
+  };
+
+  // Fetch shops from Supabase
+  const fetchShops = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error fetching shops:', error);
+        return;
+      }
+      
+      const formattedShops: Shop[] = data.map((item: DbShop) => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        location: item.location,
+        distance: item.distance,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at
+      }));
+      
+      setShops(formattedShops);
+    } catch (error) {
+      console.error('Error fetching shops:', error);
+    }
+  };
+
+  // Fetch stock alerts from Supabase
+  const fetchStockAlerts = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('stock_alerts')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error fetching stock alerts:', error);
+        return;
+      }
+      
+      const formattedAlerts: StockAlert[] = data.map((item: DbStockAlert) => ({
+        id: item.id,
+        productId: item.product_id,
+        threshold: item.threshold,
+        notificationSent: item.notification_sent,
+        createdAt: item.created_at
+      }));
+      
+      setStockAlerts(formattedAlerts);
+    } catch (error) {
+      console.error('Error fetching stock alerts:', error);
+    }
+  };
 
   // Product functions
-  const addProduct = (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newProduct: Product = {
-      ...product,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setProducts(prev => [...prev, newProduct]);
-    toast.success(`${product.name} added to inventory`);
+  const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) {
+      toast.error('You must be logged in to add products');
+      return;
+    }
+    
+    try {
+      const newProductData = {
+        name: product.name,
+        quantity: product.quantity,
+        unit: product.unit,
+        position: product.position,
+        expiry: product.expiry,
+        price: product.price,
+        image_url: product.image,
+        barcode: product.barcode,
+        stock_alert: product.stockAlert,
+        user_id: user.id
+      };
+      
+      const { data, error } = await supabase
+        .from('products')
+        .insert([newProductData])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Error adding product:', error);
+        toast.error('Failed to add product');
+        return;
+      }
+      
+      const newProduct: Product = {
+        id: data.id,
+        name: data.name,
+        quantity: data.quantity,
+        unit: data.unit,
+        position: data.position,
+        expiry: data.expiry,
+        price: data.price,
+        image: data.image_url,
+        barcode: data.barcode,
+        stockAlert: data.stock_alert,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+      
+      setProducts(prev => [...prev, newProduct]);
+      toast.success(`${product.name} added to inventory`);
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast.error('Failed to add product');
+    }
   };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    setProducts(prev => 
-      prev.map(product => 
-        product.id === id 
-          ? { 
-              ...product, 
-              ...updates, 
-              updatedAt: new Date().toISOString() 
-            } 
-          : product
-      )
-    );
-    toast.success('Product updated');
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    if (!user) return;
+    
+    try {
+      // Convert from frontend model to database model
+      const dbUpdates: Partial<DbProduct> = {
+        ...(updates.name !== undefined && { name: updates.name }),
+        ...(updates.quantity !== undefined && { quantity: updates.quantity }),
+        ...(updates.unit !== undefined && { unit: updates.unit }),
+        ...(updates.position !== undefined && { position: updates.position }),
+        ...(updates.expiry !== undefined && { expiry: updates.expiry }),
+        ...(updates.price !== undefined && { price: updates.price }),
+        ...(updates.image !== undefined && { image_url: updates.image }),
+        ...(updates.barcode !== undefined && { barcode: updates.barcode }),
+        ...(updates.stockAlert !== undefined && { stock_alert: updates.stockAlert }),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabase
+        .from('products')
+        .update(dbUpdates)
+        .eq('id', id)
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error updating product:', error);
+        toast.error('Failed to update product');
+        return;
+      }
+      
+      // Update local state
+      setProducts(prev => 
+        prev.map(product => 
+          product.id === id 
+            ? { 
+                ...product, 
+                ...updates, 
+                updatedAt: new Date().toISOString() 
+              } 
+            : product
+        )
+      );
+      toast.success('Product updated');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Failed to update product');
+    }
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(product => product.id !== id));
-    toast.success('Product removed from inventory');
+  const deleteProduct = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error deleting product:', error);
+        toast.error('Failed to delete product');
+        return;
+      }
+      
+      setProducts(prev => prev.filter(product => product.id !== id));
+      toast.success('Product removed from inventory');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Failed to delete product');
+    }
   };
 
   const findProduct = (query: string) => {
@@ -274,7 +461,47 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const existingProduct = products.find(p => p.barcode === barcode);
     if (existingProduct) return existingProduct;
     
-    // Mock barcode lookup - would normally check a database
+    try {
+      // Check if product exists in Supabase's shared barcode database table
+      const { data, error } = await supabase
+        .from('barcode_products')
+        .select('*')
+        .eq('barcode', barcode)
+        .single();
+        
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No data found, use mock data as fallback
+          return mockBarcodeData(barcode);
+        }
+        console.error('Error scanning barcode:', error);
+        return null;
+      }
+      
+      // Convert to local Product format
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        name: data.name,
+        quantity: 0, // Needs to be set by user
+        unit: data.unit || 'pcs',
+        position: '',
+        price: data.price || 0,
+        image: data.image_url || '/placeholder.svg',
+        barcode: barcode,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        shared: true
+      };
+      
+      return newProduct;
+    } catch (error) {
+      console.error('Error scanning barcode:', error);
+      return mockBarcodeData(barcode);
+    }
+  };
+  
+  // Mock barcode data as fallback
+  const mockBarcodeData = (barcode: string): Promise<Product | null> => {
     const barcodes: Record<string, Partial<Product>> = {
       '8901234567890': {
         name: 'Sugar',
@@ -438,15 +665,73 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     toast.success('Bill options updated');
   };
 
-  const completeBill = () => {
+  const completeBill = async () => {
+    if (!user) {
+      toast.error('You must be logged in to complete a bill');
+      return;
+    }
+    
     if (!currentBill || currentBill.items.length === 0) {
       toast.error('Cannot complete an empty bill');
       return;
     }
     
-    setBills(prev => [...prev, currentBill]);
-    setCurrentBill(null);
-    toast.success('Bill completed');
+    try {
+      // Create the bill in Supabase
+      const { data: billData, error: billError } = await supabase
+        .from('bills')
+        .insert([{
+          total: currentBill.total,
+          delivery_option: currentBill.deliveryOption || false,
+          payment_method: currentBill.paymentMethod || 'cash',
+          partial_payment: currentBill.partialPayment || false,
+          user_id: user.id
+        }])
+        .select()
+        .single();
+        
+      if (billError) {
+        console.error('Error creating bill:', billError);
+        toast.error('Failed to complete bill');
+        return;
+      }
+      
+      // Create bill items
+      const billItems = currentBill.items.map(item => ({
+        bill_id: billData.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.total,
+        user_id: user.id
+      }));
+      
+      const { error: itemsError } = await supabase
+        .from('bill_items')
+        .insert(billItems);
+        
+      if (itemsError) {
+        console.error('Error creating bill items:', itemsError);
+        toast.error('Failed to complete bill items');
+        return;
+      }
+      
+      // Update local state
+      setBills(prev => [
+        {
+          ...currentBill,
+          id: billData.id,
+          createdAt: billData.created_at
+        }, 
+        ...prev
+      ]);
+      
+      setCurrentBill(null);
+      toast.success('Bill completed');
+    } catch (error) {
+      console.error('Error completing bill:', error);
+      toast.error('Failed to complete bill');
+    }
   };
 
   const cancelBill = () => {
@@ -475,15 +760,10 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Filter by shop type if specified
       if (type && shop.type !== type) return false;
       
-      // Filter by product query if provided
+      // Filter by query if provided
       if (query) {
-        // Check if shop has products with this name
-        // In a real app, this would be more sophisticated
-        const hasProduct = shop.products?.some(productId => {
-          const product = products.find(p => p.id === productId);
-          return product?.name.toLowerCase().includes(query.toLowerCase());
-        });
-        return hasProduct;
+        return shop.name.toLowerCase().includes(query.toLowerCase()) ||
+               shop.location.toLowerCase().includes(query.toLowerCase());
       }
       
       return true;
@@ -498,63 +778,123 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
   
   // Stock alert functions
-  const setStockAlert = (productId: string, threshold: number) => {
+  const setStockAlert = async (productId: string, threshold: number) => {
+    if (!user) return;
+    
     const product = products.find(p => p.id === productId);
     if (!product) {
       toast.error('Product not found');
       return;
     }
     
-    // Check if alert already exists
-    const existingAlert = stockAlerts.find(a => a.productId === productId);
-    if (existingAlert) {
-      // Update existing alert
-      setStockAlerts(prev => 
-        prev.map(alert => 
-          alert.productId === productId 
-            ? { 
-                ...alert, 
-                threshold,
-                notificationSent: false 
-              } 
-            : alert
-        )
-      );
-    } else {
-      // Create new alert
-      const newAlert: StockAlert = {
-        id: Date.now().toString(),
-        productId,
-        threshold,
-        notificationSent: false,
-        createdAt: new Date().toISOString()
-      };
-      setStockAlerts(prev => [...prev, newAlert]);
+    try {
+      // Check if alert already exists
+      const existingAlert = stockAlerts.find(a => a.productId === productId);
+      
+      if (existingAlert) {
+        // Update existing alert
+        const { error } = await supabase
+          .from('stock_alerts')
+          .update({
+            threshold,
+            notification_sent: false
+          })
+          .eq('id', existingAlert.id)
+          .eq('user_id', user.id);
+          
+        if (error) {
+          console.error('Error updating stock alert:', error);
+          toast.error('Failed to update stock alert');
+          return;
+        }
+        
+        setStockAlerts(prev => 
+          prev.map(alert => 
+            alert.id === existingAlert.id 
+              ? { 
+                  ...alert, 
+                  threshold,
+                  notificationSent: false 
+                } 
+              : alert
+          )
+        );
+      } else {
+        // Create new alert
+        const { data, error } = await supabase
+          .from('stock_alerts')
+          .insert([{
+            product_id: productId,
+            threshold,
+            notification_sent: false,
+            user_id: user.id
+          }])
+          .select()
+          .single();
+          
+        if (error) {
+          console.error('Error creating stock alert:', error);
+          toast.error('Failed to create stock alert');
+          return;
+        }
+        
+        const newAlert: StockAlert = {
+          id: data.id,
+          productId: data.product_id,
+          threshold: data.threshold,
+          notificationSent: data.notification_sent,
+          createdAt: data.created_at
+        };
+        
+        setStockAlerts(prev => [...prev, newAlert]);
+      }
+      
+      // Update product to store threshold
+      await updateProduct(productId, {
+        stockAlert: threshold
+      });
+      
+      toast.success(`Stock alert set for ${product.name} at ${threshold} ${product.unit}`);
+    } catch (error) {
+      console.error('Error setting stock alert:', error);
+      toast.error('Failed to set stock alert');
     }
-    
-    // Update product to store threshold
-    updateProduct(productId, {
-      stockAlert: threshold
-    });
-    
-    toast.success(`Stock alert set for ${product.name} at ${threshold} ${product.unit}`);
   };
   
-  const removeStockAlert = (alertId: string) => {
-    const alert = stockAlerts.find(a => a.id === alertId);
-    if (!alert) return;
+  const removeStockAlert = async (alertId: string) => {
+    if (!user) return;
     
-    setStockAlerts(prev => prev.filter(a => a.id !== alertId));
-    
-    // Remove threshold from product
-    const product = products.find(p => p.id === alert.productId);
-    if (product) {
-      updateProduct(alert.productId, {
-        stockAlert: undefined
-      });
+    try {
+      const alert = stockAlerts.find(a => a.id === alertId);
+      if (!alert) return;
+      
+      const { error } = await supabase
+        .from('stock_alerts')
+        .delete()
+        .eq('id', alertId)
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error removing stock alert:', error);
+        toast.error('Failed to remove stock alert');
+        return;
+      }
+      
+      setStockAlerts(prev => prev.filter(a => a.id !== alertId));
+      
+      // Remove threshold from product
+      const product = products.find(p => p.id === alert.productId);
+      if (product) {
+        await updateProduct(alert.productId, {
+          stockAlert: undefined
+        });
+      }
+      
+      toast.success('Stock alert removed');
+    } catch (error) {
+      console.error('Error removing stock alert:', error);
+      toast.error('Failed to remove stock alert');
     }
-    
-    toast.success('Stock alert removed');
   };
   
   const checkStockAlerts = () => {
@@ -566,16 +906,26 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       if (product.quantity <= alert.threshold) {
         // Set notification as sent
-        setStockAlerts(prev => 
-          prev.map(a => 
-            a.id === alert.id 
-              ? { ...a, notificationSent: true } 
-              : a
-          )
-        );
-        
-        // Notify user
-        toast.warning(`Low stock alert: ${product.name} is below the threshold of ${alert.threshold} ${product.unit}`);
+        supabase
+          .from('stock_alerts')
+          .update({ notification_sent: true })
+          .eq('id', alert.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error('Error updating alert notification status:', error);
+            } else {
+              setStockAlerts(prev => 
+                prev.map(a => 
+                  a.id === alert.id 
+                    ? { ...a, notificationSent: true } 
+                    : a
+                )
+              );
+              
+              // Notify user
+              toast.warning(`Low stock alert: ${product.name} is below the threshold of ${alert.threshold} ${product.unit}`);
+            }
+          });
       }
     });
   };
