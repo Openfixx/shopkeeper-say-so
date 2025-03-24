@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mic, MicOff, Package2, Receipt, Search, X, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Package2, Receipt, Search, X, Loader2, MapPin, Bell, Barcode, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
@@ -14,12 +14,20 @@ interface DashboardVoiceCommandsProps {
   onAddProduct: () => void;
   onCreateBill: () => void;
   onSearchProduct: (searchTerm: string) => void;
+  onFindShops?: (searchTerm: string) => void;
+  onScanBarcode?: () => void;
+  onStockAlert?: (product: string) => void;
+  onChangeShopType?: (type: string) => void;
 }
 
 const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
   onAddProduct,
   onCreateBill,
   onSearchProduct,
+  onFindShops,
+  onScanBarcode,
+  onStockAlert,
+  onChangeShopType,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -29,6 +37,7 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
   const [showCommandDialog, setShowCommandDialog] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
   
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -151,6 +160,44 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
             toast.warning('Please specify what to search for');
           }
           break;
+        case VOICE_COMMAND_TYPES.FIND_SHOPS:
+          if (onFindShops) {
+            const searchTerm = recognizedCommand.data?.product || '';
+            onFindShops(searchTerm);
+            navigate('/shop-finder');
+            toast.success('Finding nearby shops');
+          } else {
+            navigate('/shop-finder');
+            toast.success('Opening shop finder');
+          }
+          break;
+        case VOICE_COMMAND_TYPES.SCAN_BARCODE:
+          if (onScanBarcode) {
+            onScanBarcode();
+            toast.success('Opening barcode scanner');
+          } else {
+            navigate('/products');
+            toast.success('Going to products page to scan barcode');
+          }
+          break;
+        case VOICE_COMMAND_TYPES.STOCK_ALERT:
+          if (onStockAlert && recognizedCommand.data?.product) {
+            onStockAlert(recognizedCommand.data.product);
+            toast.success(`Setting stock alert for ${recognizedCommand.data.product}`);
+          } else {
+            navigate('/inventory');
+            toast.success('Going to inventory to set stock alerts');
+          }
+          break;
+        case VOICE_COMMAND_TYPES.CHANGE_SHOP_TYPE:
+          if (onChangeShopType && recognizedCommand.data?.type) {
+            onChangeShopType(recognizedCommand.data.type);
+            toast.success(`Changing shop type to ${recognizedCommand.data.type}`);
+          } else {
+            navigate('/settings');
+            toast.success('Going to settings to change shop type');
+          }
+          break;
         default:
           toast.info(`Command not recognized: "${command}"`);
           break;
@@ -207,6 +254,22 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
               <div className="flex items-center space-x-2 p-2 rounded bg-background border">
                 <Search className="h-4 w-4 text-primary" />
                 <span className="text-sm">"Find [product]" - Search for a product</span>
+              </div>
+              <div className="flex items-center space-x-2 p-2 rounded bg-background border">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="text-sm">"Find shops with [product]" - Locate nearby shops</span>
+              </div>
+              <div className="flex items-center space-x-2 p-2 rounded bg-background border">
+                <Barcode className="h-4 w-4 text-primary" />
+                <span className="text-sm">"Scan barcode" - Open barcode scanner</span>
+              </div>
+              <div className="flex items-center space-x-2 p-2 rounded bg-background border">
+                <Bell className="h-4 w-4 text-primary" />
+                <span className="text-sm">"Alert when [product] is below [quantity]" - Set stock alert</span>
+              </div>
+              <div className="flex items-center space-x-2 p-2 rounded bg-background border">
+                <Store className="h-4 w-4 text-primary" />
+                <span className="text-sm">"Change shop type to [type]" - Update shop category</span>
               </div>
             </div>
             
@@ -278,11 +341,15 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
                     </div>
                     <div className="flex items-center space-x-2">
                       <Receipt className="h-3 w-3 text-primary" />
-                      <span>"Create bill" / "Bill banao" - Start a new bill</span>
+                      <span>"Create bill" - Start a new bill</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Search className="h-3 w-3 text-primary" />
                       <span>"Find [product]" - Search for a product</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-3 w-3 text-primary" />
+                      <span>"Find shops" - Locate nearby shops</span>
                     </div>
                   </>
                 )}

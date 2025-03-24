@@ -108,6 +108,27 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                   interpretedMsg += `: ${commandInfo.data.searchTerm}`;
                 }
                 break;
+              case VOICE_COMMAND_TYPES.FIND_SHOPS:
+                interpretedMsg = 'Finding nearby shops';
+                if (commandInfo.data?.product) {
+                  interpretedMsg += ` for ${commandInfo.data.product}`;
+                }
+                break;
+              case VOICE_COMMAND_TYPES.SCAN_BARCODE:
+                interpretedMsg = 'Opening barcode scanner';
+                break;
+              case VOICE_COMMAND_TYPES.STOCK_ALERT:
+                interpretedMsg = 'Setting stock alert';
+                if (commandInfo.data?.product) {
+                  interpretedMsg += ` for ${commandInfo.data.product}`;
+                }
+                break;
+              case VOICE_COMMAND_TYPES.CHANGE_SHOP_TYPE:
+                interpretedMsg = 'Changing shop type';
+                if (commandInfo.data?.type) {
+                  interpretedMsg += ` to ${commandInfo.data.type}`;
+                }
+                break;
               default:
                 interpretedMsg = 'Processing command';
             }
@@ -269,9 +290,12 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium text-sm mb-2">Try saying:</p>
                 <ul className="text-sm space-y-1.5">
-                  <li>"5kg sugar" (this will be added to a bill)</li>
-                  <li>"5kg sugar bill" (creates a bill with sugar)</li>
                   <li>"Add 10kg rice to rack 3 expiry July 2025"</li>
+                  <li>"5kg sugar bill" (creates a bill with sugar)</li>
+                  <li>"Find shops with rice within 5km"</li>
+                  <li>"Scan barcode" (opens scanner)</li>
+                  <li>"Alert when sugar is below 5kg"</li>
+                  <li>"Change shop type to Electronics"</li>
                   <li>"Where is the salt?"</li>
                   <li>"चीनी 5 किलो" (Hindi for "5kg sugar")</li>
                 </ul>

@@ -1,8 +1,15 @@
+
 // Define command types
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
   CREATE_BILL: 'create_bill',
   SEARCH_PRODUCT: 'search_product',
+  FIND_SHOPS: 'find_shops',
+  UPDATE_STOCK: 'update_stock',
+  CHANGE_SHOP_TYPE: 'change_shop_type',
+  SCAN_BARCODE: 'scan_barcode',
+  STOCK_ALERT: 'stock_alert',
+  SHARED_DATABASE: 'shared_database',
   UNKNOWN: 'unknown'
 } as const;
 
@@ -21,15 +28,42 @@ export interface ProductInfo {
   expiry?: string;
   price?: number;
   image?: string;
+  barcode?: string;
+  shopId?: string;
+  shared?: boolean;
 }
 
 // Interface for bill data
-interface BillInfo {
+export interface BillInfo {
   items?: {
     name: string;
     quantity: number;
     unit?: string;
   }[];
+  partialPayment?: boolean;
+  deliveryOption?: boolean;
+  paymentMethod?: string;
+}
+
+// Interface for shop search data
+export interface ShopSearchInfo {
+  product?: string;
+  distance?: number;
+  shopType?: string;
+  location?: string;
+}
+
+// Interface for stock update data
+export interface StockUpdateInfo {
+  product?: string;
+  quantity?: number;
+  unit?: string;
+  threshold?: number;
+}
+
+// Interface for shop type info
+export interface ShopTypeInfo {
+  type?: 'Grocery' | 'Electronics' | 'Clothing' | 'Pharmacy' | string;
 }
 
 // Multi-language keyword maps
@@ -42,6 +76,33 @@ const languageKeywords = {
   
   // Search keywords
   search: ['search', 'find', 'where', 'locate', 'खोजें', 'ढूंढें', 'कहां', 'buscar', 'encontrar', 'dónde', 'chercher', 'trouver', 'où'],
+  
+  // Shop keywords
+  shop: ['shop', 'store', 'market', 'दुकान', 'बाज़ार', 'tienda', 'mercado', 'boutique', 'marché'],
+  
+  // Stock keywords
+  stock: ['stock', 'inventory', 'स्टॉक', 'इन्वेंटरी', 'inventario', 'stock', 'inventaire'],
+  
+  // Update keywords
+  update: ['update', 'change', 'modify', 'अपडेट', 'बदलें', 'actualizar', 'cambiar', 'mettre à jour', 'modifier'],
+  
+  // Nearby keywords
+  nearby: ['nearby', 'close', 'near', 'around', 'नज़दीक', 'पास', 'cercano', 'cerca', 'à proximité', 'proche'],
+  
+  // Barcode keywords
+  barcode: ['barcode', 'scan', 'qr', 'बारकोड', 'स्कैन', 'código de barras', 'escanear', 'code-barres', 'scanner'],
+  
+  // Alert keywords
+  alert: ['alert', 'notification', 'warn', 'सूचना', 'अलर्ट', 'alerta', 'notificación', 'alerte', 'notification'],
+  
+  // Shop type keywords
+  shopType: ['shop type', 'store type', 'category', 'दुकान का प्रकार', 'tipo de tienda', 'categoría', 'type de magasin', 'catégorie'],
+  
+  // Payment keywords
+  payment: ['payment', 'pay', 'भुगतान', 'pago', 'paiement'],
+  
+  // Delivery keywords
+  delivery: ['delivery', 'deliver', 'डिलीवरी', 'पहुंचाना', 'entrega', 'livraison'],
   
   // Units
   units: {
@@ -69,7 +130,10 @@ const languageKeywords = {
   position: ['rack', 'shelf', 'aisle', 'section', 'रैक', 'शेल्फ', 'गलियारा', 'सेक्शन', 'estante', 'pasillo', 'sección', 'étagère', 'rayon', 'section'],
   
   // Expiry keywords
-  expiry: ['expiry', 'expiration', 'expires', 'expiring', 'समाप्ति', 'एक्सपायरी', 'caducidad', 'vencimiento', 'expiration', 'péremption']
+  expiry: ['expiry', 'expiration', 'expires', 'expiring', 'समाप्ति', 'एक्सपायरी', 'caducidad', 'vencimiento', 'expiration', 'péremption'],
+  
+  // Distance keywords
+  distance: ['km', 'kilometer', 'kilometers', 'miles', 'mile', 'किलोमीटर', 'मील', 'kilómetro', 'kilómetros', 'milla', 'millas', 'kilomètre', 'kilomètres']
 };
 
 // Extract product details from the command
@@ -193,8 +257,8 @@ export function extractProductDetails(command: string): ProductInfo {
 }
 
 // Extract bill items from a voice command
-export function extractBillItems(command: string): { name: string; quantity: number }[] {
-  const items: { name: string; quantity: number }[] = [];
+export function extractBillItems(command: string): { name: string; quantity: number; unit?: string }[] {
+  const items: { name: string; quantity: number; unit?: string }[] = [];
   
   // Extract product details using the existing function
   const productInfo = extractProductDetails(command);
@@ -202,14 +266,15 @@ export function extractBillItems(command: string): { name: string; quantity: num
   if (productInfo.name) {
     items.push({
       name: productInfo.name,
-      quantity: productInfo.quantity || 1
+      quantity: productInfo.quantity || 1,
+      unit: productInfo.unit
     });
   }
   
   return items;
 }
 
-// Process a billing voice command
+// Process a billing voice command with flexible units
 export function processBillingVoiceCommand(command: string): BillInfo {
   const billInfo: BillInfo = { items: [] };
   const items = extractBillItems(command);
@@ -218,23 +283,28 @@ export function processBillingVoiceCommand(command: string): BillInfo {
     billInfo.items = items;
   }
   
+  // Check for delivery option
+  const lowerCmd = command.toLowerCase();
+  if (languageKeywords.delivery.some(keyword => lowerCmd.includes(keyword))) {
+    billInfo.deliveryOption = true;
+  }
+  
+  // Check for payment method mentions
+  if (lowerCmd.includes('upi') || lowerCmd.includes('qr') || lowerCmd.includes('online')) {
+    billInfo.paymentMethod = 'online';
+  } else if (lowerCmd.includes('cash') || lowerCmd.includes('नकद') || lowerCmd.includes('efectivo')) {
+    billInfo.paymentMethod = 'cash';
+  }
+  
+  // Check for partial payment
+  if (lowerCmd.includes('partial') || lowerCmd.includes('advance') || lowerCmd.includes('आंशिक') || lowerCmd.includes('अग्रिम')) {
+    billInfo.partialPayment = true;
+  }
+  
   return billInfo;
 }
 
-// For simulating rack mapping and shelf identification
-export function identifyShelves(imageUrl: string): { shelfCoordinates: { top: number; left: number; width: number; height: number; }[] } {
-  // This is a mock function that would normally use computer vision
-  // For demo purposes, generate some random shelf coordinates
-  const mockShelfCoordinates = [
-    { top: 10, left: 0, width: 100, height: 20 },
-    { top: 35, left: 0, width: 100, height: 20 },
-    { top: 60, left: 0, width: 100, height: 20 }
-  ];
-  
-  return { shelfCoordinates: mockShelfCoordinates };
-}
-
-// For product image searches
+// For product image searches and shared database
 export function searchProductImage(productName: string): string {
   // This would normally call an API to find images
   return `/placeholder.svg`;
@@ -246,36 +316,209 @@ export function fetchProductImageUrl(productName: string): Promise<string> {
   return Promise.resolve(`/placeholder.svg`);
 }
 
-// Extract information about a bill from the command
-function extractBillInfo(command: string): BillInfo {
-  const billInfo: BillInfo = { items: [] };
+// Check if product exists in shared database
+export function checkProductInSharedDatabase(productName: string): Promise<ProductInfo | null> {
+  // This would normally query a database
+  // For demo, return a mock product for sugar, rice, and salt
+  const commonProducts = {
+    'sugar': {
+      name: 'Sugar',
+      image: '/placeholder.svg',
+      unit: 'kg',
+      price: 45
+    },
+    'rice': {
+      name: 'Rice',
+      image: '/placeholder.svg',
+      unit: 'kg',
+      price: 60
+    },
+    'salt': {
+      name: 'Salt',
+      image: '/placeholder.svg',
+      unit: 'kg',
+      price: 20
+    }
+  };
+  
+  const normalizedName = productName.toLowerCase();
+  
+  return new Promise(resolve => {
+    setTimeout(() => {
+      for (const [key, value] of Object.entries(commonProducts)) {
+        if (normalizedName.includes(key)) {
+          resolve(value as ProductInfo);
+          return;
+        }
+      }
+      resolve(null);
+    }, 500); // Simulate network delay
+  });
+}
+
+// Extract shop search info
+export function extractShopSearchInfo(command: string): ShopSearchInfo {
+  const info: ShopSearchInfo = {};
   const words = command.toLowerCase().split(/\s+/);
   
-  // Process the command for extracting bill items
-  // In a real app, we'd use more sophisticated NLP here
+  // Extract product name
   const productInfo = extractProductDetails(command);
-  
   if (productInfo.name) {
-    billInfo.items?.push({
-      name: productInfo.name,
-      quantity: productInfo.quantity || 1,
-      unit: productInfo.unit
-    });
+    info.product = productInfo.name;
   }
   
-  return billInfo;
+  // Extract distance
+  const distancePattern = /(\d+)\s*(km|kilometer|kilometers|miles|mile)/i;
+  const distanceMatch = command.match(distancePattern);
+  if (distanceMatch) {
+    info.distance = parseInt(distanceMatch[1], 10);
+  } else {
+    // Default to 10km if not specified
+    info.distance = 10;
+  }
+  
+  // Extract shop type if mentioned
+  const shopTypes = ['grocery', 'electronics', 'clothing', 'pharmacy'];
+  for (const word of words) {
+    if (shopTypes.includes(word)) {
+      info.shopType = word.charAt(0).toUpperCase() + word.slice(1);
+      break;
+    }
+  }
+  
+  return info;
+}
+
+// Extract stock alert info
+export function extractStockAlertInfo(command: string): StockUpdateInfo {
+  const info: StockUpdateInfo = {};
+  
+  // Extract product details first
+  const productInfo = extractProductDetails(command);
+  if (productInfo.name) {
+    info.product = productInfo.name;
+  }
+  
+  // Extract threshold quantity
+  const lowerCommand = command.toLowerCase();
+  const words = lowerCommand.split(/\s+/);
+  
+  const alertWords = ['alert', 'when', 'below', 'less than', 'under'];
+  for (let i = 0; i < words.length; i++) {
+    for (const alertWord of alertWords) {
+      if (words[i].includes(alertWord) && i + 1 < words.length) {
+        const numberPattern = /(\d+\.?\d*)/;
+        if (numberPattern.test(words[i + 1])) {
+          info.threshold = parseFloat(words[i + 1].match(numberPattern)![1]);
+          break;
+        }
+      }
+    }
+    if (info.threshold) break;
+  }
+  
+  return info;
+}
+
+// Extract shop type from command
+export function extractShopTypeInfo(command: string): ShopTypeInfo {
+  const info: ShopTypeInfo = {};
+  const lowerCommand = command.toLowerCase();
+  
+  const shopTypes = {
+    'grocery': ['grocery', 'groceries', 'food', 'supermarket', 'किराना'],
+    'electronics': ['electronics', 'gadgets', 'devices', 'इलेक्ट्रॉनिक्स'],
+    'clothing': ['clothing', 'clothes', 'apparel', 'fashion', 'कपड़े'],
+    'pharmacy': ['pharmacy', 'medicine', 'drug', 'medical', 'फार्मेसी']
+  };
+  
+  for (const [type, keywords] of Object.entries(shopTypes)) {
+    if (keywords.some(keyword => lowerCommand.includes(keyword))) {
+      info.type = type.charAt(0).toUpperCase() + type.slice(1);
+      break;
+    }
+  }
+  
+  return info;
+}
+
+// Extract barcode info
+export function extractBarcodeInfo(barcode: string): Promise<ProductInfo | null> {
+  // This would normally query a database based on barcode
+  // For demo, return mock data for a few barcodes
+  const barcodeProducts: Record<string, ProductInfo> = {
+    '8901234567890': {
+      name: 'Sugar',
+      quantity: 1,
+      unit: 'kg',
+      price: 45,
+      image: '/placeholder.svg'
+    },
+    '8901234567891': {
+      name: 'Rice',
+      quantity: 1,
+      unit: 'kg',
+      price: 60,
+      image: '/placeholder.svg'
+    }
+  };
+  
+  return new Promise(resolve => {
+    setTimeout(() => {
+      if (barcode in barcodeProducts) {
+        resolve(barcodeProducts[barcode]);
+      } else {
+        resolve(null);
+      }
+    }, 300);
+  });
 }
 
 // Main function to detect command type and extract data
 export function detectCommandType(command: string): CommandData {
   const lowerCmd = command.toLowerCase();
   
+  // Check for shop finder commands
+  if ((lowerCmd.includes('find') || lowerCmd.includes('search') || lowerCmd.includes('locate')) && 
+      (lowerCmd.includes('shop') || lowerCmd.includes('store'))) {
+    return {
+      type: VOICE_COMMAND_TYPES.FIND_SHOPS,
+      data: extractShopSearchInfo(command)
+    };
+  }
+  
+  // Check for barcode scanning commands
+  if (lowerCmd.includes('barcode') || lowerCmd.includes('scan')) {
+    return {
+      type: VOICE_COMMAND_TYPES.SCAN_BARCODE,
+      data: { action: 'scan' }
+    };
+  }
+  
+  // Check for stock alert commands
+  if ((lowerCmd.includes('alert') || lowerCmd.includes('notification')) && 
+      (lowerCmd.includes('stock') || lowerCmd.includes('inventory'))) {
+    return {
+      type: VOICE_COMMAND_TYPES.STOCK_ALERT,
+      data: extractStockAlertInfo(command)
+    };
+  }
+  
+  // Check for shop type change commands
+  if ((lowerCmd.includes('change') || lowerCmd.includes('update') || lowerCmd.includes('set')) && 
+      (lowerCmd.includes('shop type') || lowerCmd.includes('store type'))) {
+    return {
+      type: VOICE_COMMAND_TYPES.CHANGE_SHOP_TYPE,
+      data: extractShopTypeInfo(command)
+    };
+  }
+  
   // Check if this is a bill-related command (contains any bill keyword)
   const isBillCommand = languageKeywords.bill.some(keyword => lowerCmd.includes(keyword));
   
   // If it contains a bill keyword or just has product information (like "5kg sugar")
   if (isBillCommand || /\d+\s*([a-zA-Z]+\s+)?[a-zA-Z]+/.test(lowerCmd)) {
-    const billInfo = extractBillInfo(command);
+    const billInfo = processBillingVoiceCommand(command);
     // If we extracted items, treat it as a bill command
     if (billInfo.items && billInfo.items.length > 0) {
       return {
@@ -317,6 +560,16 @@ export function detectCommandType(command: string): CommandData {
         data: { searchTerm: searchTerm.trim() }
       };
     }
+  }
+  
+  // Check for stock update commands
+  if ((lowerCmd.includes('update') || lowerCmd.includes('change')) && 
+      (lowerCmd.includes('stock') || lowerCmd.includes('inventory'))) {
+    const stockInfo = extractStockAlertInfo(command);
+    return {
+      type: VOICE_COMMAND_TYPES.UPDATE_STOCK,
+      data: stockInfo
+    };
   }
   
   // For any other command, try to extract product details and consider it an add command

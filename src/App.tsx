@@ -18,6 +18,7 @@ import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ShopFinder from "./pages/ShopFinder";
 import NotFound from "./pages/NotFound";
 
 // For animation libraries
@@ -45,6 +46,7 @@ const App = () => {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    <Route path="/shop-finder" element={<ShopFinder />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AnimatePresence>
