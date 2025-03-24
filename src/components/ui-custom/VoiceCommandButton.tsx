@@ -35,6 +35,19 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
   const [interpretedCommand, setInterpretedCommand] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState('en-US');
+  
+  // Supported languages
+  const supportedLanguages = [
+    { code: 'en-US', name: 'English (US)' },
+    { code: 'hi-IN', name: 'Hindi' },
+    { code: 'es-ES', name: 'Spanish' },
+    { code: 'fr-FR', name: 'French' },
+    { code: 'de-DE', name: 'German' },
+    { code: 'zh-CN', name: 'Chinese (Simplified)' },
+    { code: 'ja-JP', name: 'Japanese' },
+    { code: 'ar-SA', name: 'Arabic' },
+  ];
   
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -44,7 +57,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         
         recognitionInstance.continuous = false;
         recognitionInstance.interimResults = true;
-        recognitionInstance.lang = 'en-US';
+        recognitionInstance.lang = selectedLanguage;
         
         recognitionInstance.onresult = (event) => {
           let interimTranscript = '';
@@ -68,7 +81,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
             setTranscript(finalTranscript);
             setTranscriptHistory(prev => [...prev, finalTranscript]);
             
-            // Analyze the command type
+            // Process any command directly without requiring specific command prefixes
             const commandInfo = detectCommandType(finalTranscript);
             
             // Set interpreted command for display
@@ -78,6 +91,9 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                 interpretedMsg = 'Adding product';
                 if (commandInfo.data?.name) {
                   interpretedMsg += `: ${commandInfo.data.name}`;
+                }
+                if (commandInfo.data?.quantity) {
+                  interpretedMsg += ` (${commandInfo.data.quantity}${commandInfo.data.unit || ''})`;
                 }
                 break;
               case VOICE_COMMAND_TYPES.CREATE_BILL:
@@ -93,7 +109,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                 }
                 break;
               default:
-                interpretedMsg = 'Command received';
+                interpretedMsg = 'Processing command';
             }
             setInterpretedCommand(interpretedMsg);
             
@@ -115,7 +131,6 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         recognitionInstance.onend = () => {
           if (isListening) {
             // Attempt to restart recognition if it was still supposed to be active
-            // This helps with browsers that automatically stop after silence
             try {
               recognitionInstance.start();
             } catch (error) {
@@ -138,7 +153,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
         recognition.abort();
       }
     };
-  }, [onVoiceCommand, isListening]);
+  }, [onVoiceCommand, isListening, selectedLanguage]);
   
   const toggleListening = () => {
     if (!recognition) {
@@ -153,6 +168,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
     } else {
       setIsLoading(true);
       try {
+        recognition.lang = selectedLanguage;
         recognition.start();
         setIsListening(true);
         if (showDialog) {
@@ -173,6 +189,11 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       recognition?.abort();
       setIsListening(false);
     }
+  };
+  
+  const changeLanguage = (langCode: string) => {
+    setSelectedLanguage(langCode);
+    toast.info(`Language changed to ${supportedLanguages.find(lang => lang.code === langCode)?.name || langCode}`);
   };
   
   return (
@@ -215,10 +236,24 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                 Voice Command
               </DialogTitle>
               <DialogDescription>
-                Speak your command clearly. Say anything, and I'll figure out what you need.
+                Speak your command clearly. Simply say what you need, and I'll understand.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {supportedLanguages.map(lang => (
+                  <Button
+                    key={lang.code}
+                    size="sm"
+                    variant={selectedLanguage === lang.code ? "default" : "outline"}
+                    onClick={() => changeLanguage(lang.code)}
+                    className="text-xs py-1 h-8"
+                  >
+                    {lang.name}
+                  </Button>
+                ))}
+              </div>
+              
               <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium text-sm mb-1">Current transcript:</p>
                 <p className="text-sm">{transcript || "Listening..."}</p>
@@ -234,11 +269,11 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="font-medium text-sm mb-2">Try saying:</p>
                 <ul className="text-sm space-y-1.5">
-                  <li>"Create a bill with 5kg sugar and 2 packets biscuits"</li>
-                  <li>"Bill banao" (Hindi for "create bill")</li>
-                  <li>"Add 10kg rice to rack 3 expiry July 2025"</li>
                   <li>"5kg sugar" (this will be added to a bill)</li>
+                  <li>"5kg sugar bill" (creates a bill with sugar)</li>
+                  <li>"Add 10kg rice to rack 3 expiry July 2025"</li>
                   <li>"Where is the salt?"</li>
+                  <li>"चीनी 5 किलो" (Hindi for "5kg sugar")</li>
                 </ul>
               </div>
               

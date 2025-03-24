@@ -8,12 +8,15 @@ type User = {
   email: string;
   role: 'shopkeeper' | 'worker';
   shopId?: string;
+  preferredLanguage?: string;
 };
 
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  preferredLanguage: string;
+  setPreferredLanguage: (language: string) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -24,6 +27,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [preferredLanguage, setPreferredLanguage] = useState<string>(() => {
+    return localStorage.getItem('preferredLanguage') || 'en-US';
+  });
 
   useEffect(() => {
     // Check local storage for saved user
@@ -33,6 +39,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setIsLoading(false);
   }, []);
+
+  // Save preferred language to localStorage
+  useEffect(() => {
+    localStorage.setItem('preferredLanguage', preferredLanguage);
+  }, [preferredLanguage]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -45,7 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: '1',
           name: 'Demo User',
           email: 'demo@example.com',
-          role: 'shopkeeper'
+          role: 'shopkeeper',
+          preferredLanguage
         };
         
         setUser(user);
@@ -72,7 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: '1',
         name,
         email,
-        role: 'shopkeeper'
+        role: 'shopkeeper',
+        preferredLanguage
       };
       
       setUser(user);
@@ -92,12 +105,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success('Logged out successfully');
   };
 
+  const handleSetPreferredLanguage = (language: string) => {
+    setPreferredLanguage(language);
+    // If user is logged in, update their preferences
+    if (user) {
+      const updatedUser = { ...user, preferredLanguage: language };
+      setUser(updatedUser);
+      localStorage.setItem('inventory_user', JSON.stringify(updatedUser));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isLoading,
+        preferredLanguage,
+        setPreferredLanguage: handleSetPreferredLanguage,
         login,
         register,
         logout
