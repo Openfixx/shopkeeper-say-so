@@ -1,10 +1,13 @@
-
 // Define command types
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
   CREATE_BILL: 'create_bill',
   SEARCH_PRODUCT: 'search_product',
   FIND_SHOP: 'find_shop',
+  FIND_SHOPS: 'find_shops',
+  SCAN_BARCODE: 'scan_barcode',
+  STOCK_ALERT: 'stock_alert',
+  CHANGE_SHOP_TYPE: 'change_shop_type',
   UNKNOWN: 'unknown'
 };
 
@@ -148,10 +151,12 @@ export function extractBillItems(command: string): BillItem[] {
 }
 
 // Mock function to search for a product image
+export const fetchProductImageUrl = async (productName: string): Promise<string | null> => {
+  return await searchProductImage(productName);
+};
+
+// Mock function to search for a product image
 export async function searchProductImage(productName: string): Promise<string | null> {
-  // In a real implementation, this would call an API like Unsplash, Pexels, etc.
-  
-  // For demo purposes, return some hardcoded images based on common products
   const mockImages: Record<string, string> = {
     'sugar': 'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
     'salt': 'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
@@ -177,30 +182,23 @@ export async function searchProductImage(productName: string): Promise<string | 
     'laptop': 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
   };
   
-  // Search for exact match or substring match
   const lowerProductName = productName.toLowerCase();
   
-  // Try exact match first
   if (mockImages[lowerProductName]) {
     return mockImages[lowerProductName];
   }
   
-  // Try substring match
   for (const key in mockImages) {
     if (lowerProductName.includes(key) || key.includes(lowerProductName)) {
       return mockImages[key];
     }
   }
   
-  // Default placeholder image if no match found
   return '/placeholder.svg';
 }
 
 // Mock function to check product in a shared database
 export async function checkProductInSharedDatabase(productName: string): Promise<ProductDetail | null> {
-  // In a real implementation, this would call a database API
-
-  // For demo purposes, return some mocked data for common products
   const mockDatabase: Record<string, ProductDetail> = {
     'sugar': {
       name: 'Sugar',
@@ -234,29 +232,23 @@ export async function checkProductInSharedDatabase(productName: string): Promise
     }
   };
 
-  // Try to find the product in the mock database
   const lowerName = productName.toLowerCase();
   
-  // Look for exact match first
   if (mockDatabase[lowerName]) {
     return mockDatabase[lowerName];
   }
   
-  // Then try to find any product that contains this name as a substring
   for (const key in mockDatabase) {
     if (key.includes(lowerName) || lowerName.includes(key)) {
       return mockDatabase[key];
     }
   }
   
-  // Return null if no match found
   return null;
 }
 
 // Mock function to identify shelves in a rack image
 export function identifyShelves(imageUrl: string): { shelfCoordinates: Array<{top: number, left: number, width: number, height: number}> } {
-  // In a real implementation, this would use image recognition to identify shelves
-  // For demo purposes, return mock shelf coordinates
   return {
     shelfCoordinates: [
       { top: 10, left: 5, width: 90, height: 15 },
@@ -276,7 +268,6 @@ export function processBillingVoiceCommand(command: string): BillItem[] {
 export function detectCommandType(command: string): CommandData {
   const lowerCmd = command.toLowerCase();
   
-  // Check for add product commands
   if (
     lowerCmd.includes('add product') ||
     lowerCmd.includes('add a product') ||
@@ -293,7 +284,6 @@ export function detectCommandType(command: string): CommandData {
     };
   }
   
-  // Check for create bill commands
   if (
     lowerCmd.includes('create bill') ||
     lowerCmd.includes('make bill') ||
@@ -311,7 +301,6 @@ export function detectCommandType(command: string): CommandData {
     };
   }
   
-  // Check for search product commands
   if (
     lowerCmd.includes('search for') ||
     lowerCmd.includes('find product') ||
@@ -321,7 +310,6 @@ export function detectCommandType(command: string): CommandData {
   ) {
     let query = '';
     
-    // Extract the search term
     const searchPatterns = [
       /search for ([a-zA-Z0-9 ]+)/i,
       /find product ([a-zA-Z0-9 ]+)/i,
@@ -344,7 +332,6 @@ export function detectCommandType(command: string): CommandData {
     };
   }
   
-  // Check for find shop commands
   if (
     lowerCmd.includes('find shop') ||
     lowerCmd.includes('locate shop') ||
@@ -354,7 +341,6 @@ export function detectCommandType(command: string): CommandData {
   ) {
     let query = '';
     
-    // Extract what they're looking for
     const shopPatterns = [
       /find shop (?:for|selling|with) ([a-zA-Z0-9 ]+)/i,
       /where can i find ([a-zA-Z0-9 ]+)/i,
@@ -375,7 +361,71 @@ export function detectCommandType(command: string): CommandData {
     };
   }
   
-  // Default unknown command
+  if (
+    lowerCmd.includes('find shops') ||
+    lowerCmd.includes('locate shops') ||
+    lowerCmd.includes('nearby shops') ||
+    lowerCmd.includes('where can i find shops') ||
+    lowerCmd.includes('shops near me')
+  ) {
+    let query = '';
+    
+    const shopPatterns = [
+      /find shops (?:for|selling|with) ([a-zA-Z0-9 ]+)/i,
+      /where can i find shops ([a-zA-Z0-9 ]+)/i,
+      /locate shops (?:for|selling|with) ([a-zA-Z0-9 ]+)/i
+    ];
+    
+    for (const pattern of shopPatterns) {
+      const match = lowerCmd.match(pattern);
+      if (match && match[1]) {
+        query = match[1].trim();
+        break;
+      }
+    }
+    
+    return {
+      type: VOICE_COMMAND_TYPES.FIND_SHOPS,
+      data: { query }
+    };
+  }
+  
+  if (
+    lowerCmd.includes('scan barcode') ||
+    lowerCmd.includes('scan barcode') ||
+    lowerCmd.includes('scan barcode') ||
+    lowerCmd.includes('scan barcode')
+  ) {
+    return {
+      type: VOICE_COMMAND_TYPES.SCAN_BARCODE,
+      data: { originalCommand: command }
+    };
+  }
+  
+  if (
+    lowerCmd.includes('stock alert') ||
+    lowerCmd.includes('stock alert') ||
+    lowerCmd.includes('stock alert') ||
+    lowerCmd.includes('stock alert')
+  ) {
+    return {
+      type: VOICE_COMMAND_TYPES.STOCK_ALERT,
+      data: { originalCommand: command }
+    };
+  }
+  
+  if (
+    lowerCmd.includes('change shop type') ||
+    lowerCmd.includes('change shop type') ||
+    lowerCmd.includes('change shop type') ||
+    lowerCmd.includes('change shop type')
+  ) {
+    return {
+      type: VOICE_COMMAND_TYPES.CHANGE_SHOP_TYPE,
+      data: { originalCommand: command }
+    };
+  }
+  
   return {
     type: VOICE_COMMAND_TYPES.UNKNOWN,
     data: { originalCommand: command }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -19,10 +18,8 @@ const Login: React.FC = () => {
   const [loginInProgress, setLoginInProgress] = useState(false);
   const [isNicheSelectorOpen, setIsNicheSelectorOpen] = useState(false);
   
-  // If already authenticated, redirect to dashboard
   useEffect(() => {
     if (isAuthenticated) {
-      // Check if shop niche is set
       const hasSetNiche = localStorage.getItem('shop_niche');
       if (!hasSetNiche) {
         setIsNicheSelectorOpen(true);
@@ -43,7 +40,6 @@ const Login: React.FC = () => {
     setLoginInProgress(true);
     try {
       await login(email, password);
-      // Show niche selector after successful login
       setIsNicheSelectorOpen(true);
     } catch (error) {
       console.error('Login error:', error);
@@ -70,7 +66,7 @@ const Login: React.FC = () => {
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
-            <Alert variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            <Alert className="bg-blue-50 text-blue-700 border-blue-200">
               <Info className="h-4 w-4" />
               <AlertDescription>
                 Use <strong>demo@example.com</strong> and password <strong>password</strong> for demo access
