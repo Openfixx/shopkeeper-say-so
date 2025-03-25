@@ -42,6 +42,20 @@ export type Bill = {
   userId: string;
 };
 
+export type Shop = {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  distance: number;
+  products?: string[];
+};
+
+export type StockAlert = {
+  productId: string;
+  threshold: number;
+};
+
 interface InventoryContextType {
   products: Product[];
   bills: Bill[];
@@ -59,12 +73,27 @@ interface InventoryContextType {
   updateBillItemQuantity: (productId: string, quantity: number) => void;
   updateBillItemUnit: (productId: string, unit: string) => void;
   completeBill: () => void;
+  cancelBill: () => void;
   findProduct: (query: string) => Product[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
   editProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   refetchBills: () => Promise<void>;
   refetchProducts: () => Promise<void>;
+  
+  // Shop related properties
+  currentShopType: string;
+  setShopType: (type: string) => void;
+  findNearbyShops: (query: string, distance: number, type?: string) => Shop[];
+  
+  // Stock alert related properties
+  stockAlerts: StockAlert[];
+  setStockAlert: (productId: string, threshold: number) => void;
+  removeStockAlert: (productId: string) => void;
+  
+  // Barcode scanner related properties
+  scanBarcode: (barcode: string) => Promise<Product | null>;
 }
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
@@ -87,6 +116,8 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     items: BillItem[];
     total: number;
   } | null>(null);
+  const [currentShopType, setCurrentShopType] = useState<string>('Grocery');
+  const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
 
   // Fetch products and bills on mount
   useEffect(() => {
@@ -548,6 +579,12 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Cancel the current bill
+  const cancelBill = () => {
+    setCurrentBill(null);
+    toast.info('Bill has been cancelled');
+  };
+
   // Find products by name
   const findProduct = (query: string): Product[] => {
     if (!query) return [];
@@ -614,6 +651,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw error;
     }
   };
+  
+  // Alias for editProduct for compatibility
+  const updateProduct = editProduct;
 
   // Delete a product
   const deleteProduct = async (id: string) => {
@@ -657,6 +697,103 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       toast.error('Failed to refresh products');
     }
   };
+  
+  // Set shop type
+  const setShopType = (type: string) => {
+    setCurrentShopType(type);
+    toast.success(`Shop type set to ${type}`);
+  };
+  
+  // Find nearby shops
+  const findNearbyShops = (query: string, distance: number, type?: string): Shop[] => {
+    // Mock implementation to return dummy data
+    const shops: Shop[] = [
+      {
+        id: '1',
+        name: 'Super Grocery Store',
+        type: 'Grocery',
+        location: '123 Main St, City',
+        distance: 0.8,
+      },
+      {
+        id: '2',
+        name: 'Electronic World',
+        type: 'Electronics',
+        location: '456 Oak St, City',
+        distance: 1.5,
+      },
+      {
+        id: '3',
+        name: 'Fashion Hub',
+        type: 'Clothing',
+        location: '789 Pine St, City',
+        distance: 2.3,
+      },
+      {
+        id: '4',
+        name: 'Health Plus Pharmacy',
+        type: 'Pharmacy',
+        location: '101 Elm St, City',
+        distance: 3.0,
+      }
+    ];
+    
+    let filtered = shops;
+    
+    // Filter by type if provided
+    if (type) {
+      filtered = filtered.filter(shop => shop.type === type);
+    }
+    
+    // Filter by distance
+    filtered = filtered.filter(shop => shop.distance <= distance);
+    
+    // Filter by query
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(shop => 
+        shop.name.toLowerCase().includes(lowerQuery) || 
+        shop.type.toLowerCase().includes(lowerQuery)
+      );
+    }
+    
+    return filtered;
+  };
+  
+  // Set stock alert for a product
+  const setStockAlert = (productId: string, threshold: number) => {
+    setStockAlerts(prev => {
+      // Remove existing alert for the product if any
+      const filtered = prev.filter(alert => alert.productId !== productId);
+      // Add new alert
+      return [...filtered, { productId, threshold }];
+    });
+    toast.success('Stock alert set successfully');
+  };
+  
+  // Remove stock alert for a product
+  const removeStockAlert = (productId: string) => {
+    setStockAlerts(prev => prev.filter(alert => alert.productId !== productId));
+    toast.success('Stock alert removed');
+  };
+  
+  // Scan barcode to find product
+  const scanBarcode = async (barcode: string): Promise<Product | null> => {
+    // Mock implementation to find product by barcode
+    const product = products.find(p => p.barcode === barcode);
+    
+    if (product) {
+      return product;
+    }
+    
+    // For demo purposes, return a random product if barcode doesn't match
+    if (products.length > 0) {
+      const randomIndex = Math.floor(Math.random() * products.length);
+      return products[randomIndex];
+    }
+    
+    return null;
+  };
 
   return (
     <InventoryContext.Provider
@@ -673,12 +810,21 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateBillItemQuantity,
         updateBillItemUnit,
         completeBill,
+        cancelBill,
         findProduct,
         addProduct,
         editProduct,
+        updateProduct,
         deleteProduct,
         refetchBills,
         refetchProducts,
+        currentShopType,
+        setShopType,
+        findNearbyShops,
+        stockAlerts,
+        setStockAlert,
+        removeStockAlert,
+        scanBarcode
       }}
     >
       {children}

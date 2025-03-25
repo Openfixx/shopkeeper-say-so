@@ -1,128 +1,78 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Bell, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Bell, BellOff, Save } from 'lucide-react';
 import { useInventory, Product } from '@/context/InventoryContext';
-import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type StockAlertSettingProps = {
-  product: Product;
-  trigger?: React.ReactNode;
-};
+interface StockAlertSettingProps {
+  product?: Product;
+  productId?: string;
+}
 
-const StockAlertSetting: React.FC<StockAlertSettingProps> = ({ 
-  product,
-  trigger 
-}) => {
-  const { setStockAlert, removeStockAlert, stockAlerts } = useInventory();
-  const [open, setOpen] = useState(false);
-  const [threshold, setThreshold] = useState(product.stockAlert || Math.ceil(product.quantity * 0.2));
+const StockAlertSetting: React.FC<StockAlertSettingProps> = ({ product, productId }) => {
+  const { setStockAlert, removeStockAlert, stockAlerts, products } = useInventory();
+  const [threshold, setThreshold] = useState<number>(10);
+  const [selectedProduct, setSelectedProduct] = useState<string>(productId || '');
   
-  const existingAlert = stockAlerts.find(a => a.productId === product.id);
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (threshold <= 0) {
-      toast.error('Threshold must be greater than zero');
-      return;
+  const handleSetAlert = () => {
+    if (selectedProduct) {
+      setStockAlert(selectedProduct, threshold);
     }
-    
-    if (threshold > product.quantity) {
-      toast.warning('Threshold is higher than current stock. Alert will trigger immediately.');
-    }
-    
-    setStockAlert(product.id, threshold);
-    setOpen(false);
-    
-    toast.success(`Stock alert set for ${product.name}`);
   };
   
-  const handleRemove = () => {
-    if (existingAlert) {
-      removeStockAlert(existingAlert.id);
-      setOpen(false);
+  const handleRemoveAlert = () => {
+    if (selectedProduct) {
+      removeStockAlert(selectedProduct);
     }
   };
   
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button size="sm" variant="outline">
-            <Bell className="h-4 w-4 mr-2" />
-            Set Alert
-          </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle>Stock Alert Settings</CardTitle>
+        <CardDescription>Set alerts for low stock items</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!product && (
+          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a product" />
+            </SelectTrigger>
+            <SelectContent>
+              {products.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Bell className="h-5 w-5 mr-2 text-primary" />
-              Stock Alert for {product.name}
-            </DialogTitle>
-            <DialogDescription>
-              Receive a notification when this item's stock falls below the threshold
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-stock">Current Stock</Label>
-              <Input
-                id="current-stock"
-                value={`${product.quantity} ${product.unit}`}
-                disabled
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="threshold">Alert Threshold ({product.unit})</Label>
-              <Input
-                id="threshold"
-                type="number"
-                min="0"
-                step="1"
-                value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                You'll be notified when stock falls below this level
-              </p>
-            </div>
-          </div>
-          
-          <DialogFooter className="sm:justify-between">
-            {existingAlert && (
-              <Button 
-                type="button"
-                variant="outline" 
-                className="text-destructive hover:text-destructive" 
-                onClick={handleRemove}
-              >
-                Remove Alert
-              </Button>
-            )}
-            <Button type="submit">
-              {existingAlert ? 'Update Alert' : 'Set Alert'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Alert Threshold</label>
+          <Input 
+            type="number" 
+            value={threshold}
+            onChange={e => setThreshold(Number(e.target.value))}
+            min={1}
+          />
+          <p className="text-xs text-muted-foreground">
+            You'll be notified when stock falls below this number
+          </p>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={handleRemoveAlert}>
+          <BellOff className="mr-2 h-4 w-4" />
+          Remove Alert
+        </Button>
+        <Button onClick={handleSetAlert}>
+          <Bell className="mr-2 h-4 w-4" />
+          Set Alert
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 

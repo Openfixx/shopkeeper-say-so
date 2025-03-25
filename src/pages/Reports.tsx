@@ -23,7 +23,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  BarChart as RechartsBarChart,
+  Bar as RechartsBar
 } from 'recharts';
 import {
   CalendarIcon,
@@ -343,7 +345,7 @@ const Reports: React.FC = () => {
             </div>
             <div className="h-[350px] mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <RechartsBarChart
                   data={filteredSalesData}
                   margin={{
                     top: 5,
@@ -365,9 +367,9 @@ const Reports: React.FC = () => {
                     }}
                   />
                   <Legend />
-                  <Bar yAxisId="left" dataKey="sales" fill="#8884d8" name={language === 'hi-IN' ? 'बिक्री' : 'Sales'} />
-                  <Bar yAxisId="right" dataKey="orders" fill="#82ca9d" name={language === 'hi-IN' ? 'आदेश' : 'Orders'} />
-                </BarChart>
+                  <RechartsBar yAxisId="left" dataKey="sales" fill="#8884d8" name={language === 'hi-IN' ? 'बिक्री' : 'Sales'} />
+                  <RechartsBar yAxisId="right" dataKey="orders" fill="#82ca9d" name={language === 'hi-IN' ? 'आदेश' : 'Orders'} />
+                </RechartsBarChart>
               </ResponsiveContainer>
             </div>
           </GlassCard>
@@ -424,7 +426,7 @@ const Reports: React.FC = () => {
               </div>
               <div className="h-[300px] mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
+                  <RechartsBarChart
                     data={productData}
                     layout="vertical"
                     margin={{
@@ -438,12 +440,12 @@ const Reports: React.FC = () => {
                     <XAxis type="number" />
                     <YAxis dataKey="name" type="category" />
                     <Tooltip formatter={(value) => [formatCurrency(value as number), 'Revenue']} />
-                    <Bar dataKey="value" fill="#8884d8">
+                    <RechartsBar dataKey="value" fill="#8884d8">
                       {productData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
-                    </Bar>
-                  </BarChart>
+                    </RechartsBar>
+                  </RechartsBarChart>
                 </ResponsiveContainer>
               </div>
             </GlassCard>
@@ -465,7 +467,7 @@ const Reports: React.FC = () => {
             </div>
             <div className="h-[350px] mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <RechartsBarChart
                   data={categoryData}
                   margin={{
                     top: 5,
@@ -478,12 +480,12 @@ const Reports: React.FC = () => {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip formatter={(value) => [formatCurrency(value as number), 'Revenue']} />
-                  <Bar dataKey="value" fill="#8884d8">
+                  <RechartsBar dataKey="value" fill="#8884d8">
                     {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
-                  </Bar>
-                </BarChart>
+                  </RechartsBar>
+                </RechartsBarChart>
               </ResponsiveContainer>
             </div>
           </GlassCard>
