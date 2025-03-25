@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -50,7 +49,7 @@ const Login: React.FC = () => {
       } else {
         const result = await login(email, password);
         
-        if (result?.error) {
+        if (result && result.error) {
           setError(result.error.message);
           toast.error(result.error.message);
         } else {

@@ -1,15 +1,48 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Get environment variables with better error handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Create Supabase client
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-);
+// Create Supabase client with proper error handling
+export const supabase = (() => {
+  try {
+    if (!supabaseUrl) {
+      console.warn('Supabase URL not provided. Some features will be unavailable.');
+    }
+    
+    if (!supabaseAnonKey) {
+      console.warn('Supabase Anon Key not provided. Some features will be unavailable.');
+    }
+    
+    // Still create the client for demo purposes, but with feedback
+    return createClient(
+      supabaseUrl || 'https://placeholder-url.supabase.co',
+      supabaseAnonKey || 'placeholder-key'
+    );
+  } catch (error) {
+    console.error('Failed to initialize Supabase client:', error);
+    // Return a placeholder client that won't throw errors but won't actually connect
+    const mockClient = {
+      auth: {
+        signInWithPassword: async () => ({ data: null, error: { message: 'Supabase client not properly initialized' } }),
+        signUp: async () => ({ data: null, error: { message: 'Supabase client not properly initialized' } }),
+        signOut: async () => ({ error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ data: null, error: null })
+          }),
+          insert: async () => ({ error: null })
+        })
+      })
+    };
+    return mockClient as any;
+  }
+})();
 
 // Database types
 export type DbProduct = {

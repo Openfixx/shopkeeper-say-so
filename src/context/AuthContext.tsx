@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -14,13 +13,19 @@ type UserProfile = {
   preferredLanguage?: string;
 };
 
+type LoginResult = {
+  error?: {
+    message: string;
+  };
+};
+
 type AuthContextType = {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   preferredLanguage: string;
   setPreferredLanguage: (language: string) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult | undefined>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -34,16 +39,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('preferredLanguage') || 'en-US';
   });
 
-  // Save preferred language to localStorage
   useEffect(() => {
     localStorage.setItem('preferredLanguage', preferredLanguage);
   }, [preferredLanguage]);
 
-  // Check if user is already logged in
   useEffect(() => {
     setIsLoading(true);
     
-    // Get session from Supabase
     const getSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -62,7 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     getSession();
     
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session) {
@@ -78,12 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
-  
+
   const handleSession = async (session: Session) => {
     try {
       const userData = session.user;
       
-      // Get user profile data from profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -95,7 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw profileError;
       }
       
-      // Create a profile if it doesn't exist
       if (!profileData) {
         const newProfile = {
           id: userData.id,
@@ -116,7 +115,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(newProfile);
       } else {
-        // Use existing profile
         setUser({
           id: profileData.id,
           name: profileData.name,
@@ -126,7 +124,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           preferredLanguage: profileData.preferred_language || preferredLanguage
         });
         
-        // Update preferred language from profile if available
         if (profileData.preferred_language) {
           setPreferredLanguage(profileData.preferred_language);
         }
@@ -138,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<LoginResult | undefined> => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -148,14 +145,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         toast.error(error.message);
-        throw error;
+        return { error: { message: error.message } };
       }
       
       toast.success('Successfully logged in');
-    } catch (error) {
+      return undefined;
+    } catch (error: any) {
       console.error('Login error:', error);
       toast.error('Login failed');
-      throw error;
+      return { error: { message: error.message || 'Login failed' } };
     } finally {
       setIsLoading(false);
     }
@@ -209,7 +207,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleSetPreferredLanguage = async (language: string) => {
     setPreferredLanguage(language);
     
-    // If user is logged in, update their preferences in database
     if (user) {
       try {
         const { error } = await supabase
