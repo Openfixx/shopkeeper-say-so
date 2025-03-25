@@ -11,12 +11,18 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-interface BarChartProps {
+export interface BarChartProps {
   data: any[];
   xAxisKey?: string;
-  dataKey: string;
+  dataKey?: string;
   color?: string;
   height?: number;
+  index?: string;
+  categories?: string[];
+  colors?: string[];
+  valueFormatter?: (value: any) => string;
+  yAxisWidth?: number;
+  children?: React.ReactNode;
 }
 
 export const BarChart: React.FC<BarChartProps> = ({
@@ -24,8 +30,31 @@ export const BarChart: React.FC<BarChartProps> = ({
   xAxisKey = 'name',
   dataKey,
   color = '#8884d8',
-  height = 350
+  height = 350,
+  index,
+  categories,
+  colors,
+  valueFormatter,
+  yAxisWidth = 40,
+  children
 }) => {
+  // If both categories and dataKey are provided, use categories for Bar components
+  const renderBars = () => {
+    if (categories && categories.length > 0 && colors) {
+      return categories.map((category, i) => (
+        <Bar 
+          key={`bar-${category}`}
+          dataKey={category} 
+          fill={colors[i % colors.length] || color}
+          name={category}
+        />
+      ));
+    } else if (dataKey) {
+      return <Bar dataKey={dataKey} fill={color} />;
+    }
+    return null;
+  };
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RechartsBarChart
@@ -38,11 +67,19 @@ export const BarChart: React.FC<BarChartProps> = ({
         }}
       >
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey={xAxisKey} />
-        <YAxis />
-        <Tooltip />
+        <XAxis 
+          dataKey={index || xAxisKey} 
+          tick={{ fontSize: 12 }}
+        />
+        <YAxis 
+          width={yAxisWidth}
+          tickFormatter={valueFormatter}
+        />
+        <Tooltip 
+          formatter={valueFormatter ? valueFormatter : undefined}
+        />
         <Legend />
-        <Bar dataKey={dataKey} fill={color} />
+        {children || renderBars()}
       </RechartsBarChart>
     </ResponsiveContainer>
   );

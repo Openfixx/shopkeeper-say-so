@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from "@/components/ui/theme-provider"
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/context/AuthContext';
 import { InventoryProvider } from '@/context/InventoryContext';
@@ -17,10 +17,10 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import NotFound from '@/pages/NotFound';
 import ShopFinder from '@/pages/ShopFinder';
-
 // Import new components
 import Reports from '@/pages/Reports';
 import NearbyShops from '@/pages/NearbyShops';
+import VoiceScreen from '@/pages/VoiceScreen';
 import { LanguageProvider } from '@/context/LanguageContext';
 
 function App() {
@@ -33,47 +33,27 @@ function App() {
               <Toaster position="top-right" expand={false} richColors />
               <Routes>
                 <Route path="/" element={<Layout />}>
-                  <Route index element={
-                    <ProtectedRoute>
-                      <Index />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="inventory" element={
-                    <ProtectedRoute>
-                      <Inventory />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="products" element={
-                    <ProtectedRoute>
-                      <Products />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="products/add" element={
-                    <ProtectedRoute>
-                      <AddProduct />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="reports" element={
-                    <ProtectedRoute>
-                      <Reports />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="billing" element={
-                    <ProtectedRoute>
-                      <Billing />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="settings" element={
-                    <ProtectedRoute>
-                      <Settings />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="shop-finder" element={
-                    <ProtectedRoute>
-                      <ShopFinder />
-                    </ProtectedRoute>
-                  } />
+                  <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                  
+                  <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+                  
+                  <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                  
+                  <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+                  
+                  <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                  
+                  <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                  
+                  <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  
+                  <Route path="shop-finder" element={<ProtectedRoute><ShopFinder /></ProtectedRoute>} />
+                  
                   <Route path="nearby-shops" element={<NearbyShops />} />
+                  
+                  {/* Add new voice features route */}
+                  <Route path="voice" element={<ProtectedRoute><VoiceScreen /></ProtectedRoute>} />
+                  
                   <Route path="*" element={<NotFound />} />
                 </Route>
                 <Route path="/login" element={<Login />} />
