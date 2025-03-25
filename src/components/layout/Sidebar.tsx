@@ -1,109 +1,196 @@
-
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { 
-  BarChart3, 
-  BoxIcon, 
-  CreditCard, 
-  Home, 
-  LogOut, 
-  PackageIcon, 
-  Settings, 
-  Store, 
-  UserCircle 
-} from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useMobile } from '@/hooks/useMobile';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  LogOut,
+  Package2,
+  PackageSearch,
+  Receipt,
+  BarChart3,
+  Settings,
+  Store,
+  Package as PackageIcon,
+  MapPin
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { useLanguage } from '@/context/LanguageContext';
+import LanguageSelector from '@/components/ui-custom/LanguageSelector';
 
 interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
   className?: string;
 }
 
-interface SidebarIconProps {
-  icon: React.ElementType;
-  to: string;
-  tooltip: string;
-  className?: string;
-}
+const Sidebar = ({ collapsed, onToggle, className }: SidebarProps) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useMobile();
+  const { language, setLanguage, t } = useLanguage();
+  const shopType = localStorage.getItem('shop_niche') || 'General Store';
 
-const SidebarIcon: React.FC<SidebarIconProps> = ({ icon: Icon, to, tooltip, className }) => (
-  <NavLink to={to} className={({ isActive }) => "group"}>
-    {({ isActive }) => (
-      <div className={cn(
-        "sidebar-icon", 
-        isActive && "bg-primary text-primary-foreground", 
-        className
-      )}>
-        <Icon className="h-5 w-5" />
-        <span className="sidebar-tooltip group-hover:scale-100">
-          {tooltip}
-        </span>
-      </div>
-    )}
-  </NavLink>
-);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
-const Sidebar: React.FC<SidebarProps> = ({ className }) => {
-  const { user, logout } = useAuth();
-  
+  const classNames = {
+    item: `
+      group relative flex w-full items-center rounded-sm py-2 px-3 text-sm font-medium
+      transition-colors hover:bg-accent hover:text-accent-foreground
+    `,
+    active: "bg-accent text-accent-foreground",
+    collapsed: "flex h-9 w-9 items-center justify-center p-0",
+    label: `
+      relative flex items-center rounded-sm py-2 px-3 text-sm font-medium
+      transition-colors hover:bg-accent hover:text-accent-foreground
+    `,
+  };
+
+  const animation = {
+    in: {
+      opacity: 1,
+      x: 0,
+    },
+    out: {
+      opacity: 0,
+      x: -100,
+    },
+    initial: {
+      opacity: 0,
+      x: -100,
+    },
+  };
+
+  const links = [
+    { icon: LayoutDashboard, label: t('dashboard'), href: '/' },
+    { icon: Package2, label: t('products'), href: '/products' },
+    { icon: PackageSearch, label: t('inventory'), href: '/inventory' },
+    { icon: Receipt, label: t('billing'), href: '/billing' },
+    { icon: BarChart3, label: t('reports'), href: '/reports' },
+    { icon: Store, label: t('shop_finder'), href: '/shop-finder' },
+    { icon: MapPin, label: language === 'hi-IN' ? 'आसपास की दुकानें' : 'Nearby Shops', href: '/nearby-shops' },
+    { icon: Settings, label: t('settings'), href: '/settings' }
+  ];
+
   return (
-    <div className={cn("fixed top-0 left-0 h-screen w-16 m-0 flex flex-col items-center bg-sidebar py-4", className)}>
-      <div className="flex flex-col items-center justify-center mb-6">
-        <div className="sidebar-icon mb-0">
-          <Store className="h-6 w-6 text-primary" />
+    <div
+      className={cn(
+        "group flex flex-col justify-between border-r bg-background transition-all duration-300 ease-in-out",
+        collapsed ? "w-16" : "w-64",
+        className
+      )}
+    >
+      <div className="space-y-4 py-4">
+        {/* Logo and collapse button */}
+        <div className="flex items-center justify-between px-4">
+          <Link to="/" className="flex items-center gap-2">
+            <PackageIcon className="h-6 w-6 text-primary" />
+            {!collapsed && (
+              <motion.span 
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                transition={{ duration: 0.2 }}
+                className="font-bold text-lg overflow-hidden whitespace-nowrap"
+              >
+                Inventory Pro
+              </motion.span>
+            )}
+          </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onToggle}
+            className={cn("hidden md:flex", collapsed && "group-hover:opacity-100 opacity-0")}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
         </div>
-        <span className="text-xs font-medium text-sidebar-foreground">Inventory</span>
+        
+        {/* Shop type badge */}
+        {!collapsed ? (
+          <div className="mx-4 rounded-md bg-primary/10 p-2 flex items-center gap-2">
+            <Store className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium truncate">
+              {shopType}
+            </span>
+          </div>
+        ) : (
+          <div className="mx-auto w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Store className="h-4 w-4 text-primary" />
+          </div>
+        )}
+        
+        {/* Navigation links */}
+        <div className="space-y-1 px-3">
+          {links.map((link) => {
+            const isActive = location.pathname === link.href;
+            const Icon = link.icon;
+            
+            return (
+              <Link
+                key={link.href}
+                to={link.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all",
+                  isActive 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  collapsed && "justify-center py-3"
+                )}
+              >
+                <Icon className={cn("h-5 w-5", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
+                {!collapsed && (
+                  <motion.span 
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    transition={{ duration: 0.2 }}
+                    className="truncate overflow-hidden whitespace-nowrap"
+                  >
+                    {link.label}
+                  </motion.span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </div>
       
-      <div className="flex flex-col justify-center items-center flex-grow space-y-3">
-        <SidebarIcon icon={Home} to="/" tooltip="Dashboard" />
-        <SidebarIcon icon={PackageIcon} to="/products" tooltip="Products" />
-        <SidebarIcon icon={BoxIcon} to="/inventory" tooltip="Inventory" />
-        <SidebarIcon icon={CreditCard} to="/billing" tooltip="Billing" />
-        <SidebarIcon icon={BarChart3} to="/reports" tooltip="Reports" />
-        <SidebarIcon icon={Settings} to="/settings" tooltip="Settings" />
-      </div>
-      
-      <div className="mt-auto pt-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-12 w-12 rounded-full p-0">
-              <Avatar className="h-10 w-10 border-2 border-muted">
-                <AvatarImage src={undefined} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <UserCircle className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="p-4 space-y-2">
+        {/* Language selector */}
+        <div className={cn("flex", collapsed ? "justify-center" : "")}>
+          <LanguageSelector 
+            currentLanguage={language}
+            onLanguageChange={setLanguage}
+            variant="ghost"
+            size={collapsed ? "icon" : "default"}
+          />
+        </div>
+        
+        {/* Logout button */}
+        <Button 
+          variant="outline" 
+          className={cn("w-full", collapsed && "w-auto aspect-square p-2")}
+          onClick={handleLogout}
+        >
+          <LogOut className={cn("h-4 w-4", collapsed ? "" : "mr-2")} />
+          {!collapsed && (
+            <motion.span 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              transition={{ duration: 0.2 }}
+            >
+              {t('logout')}
+            </motion.span>
+          )}
+        </Button>
       </div>
     </div>
   );

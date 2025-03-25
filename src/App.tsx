@@ -1,88 +1,89 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from "@/components/ui/theme-provider"
+import { Toaster } from 'sonner';
+import { AuthProvider } from '@/context/AuthContext';
+import { InventoryProvider } from '@/context/InventoryContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Layout from '@/components/layout/Layout';
+import Index from '@/pages/Index';
+import Inventory from '@/pages/Inventory';
+import Products from '@/pages/Products';
+import AddProduct from '@/pages/AddProduct';
+import Billing from '@/pages/Billing';
+import Settings from '@/pages/Settings';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import NotFound from '@/pages/NotFound';
+import ShopFinder from '@/pages/ShopFinder';
 
-import { useState, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Layout from "./components/layout/Layout";
-import { AuthProvider } from "./context/AuthContext";
-import { InventoryProvider } from "./context/InventoryContext";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+// Import new components
+import Reports from '@/pages/Reports';
+import NearbyShops from '@/pages/NearbyShops';
+import { LanguageProvider } from '@/context/LanguageContext';
 
-// Pages
-import Index from "./pages/Index";
-import Products from "./pages/Products";
-import AddProduct from "./pages/AddProduct";
-import Inventory from "./pages/Inventory";
-import Billing from "./pages/Billing";
-import Settings from "./pages/Settings";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ShopFinder from "./pages/ShopFinder";
-import NotFound from "./pages/NotFound";
-
-// For animation libraries
-import { motion, AnimatePresence } from "framer-motion";
-
-// Create the query client
-const queryClient = new QueryClient();
-
-// Check if Supabase environment variables are set
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const App = () => {
-  const [envMissing, setEnvMissing] = useState(false);
-
-  useEffect(() => {
-    // Check if environment variables are set
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setEnvMissing(true);
-      console.warn(
-        "Supabase credentials missing. Using demo mode instead."
-      );
-    }
-  }, []);
-
-  // Don't show the error screen, instead use the application with mock data
-  // This allows users to use the app without setting up Supabase
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+    <BrowserRouter>
+      <LanguageProvider>
         <AuthProvider>
           <InventoryProvider>
-            <Toaster />
-            <Sonner position="top-right" closeButton />
-            {envMissing && (
-              <div className="fixed top-0 left-0 right-0 z-50 bg-amber-100 text-amber-800 p-2 text-sm text-center">
-                Running in demo mode. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env file for full functionality.
-              </div>
-            )}
-            <BrowserRouter>
-              <Layout>
-                <AnimatePresence mode="wait">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/products" element={<Products />} />
-                    <Route path="/products/add" element={<AddProduct />} />
-                    <Route path="/inventory" element={<Inventory />} />
-                    <Route path="/billing" element={<Billing />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/shop-finder" element={<ShopFinder />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AnimatePresence>
-              </Layout>
-            </BrowserRouter>
+            <ThemeProvider defaultTheme="light" storageKey="ui-theme">
+              <Toaster position="top-right" expand={false} richColors />
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={
+                    <ProtectedRoute>
+                      <Index />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="inventory" element={
+                    <ProtectedRoute>
+                      <Inventory />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="products" element={
+                    <ProtectedRoute>
+                      <Products />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="products/add" element={
+                    <ProtectedRoute>
+                      <AddProduct />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="reports" element={
+                    <ProtectedRoute>
+                      <Reports />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="billing" element={
+                    <ProtectedRoute>
+                      <Billing />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="settings" element={
+                    <ProtectedRoute>
+                      <Settings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="shop-finder" element={
+                    <ProtectedRoute>
+                      <ShopFinder />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="nearby-shops" element={<NearbyShops />} />
+                  <Route path="*" element={<NotFound />} />
+                </Route>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+              </Routes>
+            </ThemeProvider>
           </InventoryProvider>
         </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+      </LanguageProvider>
+    </BrowserRouter>
   );
-};
+}
 
 export default App;

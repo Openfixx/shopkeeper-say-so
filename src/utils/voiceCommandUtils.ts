@@ -43,52 +43,133 @@ export function extractProductDetails(command: string): ProductDetail {
   const result: ProductDetail = {};
   const lowerCmd = command.toLowerCase();
 
-  // Extract product name
-  const namePatterns = [
-    /add (a |an |)(?:new |)product (?:called |named |)([a-zA-Z0-9 ]+)/i,
-    /add ([a-zA-Z0-9 ]+) to inventory/i,
-    /add ([a-zA-Z0-9 ]+) to products/i,
-    /create (?:a |)(?:new |)product (?:called |named |)([a-zA-Z0-9 ]+)/i,
+  // More sophisticated product name extraction
+  // Try to identify potential product names in the command
+  const productPatterns = [
+    /add\s+(?:\d+(?:\.\d+)?)\s*(?:kg|g|liters?|l|ml|pcs|pieces|units|boxes|packs|bottles)\s+(?:of\s+)?([a-zA-Z0-9 ]+)(?:\s+(?:in|on|at|to))?/i,
+    /add\s+([a-zA-Z0-9 ]+)(?:\s+(?:\d+(?:\.\d+)?)\s*(?:kg|g|liters?|l|ml|pcs|pieces|units|boxes|packs|bottles))/i,
+    /add\s+(?:a\s+|an\s+|)(?:new\s+|)(?:product\s+)?([a-zA-Z0-9 ]+)(?:\s+(?:\d+(?:\.\d+)?)\s*(?:kg|g|liters?|l|ml|pcs|pieces|units|boxes|packs|bottles))?/i,
   ];
 
-  for (const pattern of namePatterns) {
+  // Try each pattern to extract product name
+  for (const pattern of productPatterns) {
     const match = lowerCmd.match(pattern);
     if (match && match[1]) {
-      result.name = match[1].trim();
+      // Clean up the product name by removing units and positions
+      let possibleName = match[1].trim();
+      
+      // Remove common units from the name if they somehow got included
+      possibleName = possibleName.replace(/\b(?:kg|g|litre|liter|l|ml|pcs|pieces|units|boxes|packs|bottles)\b/gi, '').trim();
+      
+      // Remove position information if it got captured
+      possibleName = possibleName.replace(/\b(?:in|on|at)\s+(?:rack|shelf|position|location)\s+\d+\b/gi, '').trim();
+      
+      // Remove "of" if it's in the beginning
+      possibleName = possibleName.replace(/^of\s+/i, '').trim();
+      
+      // If after all the cleanup we still have a valid name (at least 2 chars)
+      if (possibleName.length >= 2) {
+        result.name = possibleName;
+        break;
+      }
+    }
+  }
+
+  // If no name found with the sophisticated patterns, try a simpler approach
+  if (!result.name) {
+    // Split the command to find potential product name
+    const words = lowerCmd.split(' ');
+    const addIndex = words.findIndex(w => w === 'add');
+    
+    if (addIndex !== -1 && words.length > addIndex + 1) {
+      // Start with the word after "add"
+      let startIndex = addIndex + 1;
+      
+      // Skip words like "a", "an", "new", "product"
+      while (startIndex < words.length && 
+             ['a', 'an', 'new', 'product', 'the'].includes(words[startIndex])) {
+        startIndex++;
+      }
+      
+      if (startIndex < words.length) {
+        // Extract a possible product name (1-3 words)
+        const nameCandidate = words.slice(startIndex, startIndex + 3).join(' ');
+        result.name = nameCandidate.trim();
+      }
+    }
+  }
+
+  // Extract quantity with improved pattern matching
+  const quantityPatterns = [
+    /(\d+\.?\d*)\s*(?:kg|kilograms?|kilos?)\b/i,
+    /(\d+\.?\d*)\s*(?:g|grams?)\b/i,
+    /(\d+\.?\d*)\s*(?:l|liters?|litres?)\b/i,
+    /(\d+\.?\d*)\s*(?:ml|milliliters?|millilitres?)\b/i,
+    /(\d+\.?\d*)\s*(?:pcs|pieces|units|boxes|packs|bottles)\b/i,
+    /(\d+\.?\d*)\s*(?:m|meters?|metres?)\b/i,
+    /(\d+\.?\d*)\s*(?:cm|centimeters?|centimetres?)\b/i,
+    /(\d+\.?\d*)\s*(?:lb|pounds?)\b/i,
+    /(\d+\.?\d*)\s*(?:oz|ounces?)\b/i,
+    /(\d+\.?\d*)\s*(?:fl oz|fluid ounces?)\b/i,
+    /(\d+\.?\d*)\s*(?:gal|gallons?)\b/i,
+    /(\d+\.?\d*)\s*(?:ft|feet|foot)\b/i,
+    /(\d+\.?\d*)\s*(?:in|inches?)\b/i,
+  ];
+
+  for (const pattern of quantityPatterns) {
+    const match = lowerCmd.match(pattern);
+    if (match && match[1]) {
+      result.quantity = parseFloat(match[1]);
+      
+      // Extract unit from the match
+      const unitMatch = lowerCmd.substr(match.index + match[1].length).match(/^\s*([a-zA-Z ]+)\b/i);
+      if (unitMatch && unitMatch[1]) {
+        result.unit = unitMatch[1].trim().toLowerCase();
+      }
+      
       break;
     }
   }
 
-  // If no name found yet, try a simple "add X" pattern
-  if (!result.name && lowerCmd.startsWith('add ')) {
-    const parts = lowerCmd.slice(4).split(' ');
-    if (parts.length > 0) {
-      // Use the first word after "add" as the product name
-      result.name = parts[0];
+  // Extract position/location with improved pattern matching
+  const positionPatterns = [
+    /(?:in|on|at)\s+(?:rack|shelf|position|location)\s+(?:number\s+)?(\d+)/i,
+    /(?:rack|shelf|position|location)\s+(?:number\s+)?(\d+)/i,
+    /(?:in|on|at)\s+(?:the\s+)?(\w+)\s+(?:rack|shelf|position|location)/i,
+  ];
+
+  for (const pattern of positionPatterns) {
+    const match = lowerCmd.match(pattern);
+    if (match && match[1]) {
+      if (/^\d+$/.test(match[1])) {
+        // If it's a number, format it as "Rack X" or "Shelf X"
+        result.position = lowerCmd.includes('shelf') ? 
+          `Shelf ${match[1]}` : `Rack ${match[1]}`;
+      } else {
+        // Otherwise use the descriptor (e.g., "top shelf")
+        result.position = `${match[1]} ${lowerCmd.includes('shelf') ? 'shelf' : 'rack'}`;
+      }
+      break;
     }
   }
 
-  // Extract quantity
-  const quantityMatch = lowerCmd.match(/(\d+\.?\d*) (kg|g|pcs|liters|pieces|units|boxes)/i);
-  if (quantityMatch) {
-    result.quantity = parseFloat(quantityMatch[1]);
-    result.unit = quantityMatch[2].toLowerCase();
-  }
+  // Extract price with improved pattern matching
+  const pricePatterns = [
+    /(?:price|cost|worth|value)(?:\s+is|\s+of)?\s+(?:rs\.?|₹|inr)?\s*(\d+\.?\d*)/i,
+    /(?:rs\.?|₹|inr)\s*(\d+\.?\d*)/i,
+    /(\d+\.?\d*)\s*(?:rupees|rs\.?|₹|inr)/i,
+  ];
 
-  // Extract price
-  const priceMatch = lowerCmd.match(/(?:price|cost|worth|value)(?: is| of)? (\d+\.?\d*)(?:\s|)(?:dollars|rupees|rs|₹|\$|€|£|)/i);
-  if (priceMatch) {
-    result.price = parseFloat(priceMatch[1]);
-  }
-
-  // Extract position/location
-  const positionMatch = lowerCmd.match(/(?:in|on|at) (rack|shelf|position|location) ([a-zA-Z0-9 ]+)/i);
-  if (positionMatch) {
-    result.position = `${positionMatch[1]} ${positionMatch[2]}`.trim();
+  for (const pattern of pricePatterns) {
+    const match = lowerCmd.match(pattern);
+    if (match && match[1]) {
+      result.price = parseFloat(match[1]);
+      break;
+    }
   }
 
   // Extract expiry date
-  const expiryMatch = lowerCmd.match(/(?:expiry|expiration|expires)(?:date| date|) (?:is |on |)([a-zA-Z0-9 ,-]+)/i);
+  const expiryMatch = lowerCmd.match(/(?:expiry|expiration|expires)(?:date| date|)\s+(?:is\s+|on\s+|)([a-zA-Z0-9 ,-]+)/i);
   if (expiryMatch) {
     const dateStr = expiryMatch[1].trim();
     

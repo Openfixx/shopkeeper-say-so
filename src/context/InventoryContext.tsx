@@ -1,10 +1,10 @@
-
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { supabase, DbProduct, DbBill, DbBillItem, DbShop, DbStockAlert } from '@/lib/supabase';
-import { useAuth } from './AuthContext';
-import { checkProductInSharedDatabase } from '@/utils/voiceCommandUtils';
+import type { DbProduct, DbBill, DbBillItem } from '@/lib/supabase';
 
+// Define types
 export type Product = {
   id: string;
   name: string;
@@ -15,10 +15,11 @@ export type Product = {
   price: number;
   image?: string;
   barcode?: string;
+  stockAlert?: number;
   createdAt: string;
   updatedAt: string;
-  shared?: boolean;
-  stockAlert?: number;
+  shopId?: string;
+  userId: string;
 };
 
 export type BillItem = {
@@ -34,186 +35,178 @@ export type Bill = {
   id: string;
   items: BillItem[];
   total: number;
-  deliveryOption?: boolean;
-  paymentMethod?: string;
-  partialPayment?: boolean;
+  deliveryOption: boolean;
+  paymentMethod: string;
+  partialPayment: boolean;
   createdAt: string;
+  userId: string;
 };
 
-export type Shop = {
-  id: string;
-  name: string;
-  type: 'Grocery' | 'Electronics' | 'Clothing' | 'Pharmacy' | string;
-  location: string;
-  distance?: number;
-  products?: string[]; // Product IDs
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type StockAlert = {
-  id: string;
-  productId: string;
-  threshold: number;
-  notificationSent: boolean;
-  createdAt: string;
-};
-
-type InventoryContextType = {
+interface InventoryContextType {
   products: Product[];
   bills: Bill[];
-  currentBill: Bill | null;
-  shops: Shop[];
-  stockAlerts: StockAlert[];
-  currentShopType: string;
   isLoading: boolean;
-  
-  // Product functions
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProduct: (id: string, updates: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
-  findProduct: (query: string) => Product[];
-  checkSharedDatabase: (name: string) => Promise<Product | null>;
-  scanBarcode: (barcode: string) => Promise<Product | null>;
-  
-  // Bill functions
+  error: string | null;
+  currentBill: {
+    id: string;
+    items: BillItem[];
+    total: number;
+  } | null;
   startNewBill: () => void;
   addToBill: (productId: string, quantity: number) => void;
   removeFromBill: (productId: string) => void;
+  updateBillItem: (productId: string, quantity: number) => void;
+  updateBillItemQuantity: (productId: string, quantity: number) => void;
+  updateBillItemUnit: (productId: string, unit: string) => void;
   completeBill: () => void;
-  cancelBill: () => void;
-  updateBillOptions: (options: {
-    deliveryOption?: boolean;
-    paymentMethod?: string;
-    partialPayment?: boolean;
-  }) => void;
-  
-  // Shop functions
-  findNearbyShops: (query: string, distance?: number, type?: string) => Shop[];
-  setShopType: (type: string) => void;
-  
-  // Stock alert functions
-  setStockAlert: (productId: string, threshold: number) => void;
-  removeStockAlert: (alertId: string) => void;
-  checkStockAlerts: () => void;
-};
+  findProduct: (query: string) => Product[];
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
+  editProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  refetchBills: () => Promise<void>;
+  refetchProducts: () => Promise<void>;
+}
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
+export const useInventory = () => {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error('useInventory must be used within an InventoryProvider');
+  }
+  return context;
+};
+
 export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
-  const [currentBill, setCurrentBill] = useState<Bill | null>(null);
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
-  const [currentShopType, setCurrentShopType] = useState<string>(() => {
-    return localStorage.getItem('shop_niche') || 'Grocery';
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentBill, setCurrentBill] = useState<{
+    id: string;
+    items: BillItem[];
+    total: number;
+  } | null>(null);
 
-  // Initial data loading
+  // Fetch products and bills on mount
   useEffect(() => {
-    const loadData = async () => {
-      if (!user) {
-        // If no user is logged in, we can't load data
-        setIsLoading(false);
-        return;
-      }
-      
+    const fetchData = async () => {
       setIsLoading(true);
-      await Promise.all([
-        fetchProducts(),
-        fetchBills(),
-        fetchShops(),
-        fetchStockAlerts()
-      ]);
-      setIsLoading(false);
+      try {
+        await Promise.all([fetchProducts(), fetchBills()]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load data. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    loadData();
-  }, [user]);
-
-  // Save shop type to localStorage
-  useEffect(() => {
-    localStorage.setItem('shop_niche', currentShopType);
-  }, [currentShopType]);
+    fetchData();
+  }, []);
 
   // Fetch products from Supabase
   const fetchProducts = async () => {
-    if (!user) return;
-    
     try {
+      // Get user ID from session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+
+      if (!userId) {
+        console.warn('No user ID found, using demo data');
+        // Use demo data if no user ID
+        setProducts(generateDemoProducts());
+        return;
+      }
+
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user.id);
-        
+        .eq('user_id', userId);
+
       if (error) {
-        console.error('Error fetching products:', error);
-        return;
+        throw error;
       }
-      
-      const formattedProducts: Product[] = data.map((item: DbProduct) => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        position: item.position,
-        expiry: item.expiry,
-        price: item.price,
-        image: item.image_url,
-        barcode: item.barcode,
-        stockAlert: item.stock_alert,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      }));
-      
-      setProducts(formattedProducts);
+
+      if (data) {
+        const formattedProducts: Product[] = data.map((item: DbProduct) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          position: item.position,
+          expiry: item.expiry,
+          price: item.price,
+          image: item.image_url,
+          barcode: item.barcode,
+          stockAlert: item.stock_alert,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+          shopId: item.shop_id,
+          userId: item.user_id,
+        }));
+        setProducts(formattedProducts);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
+      // Fallback to demo data
+      setProducts(generateDemoProducts());
     }
   };
 
   // Fetch bills from Supabase
   const fetchBills = async () => {
-    if (!user) return;
-    
     try {
+      // Get user ID from session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+
+      if (!userId) {
+        console.warn('No user ID found, using demo data');
+        // Use demo data if no user ID
+        setBills(generateDemoBills());
+        return;
+      }
+
       // Fetch bills
       const { data: billsData, error: billsError } = await supabase
         .from('bills')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
-        
+
       if (billsError) {
-        console.error('Error fetching bills:', billsError);
+        throw billsError;
+      }
+
+      if (!billsData) {
+        setBills([]);
         return;
       }
-      
-      // For each bill, fetch its items
-      const billsWithItems = await Promise.all(
+
+      // Fetch bill items for each bill
+      const billsWithItems: Bill[] = await Promise.all(
         billsData.map(async (bill: DbBill) => {
           const { data: itemsData, error: itemsError } = await supabase
             .from('bill_items')
             .select('*, products(*)')
             .eq('bill_id', bill.id);
-            
+
           if (itemsError) {
-            console.error(`Error fetching items for bill ${bill.id}:`, itemsError);
-            return null;
+            throw itemsError;
           }
-          
-          const items: BillItem[] = itemsData.map((item: any) => ({
-            productId: item.product_id,
-            name: item.products.name,
-            quantity: item.quantity,
-            unit: item.products.unit,
-            price: item.price,
-            total: item.total
-          }));
-          
+
+          const items: BillItem[] = itemsData
+            ? itemsData.map((item: DbBillItem & { products: DbProduct }) => ({
+                productId: item.product_id,
+                name: item.products?.name || 'Unknown Product',
+                quantity: item.quantity,
+                unit: item.products?.unit || 'pcs',
+                price: item.price,
+                total: item.total,
+              }))
+            : [];
+
           return {
             id: bill.id,
             items,
@@ -221,713 +214,448 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             deliveryOption: bill.delivery_option,
             paymentMethod: bill.payment_method,
             partialPayment: bill.partial_payment,
-            createdAt: bill.created_at
+            createdAt: bill.created_at,
+            userId: bill.user_id,
           };
         })
       );
-      
-      setBills(billsWithItems.filter(Boolean) as Bill[]);
+
+      setBills(billsWithItems);
     } catch (error) {
       console.error('Error fetching bills:', error);
+      // Fallback to demo data
+      setBills(generateDemoBills());
     }
   };
 
-  // Fetch shops from Supabase
-  const fetchShops = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error('Error fetching shops:', error);
-        return;
-      }
-      
-      const formattedShops: Shop[] = data.map((item: DbShop) => ({
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        location: item.location,
-        distance: item.distance,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      }));
-      
-      setShops(formattedShops);
-    } catch (error) {
-      console.error('Error fetching shops:', error);
-    }
-  };
-
-  // Fetch stock alerts from Supabase
-  const fetchStockAlerts = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('stock_alerts')
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error('Error fetching stock alerts:', error);
-        return;
-      }
-      
-      const formattedAlerts: StockAlert[] = data.map((item: DbStockAlert) => ({
-        id: item.id,
-        productId: item.product_id,
-        threshold: item.threshold,
-        notificationSent: item.notification_sent,
-        createdAt: item.created_at
-      }));
-      
-      setStockAlerts(formattedAlerts);
-    } catch (error) {
-      console.error('Error fetching stock alerts:', error);
-    }
-  };
-
-  // Product functions
-  const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!user) {
-      toast.error('You must be logged in to add products');
-      return;
-    }
-    
-    try {
-      const newProductData = {
-        name: product.name,
-        quantity: product.quantity,
-        unit: product.unit,
-        position: product.position,
-        expiry: product.expiry,
-        price: product.price,
-        image_url: product.image,
-        barcode: product.barcode,
-        stock_alert: product.stockAlert,
-        user_id: user.id
-      };
-      
-      const { data, error } = await supabase
-        .from('products')
-        .insert([newProductData])
-        .select()
-        .single();
-        
-      if (error) {
-        console.error('Error adding product:', error);
-        toast.error('Failed to add product');
-        return;
-      }
-      
-      const newProduct: Product = {
-        id: data.id,
-        name: data.name,
-        quantity: data.quantity,
-        unit: data.unit,
-        position: data.position,
-        expiry: data.expiry,
-        price: data.price,
-        image: data.image_url,
-        barcode: data.barcode,
-        stockAlert: data.stock_alert,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-      
-      setProducts(prev => [...prev, newProduct]);
-      toast.success(`${product.name} added to inventory`);
-    } catch (error) {
-      console.error('Error adding product:', error);
-      toast.error('Failed to add product');
-    }
-  };
-
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
-    if (!user) return;
-    
-    try {
-      // Convert from frontend model to database model
-      const dbUpdates: Partial<DbProduct> = {
-        ...(updates.name !== undefined && { name: updates.name }),
-        ...(updates.quantity !== undefined && { quantity: updates.quantity }),
-        ...(updates.unit !== undefined && { unit: updates.unit }),
-        ...(updates.position !== undefined && { position: updates.position }),
-        ...(updates.expiry !== undefined && { expiry: updates.expiry }),
-        ...(updates.price !== undefined && { price: updates.price }),
-        ...(updates.image !== undefined && { image_url: updates.image }),
-        ...(updates.barcode !== undefined && { barcode: updates.barcode }),
-        ...(updates.stockAlert !== undefined && { stock_alert: updates.stockAlert }),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error } = await supabase
-        .from('products')
-        .update(dbUpdates)
-        .eq('id', id)
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error('Error updating product:', error);
-        toast.error('Failed to update product');
-        return;
-      }
-      
-      // Update local state
-      setProducts(prev => 
-        prev.map(product => 
-          product.id === id 
-            ? { 
-                ...product, 
-                ...updates, 
-                updatedAt: new Date().toISOString() 
-              } 
-            : product
-        )
-      );
-      toast.success('Product updated');
-    } catch (error) {
-      console.error('Error updating product:', error);
-      toast.error('Failed to update product');
-    }
-  };
-
-  const deleteProduct = async (id: string) => {
-    if (!user) return;
-    
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error('Error deleting product:', error);
-        toast.error('Failed to delete product');
-        return;
-      }
-      
-      setProducts(prev => prev.filter(product => product.id !== id));
-      toast.success('Product removed from inventory');
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Failed to delete product');
-    }
-  };
-
-  const findProduct = (query: string) => {
-    const lowercaseQuery = query.toLowerCase();
-    return products.filter(
-      product => 
-        product.name.toLowerCase().includes(lowercaseQuery) || 
-        product.position.toLowerCase().includes(lowercaseQuery)
-    );
-  };
-  
-  const checkSharedDatabase = async (name: string): Promise<Product | null> => {
-    try {
-      const sharedProduct = await checkProductInSharedDatabase(name);
-      if (sharedProduct) {
-        // Convert to local Product format
-        const newProduct: Product = {
-          id: Date.now().toString(),
-          name: sharedProduct.name || name,
-          quantity: 0, // Need to set initial quantity
-          unit: sharedProduct.unit || 'kg',
-          position: '',
-          price: sharedProduct.price || 0,
-          image: sharedProduct.image || '/placeholder.svg',
-          shared: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        return newProduct;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error checking shared database:', error);
-      return null;
-    }
-  };
-  
-  const scanBarcode = async (barcode: string): Promise<Product | null> => {
-    // First check if product exists in local inventory
-    const existingProduct = products.find(p => p.barcode === barcode);
-    if (existingProduct) return existingProduct;
-    
-    try {
-      // Check if product exists in Supabase's shared barcode database table
-      const { data, error } = await supabase
-        .from('barcode_products')
-        .select('*')
-        .eq('barcode', barcode)
-        .single();
-        
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No data found, use mock data as fallback
-          return mockBarcodeData(barcode);
-        }
-        console.error('Error scanning barcode:', error);
-        return null;
-      }
-      
-      // Convert to local Product format
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        name: data.name,
-        quantity: 0, // Needs to be set by user
-        unit: data.unit || 'pcs',
-        position: '',
-        price: data.price || 0,
-        image: data.image_url || '/placeholder.svg',
-        barcode: barcode,
+  // Generate demo products
+  const generateDemoProducts = (): Product[] => {
+    return [
+      {
+        id: '1',
+        name: 'Rice',
+        quantity: 25,
+        unit: 'kg',
+        position: 'Rack 1',
+        price: 50,
+        image: 'https://images.unsplash.com/photo-1568347877321-f8935c7dc5a8?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        shared: true
-      };
-      
-      return newProduct;
-    } catch (error) {
-      console.error('Error scanning barcode:', error);
-      return mockBarcodeData(barcode);
-    }
-  };
-  
-  // Mock barcode data as fallback
-  const mockBarcodeData = (barcode: string): Promise<Product | null> => {
-    const barcodes: Record<string, Partial<Product>> = {
-      '8901234567890': {
-        name: 'Sugar',
-        unit: 'kg',
-        price: 45,
-        image: '/placeholder.svg',
-        barcode: '8901234567890'
+        userId: 'demo-user',
       },
-      '8901234567891': {
-        name: 'Rice',
+      {
+        id: '2',
+        name: 'Sugar',
+        quantity: 10,
         unit: 'kg',
-        price: 60,
-        image: '/placeholder.svg',
-        barcode: '8901234567891'
-      }
-    };
-    
-    return new Promise(resolve => {
-      setTimeout(() => {
-        if (barcode in barcodes) {
-          // Create a temp product (user would need to save to inventory)
-          const newProduct: Product = {
-            id: Date.now().toString(),
-            name: barcodes[barcode].name || 'Unknown Product',
-            quantity: 0, // Needs to be set by user
-            unit: barcodes[barcode].unit || 'pcs',
-            position: '',
-            price: barcodes[barcode].price || 0,
-            image: barcodes[barcode].image || '/placeholder.svg',
-            barcode: barcode,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            shared: true
-          };
-          resolve(newProduct);
-        } else {
-          resolve(null);
-        }
-      }, 500); // Simulate network delay
-    });
+        position: 'Rack 2',
+        price: 40,
+        image: 'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: 'demo-user',
+      },
+      {
+        id: '3',
+        name: 'Flour',
+        quantity: 15,
+        unit: 'kg',
+        position: 'Rack 1',
+        price: 30,
+        image: 'https://images.unsplash.com/photo-1627485937980-221ea163c3c3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: 'demo-user',
+      },
+      {
+        id: '4',
+        name: 'Oil',
+        quantity: 5,
+        unit: 'liters',
+        position: 'Rack 3',
+        price: 120,
+        image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: 'demo-user',
+      },
+      {
+        id: '5',
+        name: 'Salt',
+        quantity: 2,
+        unit: 'kg',
+        position: 'Rack 2',
+        price: 20,
+        image: 'https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: 'demo-user',
+      },
+    ];
   };
 
-  // Bill functions
+  // Generate demo bills
+  const generateDemoBills = (): Bill[] => {
+    const demoProducts = generateDemoProducts();
+    
+    return [
+      {
+        id: '1',
+        items: [
+          {
+            productId: demoProducts[0].id,
+            name: demoProducts[0].name,
+            quantity: 2,
+            unit: demoProducts[0].unit,
+            price: demoProducts[0].price,
+            total: 2 * demoProducts[0].price,
+          },
+          {
+            productId: demoProducts[1].id,
+            name: demoProducts[1].name,
+            quantity: 1,
+            unit: demoProducts[1].unit,
+            price: demoProducts[1].price,
+            total: 1 * demoProducts[1].price,
+          },
+        ],
+        total: 2 * demoProducts[0].price + 1 * demoProducts[1].price,
+        deliveryOption: false,
+        paymentMethod: 'cash',
+        partialPayment: false,
+        createdAt: new Date().toISOString(),
+        userId: 'demo-user',
+      },
+      {
+        id: '2',
+        items: [
+          {
+            productId: demoProducts[2].id,
+            name: demoProducts[2].name,
+            quantity: 3,
+            unit: demoProducts[2].unit,
+            price: demoProducts[2].price,
+            total: 3 * demoProducts[2].price,
+          },
+        ],
+        total: 3 * demoProducts[2].price,
+        deliveryOption: true,
+        paymentMethod: 'card',
+        partialPayment: false,
+        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+        userId: 'demo-user',
+      },
+    ];
+  };
+
+  // Start a new bill
   const startNewBill = () => {
     setCurrentBill({
-      id: Date.now().toString(),
+      id: uuidv4(),
       items: [],
       total: 0,
-      createdAt: new Date().toISOString(),
     });
   };
 
+  // Add a product to the current bill
   const addToBill = (productId: string, quantity: number) => {
-    const product = products.find(p => p.id === productId);
-    
-    if (!product) {
-      toast.error('Product not found');
-      return;
-    }
-    
-    if (product.quantity < quantity) {
-      toast.error(`Only ${product.quantity} ${product.unit} available`);
-      return;
-    }
-    
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
     if (!currentBill) {
       startNewBill();
     }
-    
-    setCurrentBill(prev => {
-      if (!prev) return null;
-      
-      const existingItemIndex = prev.items.findIndex(item => item.productId === productId);
-      let newItems: BillItem[];
-      
+
+    if (currentBill) {
+      // Check if product already exists in bill
+      const existingItemIndex = currentBill.items.findIndex(
+        (item) => item.productId === productId
+      );
+
+      let updatedItems;
       if (existingItemIndex >= 0) {
         // Update existing item
-        newItems = [...prev.items];
-        newItems[existingItemIndex].quantity += quantity;
-        newItems[existingItemIndex].total = newItems[existingItemIndex].quantity * newItems[existingItemIndex].price;
+        updatedItems = [...currentBill.items];
+        const existingItem = updatedItems[existingItemIndex];
+        updatedItems[existingItemIndex] = {
+          ...existingItem,
+          quantity: existingItem.quantity + quantity,
+          total: (existingItem.quantity + quantity) * existingItem.price,
+        };
       } else {
         // Add new item
-        newItems = [
-          ...prev.items,
+        updatedItems = [
+          ...currentBill.items,
           {
             productId,
             name: product.name,
             quantity,
             unit: product.unit,
             price: product.price,
-            total: product.price * quantity,
-          }
+            total: quantity * product.price,
+          },
         ];
       }
-      
+
       // Calculate new total
-      const newTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-      
-      return {
-        ...prev,
-        items: newItems,
-        total: newTotal,
-      };
-    });
-    
-    // Update product quantity
-    updateProduct(productId, { 
-      quantity: product.quantity - quantity 
-    });
-    
-    toast.success(`Added ${quantity} ${product.unit} of ${product.name} to bill`);
+      const total = updatedItems.reduce((sum, item) => sum + item.total, 0);
+
+      setCurrentBill({
+        ...currentBill,
+        items: updatedItems,
+        total,
+      });
+
+      toast.success(`Added ${product.name} to bill`);
+    }
   };
 
+  // Remove a product from the current bill
   const removeFromBill = (productId: string) => {
     if (!currentBill) return;
-    
-    const billItem = currentBill.items.find(item => item.productId === productId);
-    if (!billItem) return;
-    
-    // Restore product quantity
-    const product = products.find(p => p.id === productId);
-    if (product) {
-      updateProduct(productId, { 
-        quantity: product.quantity + billItem.quantity 
-      });
-    }
-    
-    // Remove item from bill
-    setCurrentBill(prev => {
-      if (!prev) return null;
-      
-      const newItems = prev.items.filter(item => item.productId !== productId);
-      const newTotal = newItems.reduce((sum, item) => sum + item.total, 0);
-      
-      return {
-        ...prev,
-        items: newItems,
-        total: newTotal,
-      };
+
+    const updatedItems = currentBill.items.filter(
+      (item) => item.productId !== productId
+    );
+    const total = updatedItems.reduce((sum, item) => sum + item.total, 0);
+
+    setCurrentBill({
+      ...currentBill,
+      items: updatedItems,
+      total,
     });
-    
-    toast.success(`Removed ${billItem.name} from bill`);
-  };
-  
-  const updateBillOptions = (options: {
-    deliveryOption?: boolean;
-    paymentMethod?: string;
-    partialPayment?: boolean;
-  }) => {
-    if (!currentBill) return;
-    
-    setCurrentBill(prev => {
-      if (!prev) return null;
-      
-      return {
-        ...prev,
-        ...options
-      };
-    });
-    
-    toast.success('Bill options updated');
+
+    toast.success('Item removed from bill');
   };
 
+  // Update a bill item
+  const updateBillItem = (productId: string, quantity: number) => {
+    if (!currentBill) return;
+
+    const updatedItems = currentBill.items.map((item) => {
+      if (item.productId === productId) {
+        return {
+          ...item,
+          quantity,
+          total: quantity * item.price,
+        };
+      }
+      return item;
+    });
+
+    const total = updatedItems.reduce((sum, item) => sum + item.total, 0);
+
+    setCurrentBill({
+      ...currentBill,
+      items: updatedItems,
+      total,
+    });
+  };
+
+  // Add these new functions
+  const updateBillItemQuantity = (productId: string, quantity: number) => {
+    if (!currentBill) return;
+    
+    const updatedItems = currentBill.items.map(item => {
+      if (item.productId === productId) {
+        const price = item.price;
+        return {
+          ...item,
+          quantity: quantity,
+          total: price * quantity
+        };
+      }
+      return item;
+    });
+    
+    const total = updatedItems.reduce((sum, item) => sum + item.total, 0);
+    
+    setCurrentBill({
+      ...currentBill,
+      items: updatedItems,
+      total: total
+    });
+  };
+
+  const updateBillItemUnit = (productId: string, unit: string) => {
+    if (!currentBill) return;
+    
+    const updatedItems = currentBill.items.map(item => {
+      if (item.productId === productId) {
+        return {
+          ...item,
+          unit: unit
+        };
+      }
+      return item;
+    });
+    
+    setCurrentBill({
+      ...currentBill,
+      items: updatedItems
+    });
+  };
+
+  // Complete the current bill
   const completeBill = async () => {
-    if (!user) {
-      toast.error('You must be logged in to complete a bill');
-      return;
-    }
-    
-    if (!currentBill || currentBill.items.length === 0) {
-      toast.error('Cannot complete an empty bill');
-      return;
-    }
-    
+    if (!currentBill || currentBill.items.length === 0) return;
+
     try {
-      // Create the bill in Supabase
-      const { data: billData, error: billError } = await supabase
-        .from('bills')
-        .insert([{
-          total: currentBill.total,
-          delivery_option: currentBill.deliveryOption || false,
-          payment_method: currentBill.paymentMethod || 'cash',
-          partial_payment: currentBill.partialPayment || false,
-          user_id: user.id
-        }])
-        .select()
-        .single();
-        
-      if (billError) {
-        console.error('Error creating bill:', billError);
-        toast.error('Failed to complete bill');
-        return;
+      // Get user ID from session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id || 'demo-user';
+
+      const newBill: Bill = {
+        id: currentBill.id,
+        items: currentBill.items,
+        total: currentBill.total,
+        deliveryOption: false,
+        paymentMethod: 'cash',
+        partialPayment: false,
+        createdAt: new Date().toISOString(),
+        userId,
+      };
+
+      // In a real app, we would save to Supabase here
+      // For demo, just add to local state
+      setBills([newBill, ...bills]);
+
+      // Update product quantities
+      const updatedProducts = [...products];
+      for (const item of currentBill.items) {
+        const productIndex = updatedProducts.findIndex(
+          (p) => p.id === item.productId
+        );
+        if (productIndex >= 0) {
+          updatedProducts[productIndex] = {
+            ...updatedProducts[productIndex],
+            quantity: Math.max(
+              0,
+              updatedProducts[productIndex].quantity - item.quantity
+            ),
+          };
+        }
       }
-      
-      // Create bill items
-      const billItems = currentBill.items.map(item => ({
-        bill_id: billData.id,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-        total: item.total,
-        user_id: user.id
-      }));
-      
-      const { error: itemsError } = await supabase
-        .from('bill_items')
-        .insert(billItems);
-        
-      if (itemsError) {
-        console.error('Error creating bill items:', itemsError);
-        toast.error('Failed to complete bill items');
-        return;
-      }
-      
-      // Update local state
-      setBills(prev => [
-        {
-          ...currentBill,
-          id: billData.id,
-          createdAt: billData.created_at
-        }, 
-        ...prev
-      ]);
-      
+      setProducts(updatedProducts);
+
+      // Reset current bill
       setCurrentBill(null);
-      toast.success('Bill completed');
+
+      toast.success('Bill completed successfully');
     } catch (error) {
       console.error('Error completing bill:', error);
       toast.error('Failed to complete bill');
     }
   };
 
-  const cancelBill = () => {
-    if (!currentBill) return;
+  // Find products by name
+  const findProduct = (query: string): Product[] => {
+    if (!query) return [];
     
-    // Restore all product quantities
-    currentBill.items.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (product) {
-        updateProduct(item.productId, { 
-          quantity: product.quantity + item.quantity 
-        });
-      }
-    });
-    
-    setCurrentBill(null);
-    toast.success('Bill cancelled');
+    const lowerQuery = query.toLowerCase();
+    return products.filter((product) =>
+      product.name.toLowerCase().includes(lowerQuery)
+    );
   };
-  
-  // Shop functions
-  const findNearbyShops = (query: string, distance = 10, type?: string) => {
-    const filteredShops = shops.filter(shop => {
-      // Filter by distance
-      if (shop.distance && shop.distance > distance) return false;
-      
-      // Filter by shop type if specified
-      if (type && shop.type !== type) return false;
-      
-      // Filter by query if provided
-      if (query) {
-        return shop.name.toLowerCase().includes(query.toLowerCase()) ||
-               shop.location.toLowerCase().includes(query.toLowerCase());
-      }
-      
-      return true;
-    });
-    
-    return filteredShops;
-  };
-  
-  const setShopType = (type: string) => {
-    setCurrentShopType(type);
-    toast.success(`Shop type set to ${type}`);
-  };
-  
-  // Stock alert functions
-  const setStockAlert = async (productId: string, threshold: number) => {
-    if (!user) return;
-    
-    const product = products.find(p => p.id === productId);
-    if (!product) {
-      toast.error('Product not found');
-      return;
-    }
-    
+
+  // Add a new product
+  const addProduct = async (
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
+  ) => {
     try {
-      // Check if alert already exists
-      const existingAlert = stockAlerts.find(a => a.productId === productId);
-      
-      if (existingAlert) {
-        // Update existing alert
-        const { error } = await supabase
-          .from('stock_alerts')
-          .update({
-            threshold,
-            notification_sent: false
-          })
-          .eq('id', existingAlert.id)
-          .eq('user_id', user.id);
-          
-        if (error) {
-          console.error('Error updating stock alert:', error);
-          toast.error('Failed to update stock alert');
-          return;
-        }
-        
-        setStockAlerts(prev => 
-          prev.map(alert => 
-            alert.id === existingAlert.id 
-              ? { 
-                  ...alert, 
-                  threshold,
-                  notificationSent: false 
-                } 
-              : alert
-          )
-        );
-      } else {
-        // Create new alert
-        const { data, error } = await supabase
-          .from('stock_alerts')
-          .insert([{
-            product_id: productId,
-            threshold,
-            notification_sent: false,
-            user_id: user.id
-          }])
-          .select()
-          .single();
-          
-        if (error) {
-          console.error('Error creating stock alert:', error);
-          toast.error('Failed to create stock alert');
-          return;
-        }
-        
-        const newAlert: StockAlert = {
-          id: data.id,
-          productId: data.product_id,
-          threshold: data.threshold,
-          notificationSent: data.notification_sent,
-          createdAt: data.created_at
-        };
-        
-        setStockAlerts(prev => [...prev, newAlert]);
-      }
-      
-      // Update product to store threshold
-      await updateProduct(productId, {
-        stockAlert: threshold
-      });
-      
-      toast.success(`Stock alert set for ${product.name} at ${threshold} ${product.unit}`);
+      // Get user ID from session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id || 'demo-user';
+
+      const now = new Date().toISOString();
+      const newProduct: Product = {
+        id: uuidv4(),
+        ...product,
+        createdAt: now,
+        updatedAt: now,
+        userId,
+      };
+
+      // In a real app, we would save to Supabase here
+      // For demo, just add to local state
+      setProducts([...products, newProduct]);
+
+      toast.success(`${product.name} added successfully`);
     } catch (error) {
-      console.error('Error setting stock alert:', error);
-      toast.error('Failed to set stock alert');
+      console.error('Error adding product:', error);
+      toast.error('Failed to add product');
+      throw error;
     }
   };
-  
-  const removeStockAlert = async (alertId: string) => {
-    if (!user) return;
-    
+
+  // Edit a product
+  const editProduct = async (id: string, updates: Partial<Product>) => {
     try {
-      const alert = stockAlerts.find(a => a.id === alertId);
-      if (!alert) return;
-      
-      const { error } = await supabase
-        .from('stock_alerts')
-        .delete()
-        .eq('id', alertId)
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.error('Error removing stock alert:', error);
-        toast.error('Failed to remove stock alert');
-        return;
+      const productIndex = products.findIndex((p) => p.id === id);
+      if (productIndex < 0) {
+        throw new Error('Product not found');
       }
-      
-      setStockAlerts(prev => prev.filter(a => a.id !== alertId));
-      
-      // Remove threshold from product
-      const product = products.find(p => p.id === alert.productId);
-      if (product) {
-        await updateProduct(alert.productId, {
-          stockAlert: undefined
-        });
-      }
-      
-      toast.success('Stock alert removed');
+
+      const updatedProducts = [...products];
+      updatedProducts[productIndex] = {
+        ...updatedProducts[productIndex],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // In a real app, we would save to Supabase here
+      // For demo, just update local state
+      setProducts(updatedProducts);
+
+      toast.success(`${updatedProducts[productIndex].name} updated successfully`);
     } catch (error) {
-      console.error('Error removing stock alert:', error);
-      toast.error('Failed to remove stock alert');
+      console.error('Error editing product:', error);
+      toast.error('Failed to update product');
+      throw error;
     }
   };
-  
-  const checkStockAlerts = () => {
-    stockAlerts.forEach(alert => {
-      if (alert.notificationSent) return;
-      
-      const product = products.find(p => p.id === alert.productId);
-      if (!product) return;
-      
-      if (product.quantity <= alert.threshold) {
-        // Set notification as sent
-        supabase
-          .from('stock_alerts')
-          .update({ notification_sent: true })
-          .eq('id', alert.id)
-          .then(({ error }) => {
-            if (error) {
-              console.error('Error updating alert notification status:', error);
-            } else {
-              setStockAlerts(prev => 
-                prev.map(a => 
-                  a.id === alert.id 
-                    ? { ...a, notificationSent: true } 
-                    : a
-                )
-              );
-              
-              // Notify user
-              toast.warning(`Low stock alert: ${product.name} is below the threshold of ${alert.threshold} ${product.unit}`);
-            }
-          });
+
+  // Delete a product
+  const deleteProduct = async (id: string) => {
+    try {
+      const productIndex = products.findIndex((p) => p.id === id);
+      if (productIndex < 0) {
+        throw new Error('Product not found');
       }
-    });
+
+      const productName = products[productIndex].name;
+      const updatedProducts = products.filter((p) => p.id !== id);
+
+      // In a real app, we would delete from Supabase here
+      // For demo, just update local state
+      setProducts(updatedProducts);
+
+      toast.success(`${productName} deleted successfully`);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Failed to delete product');
+      throw error;
+    }
+  };
+
+  // Refetch bills
+  const refetchBills = async () => {
+    try {
+      await fetchBills();
+    } catch (error) {
+      console.error('Error refetching bills:', error);
+      toast.error('Failed to refresh bills');
+    }
+  };
+
+  // Refetch products
+  const refetchProducts = async () => {
+    try {
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error refetching products:', error);
+      toast.error('Failed to refresh products');
+    }
   };
 
   return (
@@ -935,43 +663,25 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         products,
         bills,
-        currentBill,
-        shops,
-        stockAlerts,
-        currentShopType,
         isLoading,
-        
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        findProduct,
-        checkSharedDatabase,
-        scanBarcode,
-        
+        error,
+        currentBill,
         startNewBill,
         addToBill,
         removeFromBill,
+        updateBillItem,
+        updateBillItemQuantity,
+        updateBillItemUnit,
         completeBill,
-        cancelBill,
-        updateBillOptions,
-        
-        findNearbyShops,
-        setShopType,
-        
-        setStockAlert,
-        removeStockAlert,
-        checkStockAlerts,
+        findProduct,
+        addProduct,
+        editProduct,
+        deleteProduct,
+        refetchBills,
+        refetchProducts,
       }}
     >
       {children}
     </InventoryContext.Provider>
   );
-};
-
-export const useInventory = () => {
-  const context = useContext(InventoryContext);
-  if (context === undefined) {
-    throw new Error('useInventory must be used within an InventoryProvider');
-  }
-  return context;
 };

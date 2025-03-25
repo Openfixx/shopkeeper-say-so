@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '@/context/InventoryContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { 
   Dialog, 
   DialogContent, 
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,6 +30,8 @@ import {
   detectCommandType, 
   VOICE_COMMAND_TYPES 
 } from '@/utils/voiceCommandUtils';
+import { formatCurrency } from '@/utils/formatters';
+import { UNIT_TYPES, UNIT_OPTIONS, detectUnitType } from '@/utils/formatters';
 
 interface BillingDialogProps {
   open: boolean;
@@ -46,9 +49,12 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
     addToBill, 
     removeFromBill, 
     completeBill,
-    findProduct 
+    findProduct,
+    updateBillItemQuantity,
+    updateBillItemUnit
   } = useInventory();
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
   
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
@@ -56,14 +62,12 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [interpretedCommand, setInterpretedCommand] = useState<string | null>(null);
   
-  // Initialize bill
   useEffect(() => {
     if (open && !currentBill) {
       startNewBill();
     }
   }, [open, currentBill, startNewBill]);
   
-  // Setup speech recognition
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -94,10 +98,8 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
           if (finalTranscript) {
             setTranscript(finalTranscript);
             
-            // Analyze the command
             const commandInfo = detectCommandType(finalTranscript);
             
-            // Set interpreted command for display
             let interpretedMsg = '';
             switch(commandInfo.type) {
               case VOICE_COMMAND_TYPES.CREATE_BILL:
@@ -105,7 +107,6 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                 if (commandInfo.data?.items?.length) {
                   interpretedMsg += ` with ${commandInfo.data.items.length} item(s)`;
                   
-                  // Add these items directly
                   commandInfo.data.items.forEach(item => {
                     const matchingProducts = findProduct(item.name);
                     if (matchingProducts.length > 0) {
@@ -115,7 +116,6 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                 }
                 break;
               default:
-                // For any command, try to extract bill items
                 processCommand(finalTranscript);
                 interpretedMsg = 'Processed command';
             }
@@ -166,11 +166,9 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   };
   
   const processCommand = (command: string) => {
-    // Enhanced processing - any command might contain product information
     const items = extractBillItems(command);
     
     if (items.length > 0) {
-      // If we found items, add them to the bill
       let addedCount = 0;
       
       items.forEach(item => {
@@ -189,12 +187,11 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
         toast.warning("Found items in your command, but they're not in inventory");
       }
     } else {
-      // If no explicit items found, try to find individual products
       const words = command.toLowerCase().split(/\s+/);
       let addedAny = false;
       
       words.forEach(word => {
-        if (word.length < 3) return; // Skip short words
+        if (word.length < 3) return;
         
         const matchingProducts = findProduct(word);
         if (matchingProducts.length > 0) {
@@ -223,69 +220,97 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
     navigate('/billing');
   };
   
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  });
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
-            Quick Bill
+            {language === 'hi-IN' ? 'त्वरित बिल' : 'Quick Bill'}
           </DialogTitle>
           <DialogDescription>
-            Add items to your bill using voice commands or search
+            {language === 'hi-IN' 
+              ? 'अपने बिल में आवाज़ कमांड या खोज का उपयोग करके आइटम जोड़ें'
+              : 'Add items to your bill using voice commands or search'}
           </DialogDescription>
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto py-2">
-          {/* Current Bill */}
           <div className="space-y-4">
             {currentBill && currentBill.items.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>{language === 'hi-IN' ? 'आइटम' : 'Item'}</TableHead>
+                    <TableHead className="text-right">{language === 'hi-IN' ? 'मात्रा' : 'Qty'}</TableHead>
+                    <TableHead className="text-right">{language === 'hi-IN' ? 'मूल्य' : 'Price'}</TableHead>
+                    <TableHead className="text-right">{language === 'hi-IN' ? 'कुल' : 'Total'}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentBill.items.map((item) => (
-                    <TableRow key={item.productId}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell className="text-right">
-                        {item.quantity} {item.unit}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatter.format(item.price)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatter.format(item.total)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromBill(item.productId)}
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {currentBill.items.map((item) => {
+                    const unitType = detectUnitType(item.unit || '');
+                    const unitOptions = UNIT_OPTIONS[unitType] || UNIT_OPTIONS[UNIT_TYPES.PIECE];
+                    
+                    return (
+                      <TableRow key={item.productId}>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Input 
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newQuantity = parseFloat(e.target.value);
+                                if (!isNaN(newQuantity) && newQuantity > 0) {
+                                  updateBillItemQuantity(item.productId, newQuantity);
+                                }
+                              }}
+                              className="w-16 h-8 text-right"
+                            />
+                            
+                            <Select
+                              value={item.unit || 'pcs'}
+                              onValueChange={(value) => updateBillItemUnit(item.productId, value)}
+                            >
+                              <SelectTrigger className="w-20 h-8">
+                                <SelectValue placeholder="Unit" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {unitOptions.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.value}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.price)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.total)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFromBill(item.productId)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   <TableRow>
                     <TableCell colSpan={3} className="text-right font-medium">
-                      Total
+                      {language === 'hi-IN' ? 'कुल' : 'Total'}
                     </TableCell>
                     <TableCell className="text-right font-bold">
-                      {formatter.format(currentBill.total)}
+                      {formatCurrency(currentBill.total)}
                     </TableCell>
                     <TableCell></TableCell>
                   </TableRow>
@@ -296,9 +321,13 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                 <div className="flex justify-center mb-2">
                   <Package2 className="h-8 w-8 text-muted-foreground opacity-40" />
                 </div>
-                <h3 className="text-lg font-medium">No items in bill</h3>
+                <h3 className="text-lg font-medium">
+                  {language === 'hi-IN' ? 'बिल में कोई आइटम नहीं' : 'No items in bill'}
+                </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Use voice commands or search to add items
+                  {language === 'hi-IN' 
+                    ? 'आइटम जोड़ने के लिए आवाज़ कमांड या खोज का उपयोग करें'
+                    : 'Use voice commands or search to add items'}
                 </p>
               </div>
             )}
@@ -331,7 +360,6 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
           </div>
         </div>
         
-        {/* Search and Add Items */}
         <div className="border-t pt-4 space-y-4">
           <div className="flex gap-2">
             <Input
