@@ -1,7 +1,7 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 
 type UserProfile = {
@@ -13,7 +13,7 @@ type UserProfile = {
   preferredLanguage?: string;
 };
 
-type LoginResult = {
+export type LoginResult = {
   error?: {
     message: string;
   };
@@ -84,6 +84,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userData = session.user;
       
+      // Check if we're in demo mode
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        // Create a demo user profile
+        const demoProfile: UserProfile = {
+          id: userData?.id || 'demo-user-id',
+          name: 'Demo User',
+          email: userData?.email || 'demo@example.com',
+          role: 'shopkeeper',
+          preferredLanguage
+        };
+        
+        setUser(demoProfile);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Normal flow for actual Supabase setup
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -138,7 +155,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<LoginResult | undefined> => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // Handle demo mode login
+      if (email === 'demo@example.com' && password === 'password') {
+        // Create a demo user profile
+        const demoProfile: UserProfile = {
+          id: 'demo-user-id',
+          name: 'Demo User',
+          email: 'demo@example.com',
+          role: 'shopkeeper',
+          preferredLanguage
+        };
+        
+        setUser(demoProfile);
+        setIsLoading(false);
+        return undefined;
+      }
+      
+      // Normal Supabase login
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });

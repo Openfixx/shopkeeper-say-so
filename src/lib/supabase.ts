@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Get environment variables with better error handling
@@ -8,25 +9,25 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const supabase = (() => {
   try {
     if (!supabaseUrl) {
-      console.warn('Supabase URL not provided. Some features will be unavailable.');
+      console.warn('Supabase URL not provided. Using demo mode.');
     }
     
     if (!supabaseAnonKey) {
-      console.warn('Supabase Anon Key not provided. Some features will be unavailable.');
+      console.warn('Supabase Anon Key not provided. Using demo mode.');
     }
     
-    // Still create the client for demo purposes, but with feedback
-    return createClient(
-      supabaseUrl || 'https://placeholder-url.supabase.co',
-      supabaseAnonKey || 'placeholder-key'
-    );
+    // Use demo mode with placeholder URL if credentials are missing
+    const url = supabaseUrl || 'https://placeholder-url.supabase.co';
+    const key = supabaseAnonKey || 'placeholder-key';
+    
+    return createClient(url, key);
   } catch (error) {
     console.error('Failed to initialize Supabase client:', error);
     // Return a placeholder client that won't throw errors but won't actually connect
     const mockClient = {
       auth: {
-        signInWithPassword: async () => ({ data: null, error: { message: 'Supabase client not properly initialized' } }),
-        signUp: async () => ({ data: null, error: { message: 'Supabase client not properly initialized' } }),
+        signInWithPassword: async () => ({ data: { session: { user: { id: 'demo-user-id', email: 'demo@example.com' } } }, error: null }),
+        signUp: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
         getSession: async () => ({ data: { session: null }, error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })

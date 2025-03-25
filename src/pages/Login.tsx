@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -19,6 +20,7 @@ const Login: React.FC = () => {
   const [isNicheSelectorOpen, setIsNicheSelectorOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Check if user is already authenticated and redirect appropriately
   useEffect(() => {
     if (isAuthenticated) {
       const hasSetNiche = localStorage.getItem('shop_niche');
@@ -43,9 +45,16 @@ const Login: React.FC = () => {
     try {
       // For demo purposes
       if (email === 'demo@example.com' && password === 'password') {
-        await login(email, password);
+        const result = await login(email, password);
         toast.success('Login successful! Welcome to Inventory Pro.');
-        setIsNicheSelectorOpen(true);
+        
+        // Check if shop niche is set, if not open the selector
+        const hasSetNiche = localStorage.getItem('shop_niche');
+        if (!hasSetNiche) {
+          setIsNicheSelectorOpen(true);
+        } else {
+          navigate('/');
+        }
       } else {
         const result = await login(email, password);
         
@@ -54,7 +63,14 @@ const Login: React.FC = () => {
           toast.error(result.error.message);
         } else {
           toast.success('Login successful! Welcome to Inventory Pro.');
-          setIsNicheSelectorOpen(true);
+          
+          // Check if shop niche is set, if not open the selector
+          const hasSetNiche = localStorage.getItem('shop_niche');
+          if (!hasSetNiche) {
+            setIsNicheSelectorOpen(true);
+          } else {
+            navigate('/');
+          }
         }
       }
     } catch (error: any) {
