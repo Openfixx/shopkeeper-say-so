@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -18,6 +18,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return localStorage.getItem('theme') === 'dark' || 
       (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+  
+  const [collapsed, setCollapsed] = useState(false);
   
   useEffect(() => {
     if (isDarkTheme) {
@@ -38,10 +40,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const toggleTheme = () => {
     setIsDarkTheme(prev => !prev);
   };
+
+  const toggleSidebar = () => {
+    setCollapsed(prev => !prev);
+  };
   
   // Don't show layout for auth pages
   if (location.pathname === '/login' || location.pathname === '/register') {
-    return <>{children}</>;
+    return <>{children || <Outlet />}</>;
   }
   
   return (
@@ -51,13 +57,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onToggleTheme={toggleTheme} 
         isDarkTheme={isDarkTheme} 
       />
-      <Sidebar className="hidden md:flex" />
+      <Sidebar 
+        className="hidden md:flex" 
+        collapsed={collapsed} 
+        onToggle={toggleSidebar} 
+      />
       
       <main className={cn(
         "pt-16 transition-all duration-200 ease-in-out min-h-screen md:ml-16",
       )}>
         <div className="container px-4 py-6 mx-auto">
-          {children}
+          {children || <Outlet />}
         </div>
       </main>
     </div>
