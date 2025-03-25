@@ -31,6 +31,8 @@ interface CommandData {
   data?: {
     items?: BillItem[];
     query?: string;
+    product?: string;
+    searchTerm?: string;
     productDetails?: ProductDetail;
     [key: string]: any;
   };
@@ -150,12 +152,7 @@ export function extractBillItems(command: string): BillItem[] {
   return items;
 }
 
-// Mock function to search for a product image
-export const fetchProductImageUrl = async (productName: string): Promise<string | null> => {
-  return await searchProductImage(productName);
-};
-
-// Mock function to search for a product image
+// Function to search for a product image - exported with both names for compatibility
 export async function searchProductImage(productName: string): Promise<string | null> {
   const mockImages: Record<string, string> = {
     'sugar': 'https://images.unsplash.com/photo-1581600140682-d4e68c8e3d9a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
@@ -196,6 +193,9 @@ export async function searchProductImage(productName: string): Promise<string | 
   
   return '/placeholder.svg';
 }
+
+// Export with both names for compatibility
+export const fetchProductImageUrl = searchProductImage;
 
 // Mock function to check product in a shared database
 export async function checkProductInSharedDatabase(productName: string): Promise<ProductDetail | null> {
@@ -328,7 +328,10 @@ export function detectCommandType(command: string): CommandData {
     
     return {
       type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
-      data: { query }
+      data: { 
+        query,
+        searchTerm: query
+      }
     };
   }
   
@@ -357,7 +360,10 @@ export function detectCommandType(command: string): CommandData {
     
     return {
       type: VOICE_COMMAND_TYPES.FIND_SHOP,
-      data: { query }
+      data: { 
+        query,
+        product: query
+      }
     };
   }
   
@@ -386,15 +392,18 @@ export function detectCommandType(command: string): CommandData {
     
     return {
       type: VOICE_COMMAND_TYPES.FIND_SHOPS,
-      data: { query }
+      data: { 
+        query,
+        product: query
+      }
     };
   }
   
   if (
     lowerCmd.includes('scan barcode') ||
-    lowerCmd.includes('scan barcode') ||
-    lowerCmd.includes('scan barcode') ||
-    lowerCmd.includes('scan barcode')
+    lowerCmd.includes('scan code') ||
+    lowerCmd.includes('barcode scan') ||
+    lowerCmd.includes('read barcode')
   ) {
     return {
       type: VOICE_COMMAND_TYPES.SCAN_BARCODE,
@@ -404,25 +413,61 @@ export function detectCommandType(command: string): CommandData {
   
   if (
     lowerCmd.includes('stock alert') ||
-    lowerCmd.includes('stock alert') ||
-    lowerCmd.includes('stock alert') ||
-    lowerCmd.includes('stock alert')
+    lowerCmd.includes('low stock') ||
+    lowerCmd.includes('alert when') ||
+    lowerCmd.includes('notify when')
   ) {
+    // Try to extract product name
+    let product = '';
+    const alertPatterns = [
+      /alert (?:me |)(?:when |if |)([a-zA-Z0-9 ]+) is (?:below|low|out)/i,
+      /stock alert (?:for |on |)([a-zA-Z0-9 ]+)/i
+    ];
+    
+    for (const pattern of alertPatterns) {
+      const match = lowerCmd.match(pattern);
+      if (match && match[1]) {
+        product = match[1].trim();
+        break;
+      }
+    }
+    
     return {
       type: VOICE_COMMAND_TYPES.STOCK_ALERT,
-      data: { originalCommand: command }
+      data: { 
+        originalCommand: command,
+        product
+      }
     };
   }
   
   if (
     lowerCmd.includes('change shop type') ||
-    lowerCmd.includes('change shop type') ||
-    lowerCmd.includes('change shop type') ||
-    lowerCmd.includes('change shop type')
+    lowerCmd.includes('switch shop type') ||
+    lowerCmd.includes('update shop type') ||
+    lowerCmd.includes('set shop type')
   ) {
+    // Try to extract shop type
+    let type = '';
+    const typePatterns = [
+      /change shop type (?:to |)([a-zA-Z0-9 ]+)/i,
+      /set shop type (?:to |as |)([a-zA-Z0-9 ]+)/i
+    ];
+    
+    for (const pattern of typePatterns) {
+      const match = lowerCmd.match(pattern);
+      if (match && match[1]) {
+        type = match[1].trim();
+        break;
+      }
+    }
+    
     return {
       type: VOICE_COMMAND_TYPES.CHANGE_SHOP_TYPE,
-      data: { originalCommand: command }
+      data: { 
+        originalCommand: command,
+        type
+      }
     };
   }
   

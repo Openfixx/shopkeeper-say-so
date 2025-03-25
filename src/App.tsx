@@ -41,35 +41,13 @@ const App = () => {
     if (!supabaseUrl || !supabaseAnonKey) {
       setEnvMissing(true);
       console.warn(
-        "Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables."
+        "Supabase credentials missing. Using demo mode instead."
       );
     }
   }, []);
 
-  if (envMissing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4 bg-background">
-        <Alert variant="destructive" className="max-w-xl">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Configuration Error</AlertTitle>
-          <AlertDescription>
-            <p className="mb-2">
-              Supabase credentials are missing. Please set the following environment variables:
-            </p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>VITE_SUPABASE_URL</li>
-              <li>VITE_SUPABASE_ANON_KEY</li>
-            </ul>
-            <p className="mt-2">
-              You can find these values in your Supabase project dashboard.
-              Create a <code>.env</code> file in the root directory with these values.
-            </p>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
+  // Don't show the error screen, instead use the application with mock data
+  // This allows users to use the app without setting up Supabase
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -77,6 +55,11 @@ const App = () => {
           <InventoryProvider>
             <Toaster />
             <Sonner position="top-right" closeButton />
+            {envMissing && (
+              <div className="fixed top-0 left-0 right-0 z-50 bg-amber-100 text-amber-800 p-2 text-sm text-center">
+                Running in demo mode. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env file for full functionality.
+              </div>
+            )}
             <BrowserRouter>
               <Layout>
                 <AnimatePresence mode="wait">

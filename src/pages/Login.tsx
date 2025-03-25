@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import ShopNicheSelector from '@/components/ui-custom/ShopNicheSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
+import { Info, AlertCircle, Loader2 } from 'lucide-react';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loginInProgress, setLoginInProgress] = useState(false);
   const [isNicheSelectorOpen, setIsNicheSelectorOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -31,6 +33,7 @@ const Login: React.FC = () => {
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!email || !password) {
       toast.error('Please fill in all fields');
@@ -39,10 +42,25 @@ const Login: React.FC = () => {
     
     setLoginInProgress(true);
     try {
-      await login(email, password);
-      setIsNicheSelectorOpen(true);
-    } catch (error) {
+      // For demo purposes
+      if (email === 'demo@example.com' && password === 'password') {
+        await login(email, password);
+        toast.success('Login successful! Welcome to Inventory Pro.');
+        setIsNicheSelectorOpen(true);
+      } else {
+        const result = await login(email, password);
+        
+        if (result?.error) {
+          setError(result.error.message);
+          toast.error(result.error.message);
+        } else {
+          toast.success('Login successful! Welcome to Inventory Pro.');
+          setIsNicheSelectorOpen(true);
+        }
+      }
+    } catch (error: any) {
       console.error('Login error:', error);
+      setError(error.message || 'Login failed. Please check your credentials and try again.');
       toast.error('Login failed. Please check your credentials and try again.');
     } finally {
       setLoginInProgress(false);
@@ -72,6 +90,13 @@ const Login: React.FC = () => {
                 Use <strong>demo@example.com</strong> and password <strong>password</strong> for demo access
               </AlertDescription>
             </Alert>
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
           
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -120,7 +145,14 @@ const Login: React.FC = () => {
               className="w-full"
               disabled={loginInProgress || isLoading}
             >
-              {loginInProgress ? 'Signing in...' : 'Sign in'}
+              {loginInProgress ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign in'
+              )}
             </Button>
             <div className="text-center text-sm">
               Don't have an account?{' '}
