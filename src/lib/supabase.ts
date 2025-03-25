@@ -1,5 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { supabase as officialClient } from '@/integrations/supabase/client';
 
 // Get environment variables with better error handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -8,6 +9,11 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 // Create Supabase client with proper error handling
 export const supabase = (() => {
   try {
+    // If we have the official client from the integration, use it
+    if (officialClient) {
+      return officialClient;
+    }
+    
     if (!supabaseUrl) {
       console.warn('Supabase URL not provided. Using demo mode.');
     }
