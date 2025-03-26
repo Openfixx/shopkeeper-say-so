@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,13 +15,15 @@ import {
   resumeSpeaking, 
   getVoices, 
   initSpeechSynthesis,
-  SpeechOptions 
+  SpeechOptions,
+  processTextWithNLP
 } from '@/utils/webSpeechApi';
 import { 
   processWithSpacy, 
   Entity, 
   getEntityColor 
 } from '@/utils/spacyApi';
+import AIModelInfo from './AIModelInfo';
 
 const VoiceFeatures: React.FC = () => {
   // Text Input State
@@ -210,23 +211,51 @@ const VoiceFeatures: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      const result = await processWithSpacy(text);
-      
-      if (result.success) {
-        setEntities(result.entities);
+      // First try using the enhanced NLP via edge function
+      try {
+        const result = await processTextWithNLP(text);
         
-        // Create highlighted text with entity markup
-        createHighlightedText(text, result.entities);
-        
-        toast.success(`Found ${result.entities.length} entities in the text`);
-      } else {
-        toast.error(result.error || 'Failed to process text');
+        if (result.success) {
+          setEntities(result.entities);
+          
+          // Create highlighted text with entity markup
+          createHighlightedText(text, result.entities);
+          
+          toast.success(`Found ${result.entities.length} entities in the text`);
+          
+          if (result.message) {
+            toast.info(result.message);
+          }
+        } else {
+          // Fallback to local SpaCy processing
+          fallbackToLocalProcessing();
+        }
+      } catch (error) {
+        console.error('Error with enhanced NLP, falling back to local processing:', error);
+        fallbackToLocalProcessing();
       }
     } catch (error) {
       console.error('Error analyzing text:', error);
       toast.error('An error occurred while analyzing the text');
     } finally {
       setIsProcessing(false);
+    }
+  };
+  
+  const fallbackToLocalProcessing = async () => {
+    try {
+      const result = await processWithSpacy(text);
+      
+      if (result.success) {
+        setEntities(result.entities);
+        createHighlightedText(text, result.entities);
+        toast.success(`Found ${result.entities.length} entities using local processing`);
+      } else {
+        toast.error(result.error || 'Failed to process text');
+      }
+    } catch (error) {
+      console.error('Error with fallback processing:', error);
+      toast.error('Failed to analyze text with all available methods');
     }
   };
 
@@ -517,6 +546,10 @@ const VoiceFeatures: React.FC = () => {
             )}
           </CardContent>
         </Card>
+      </div>
+      
+      <div className="mt-8">
+        <AIModelInfo />
       </div>
     </div>
   );

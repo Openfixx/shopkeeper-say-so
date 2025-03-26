@@ -4,12 +4,13 @@ import { Entity } from './types';
 /**
  * Mock implementation of SpaCy NLP processing
  * This simulates what a real SpaCy API would return
+ * Enhanced with patterns from the training data examples
  */
 export const mockProcessText = (text: string): Entity[] => {
   const entities: Entity[] = [];
   
   // Pattern matching for product quantities with numbers (both digits and words)
-  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets)/gi;
+  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets|किलो|लीटर)/gi;
   let match;
   
   while ((match = quantityRegex.exec(text)) !== null) {
@@ -22,8 +23,8 @@ export const mockProcessText = (text: string): Entity[] => {
     });
   }
   
-  // Pattern matching for money/price
-  const moneyRegex = /(?:(?:price|cost|at|for)\s+)?(?:₹|\$|rs\.?)?\s*(\d+(?:\.\d+)?)\b(?!\s*(?:kg|g|liter|l|ml|pieces|pcs))/gi;
+  // Pattern matching for money/price - enhanced with ₹ symbol and Hindi patterns
+  const moneyRegex = /(?:(?:price|cost|at|for|दाम|कीमत)\s+)?(?:₹|\$|rs\.?)?\s*(\d+(?:\.\d+)?)\b(?!\s*(?:kg|g|liter|l|ml|pieces|pcs))/gi;
   while ((match = moneyRegex.exec(text)) !== null) {
     // Skip if this looks like it's part of a quantity
     if (!text.substring(match.index - 10, match.index).match(/rack|position|shelf/i)) {
@@ -49,8 +50,8 @@ export const mockProcessText = (text: string): Entity[] => {
     });
   }
   
-  // Pattern matching for rack/position with numbers
-  const rackRegex = /\b(?:rack|position|shelf|loc|location)\s*(\d+|[a-zA-Z]+)\b/gi;
+  // Pattern matching for rack/position with numbers - enhanced with Hindi terms
+  const rackRegex = /\b(?:rack|position|shelf|loc|location|रैक)\s*(\d+|[a-zA-Z]+)\b|में/gi;
   while ((match = rackRegex.exec(text)) !== null) {
     entities.push({
       text: match[0],
@@ -62,13 +63,14 @@ export const mockProcessText = (text: string): Entity[] => {
   }
   
   // Extract product names (after we've identified other entities)
-  // Common grocery items
+  // Common grocery items - enhanced with Hindi terms
   const productNames = [
     'sugar', 'rice', 'salt', 'flour', 'oil', 'milk', 'bread', 'butter', 'cheese', 
     'vegetables', 'fruits', 'coffee', 'tea', 'chocolate', 'cereal', 'pasta', 'sauce',
     'juice', 'water', 'soda', 'chips', 'biscuits', 'cookies', 'candy', 'spices',
     'honey', 'jam', 'peanut butter', 'nuts', 'beans', 'lentils', 'meat', 'chicken',
-    'fish', 'shrimp', 'eggs', 'yogurt', 'cream', 'ice cream'
+    'fish', 'shrimp', 'eggs', 'yogurt', 'cream', 'ice cream',
+    'चीनी', 'दूध', 'चावल', 'तेल' // Hindi terms for sugar, milk, rice, oil
   ];
   
   // Look for product terms after "add" or similar words

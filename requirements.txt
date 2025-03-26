@@ -1,0 +1,4 @@
+
+spacy==3.6.1
+indic-nlp-library==0.92
+whisper-openai==20231117

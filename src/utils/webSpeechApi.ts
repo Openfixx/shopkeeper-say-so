@@ -1,152 +1,155 @@
 
 /**
- * Web Speech API Utilities
- * Provides functionality for text-to-speech (TTS) using the Web Speech API
+ * Web Speech API utilities for speech recognition and synthesis
  */
 
-// Check browser support for Web Speech API
-const isSpeechSynthesisSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-// Available voices state
-let availableVoices: SpeechSynthesisVoice[] = [];
-
-// Interface for speech options
+// Speech Synthesis Options
 export interface SpeechOptions {
   text: string;
-  voice?: string; // voice identifier
-  rate?: number; // speech rate (0.1 to 10)
-  pitch?: number; // speech pitch (0 to 2)
-  volume?: number; // speech volume (0 to 1)
-  lang?: string; // language code (e.g., 'en-US', 'hi-IN')
+  voice?: string;
+  rate?: number;
+  pitch?: number;
+  volume?: number;
   onStart?: () => void;
   onEnd?: () => void;
   onError?: (error: any) => void;
+  onPause?: () => void;
+  onResume?: () => void;
 }
 
-/**
- * Initialize speech synthesis and load available voices
- */
-export const initSpeechSynthesis = (): Promise<SpeechSynthesisVoice[]> => {
+// Initialize speech synthesis and get available voices
+export const initSpeechSynthesis = async (): Promise<SpeechSynthesisVoice[]> => {
+  if (!('speechSynthesis' in window)) {
+    console.warn('Speech synthesis not supported in this browser');
+    return [];
+  }
+  
+  // Wait for voices to be loaded
   return new Promise((resolve) => {
-    if (!isSpeechSynthesisSupported) {
-      console.error('Speech synthesis is not supported in this browser');
-      resolve([]);
-      return;
+    let voices = window.speechSynthesis.getVoices();
+    
+    if (voices.length > 0) {
+      resolve(voices);
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        voices = window.speechSynthesis.getVoices();
+        resolve(voices);
+      };
     }
-
-    // If voices are already loaded
-    if (window.speechSynthesis.getVoices().length > 0) {
-      availableVoices = window.speechSynthesis.getVoices();
-      resolve(availableVoices);
-      return;
-    }
-
-    // Wait for voices to be loaded
-    window.speechSynthesis.onvoiceschanged = () => {
-      availableVoices = window.speechSynthesis.getVoices();
-      resolve(availableVoices);
-    };
   });
 };
 
-/**
- * Get all available speech synthesis voices
- */
+// Get available voices
 export const getVoices = (): SpeechSynthesisVoice[] => {
-  if (!isSpeechSynthesisSupported) return [];
-  
-  if (availableVoices.length === 0) {
-    availableVoices = window.speechSynthesis.getVoices();
+  if (!('speechSynthesis' in window)) {
+    return [];
   }
   
-  return availableVoices;
+  return window.speechSynthesis.getVoices();
 };
 
-/**
- * Find a voice by language or name
- */
-export const findVoice = (query: string): SpeechSynthesisVoice | undefined => {
-  const voices = getVoices();
-  return voices.find(
-    voice => 
-      voice.lang.toLowerCase().includes(query.toLowerCase()) || 
-      voice.name.toLowerCase().includes(query.toLowerCase())
-  );
-};
-
-/**
- * Speak text using the Web Speech API
- */
-export const speak = (options: SpeechOptions): void => {
-  if (!isSpeechSynthesisSupported) {
-    console.error('Speech synthesis not supported');
-    options.onError?.('Speech synthesis not supported');
-    return;
+// Speak text using Web Speech API
+export const speak = (options: SpeechOptions): boolean => {
+  if (!('speechSynthesis' in window)) {
+    console.warn('Speech synthesis not supported in this browser');
+    return false;
   }
-
+  
   // Cancel any ongoing speech
   window.speechSynthesis.cancel();
-
+  
   const utterance = new SpeechSynthesisUtterance(options.text);
   
-  // Set speech properties
-  utterance.rate = options.rate || 1;
-  utterance.pitch = options.pitch || 1;
-  utterance.volume = options.volume || 1;
+  // Set default options
+  utterance.rate = options.rate ?? 1.0;
+  utterance.pitch = options.pitch ?? 1.0;
+  utterance.volume = options.volume ?? 1.0;
   
-  // Set language if provided
-  if (options.lang) {
-    utterance.lang = options.lang;
-  }
-  
-  // Set voice if provided
+  // Set voice if specified
   if (options.voice) {
-    const selectedVoice = findVoice(options.voice);
+    const voices = window.speechSynthesis.getVoices();
+    const selectedVoice = voices.find(voice => voice.name === options.voice);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
   }
   
-  // Event handlers
-  utterance.onstart = () => {
-    options.onStart?.();
-  };
+  // Set event handlers
+  if (options.onStart) utterance.onstart = options.onStart;
+  if (options.onEnd) utterance.onend = options.onEnd;
+  if (options.onError) utterance.onerror = options.onError;
   
-  utterance.onend = () => {
-    options.onEnd?.();
-  };
-  
-  utterance.onerror = (event) => {
-    options.onError?.(event);
-  };
-  
-  // Speak
   window.speechSynthesis.speak(utterance);
+  return true;
 };
 
-/**
- * Stop all speech
- */
+// Stop speaking
 export const stopSpeaking = (): void => {
-  if (isSpeechSynthesisSupported) {
+  if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 };
 
-/**
- * Pause speech
- */
+// Pause speaking
 export const pauseSpeaking = (): void => {
-  if (isSpeechSynthesisSupported) {
+  if ('speechSynthesis' in window) {
     window.speechSynthesis.pause();
   }
 };
 
-/**
- * Resume speech
- */
+// Resume speaking
 export const resumeSpeaking = (): void => {
-  if (isSpeechSynthesisSupported) {
+  if ('speechSynthesis' in window) {
     window.speechSynthesis.resume();
+  }
+};
+
+// Process audio data with Whisper (via edge function)
+export const processAudioWithWhisper = async (audioData: string): Promise<string> => {
+  try {
+    const { supabase } = await import('@/lib/supabase');
+    
+    const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
+      body: { 
+        type: 'audio',
+        data: audioData
+      }
+    });
+    
+    if (error) {
+      console.error('Error processing audio with Whisper:', error);
+      throw new Error(error.message);
+    }
+    
+    return data.text;
+  } catch (error) {
+    console.error('Failed to process audio:', error);
+    return 'Failed to process audio. See console for details.';
+  }
+};
+
+// Process text with enhanced NLP (via edge function)
+export const processTextWithNLP = async (text: string): Promise<any> => {
+  try {
+    const { supabase } = await import('@/lib/supabase');
+    
+    const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
+      body: { 
+        type: 'text',
+        data: text
+      }
+    });
+    
+    if (error) {
+      console.error('Error processing text with NLP:', error);
+      throw new Error(error.message);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to process text with NLP:', error);
+    // Use local mock processing as fallback
+    const { processWithSpacy } = await import('./spacyApi');
+    return processWithSpacy(text);
   }
 };
