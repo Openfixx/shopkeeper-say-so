@@ -4,6 +4,8 @@
  * This file re-exports all SpaCy-related functionality from the spacy/ directory
  */
 
+import { Entity, SpacyProcessResult, SpacyEntity } from './spacy/types';
+
 export * from './spacy/api';
 export * from './spacy/types';
 export * from './spacy/entityColors';
