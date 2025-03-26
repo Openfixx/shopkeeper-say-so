@@ -3,6 +3,8 @@
  * Functions for processing and handling voice commands
  */
 
+import { processWithSpacy, extractProductDetailsFromEntities } from './spacyApi';
+
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
   CREATE_BILL: 'create_bill',
@@ -30,96 +32,46 @@ interface CommandResult {
 }
 
 /**
- * Extract product details from a voice command
+ * Extract product details from a voice command using SpaCy NLP
  */
-export const extractProductDetails = (command: string): ProductDetails => {
-  const details: ProductDetails = {};
-  const lowerCommand = command.toLowerCase();
+export const extractProductDetails = async (command: string): Promise<ProductDetails> => {
+  // First process the command with SpaCy NLP
+  const entities = await processWithSpacy(command);
+  console.log('Extracted entities:', entities);
   
-  // Extract product name
-  // Look for patterns like "add [product]" or "add X kg of [product]"
-  let productName = '';
+  // Extract structured product details from the entities
+  const details = extractProductDetailsFromEntities(entities);
   
-  // Pattern: "add [product]" or "add a [product]"
-  const addProductRegex = /\b(?:add|create|make)\s+(?:a\s+)?(?!bill|cart|shop)([a-zA-Z\s]+?)(?=\s+(?:in|on|at|with|of|for|to|rack|\d|₹|\$|price|expiry|expiration)|$)/i;
-  
-  // Pattern: "add X kg of [product]"
-  const qtyProductRegex = /\b(?:add|create)\s+\d+(?:\.\d+)?\s*(?:kg|g|l|ml|pcs|pieces|packets)(?:\s+of)?\s+([a-zA-Z\s]+?)(?=\s+(?:in|on|at|with|to|rack|\d|₹|\$|price|expiry|expiration)|$)/i;
-  
-  // Try different patterns to extract product name
-  if (addProductRegex.test(lowerCommand)) {
-    const match = lowerCommand.match(addProductRegex);
-    if (match && match[1]) {
-      productName = match[1].trim();
-    }
-  } else if (qtyProductRegex.test(lowerCommand)) {
-    const match = lowerCommand.match(qtyProductRegex);
-    if (match && match[1]) {
-      productName = match[1].trim();
-    }
-  }
-  
-  // If no match from regex, try to extract from sentence context
-  if (!productName && lowerCommand.includes('add') && !lowerCommand.includes('bill')) {
-    const words = lowerCommand.split(/\s+/);
-    const addIndex = words.findIndex(word => word === 'add');
+  // If SpaCy didn't find a product name, use fallback regex method
+  if (!details.name) {
+    const lowerCommand = command.toLowerCase();
+    let productName = '';
     
-    if (addIndex >= 0 && addIndex < words.length - 1) {
-      // Take up to 3 words after "add" as potential product name
-      productName = words.slice(addIndex + 1, addIndex + 4).join(' ');
-      
-      // Clean up: remove prepositions, units, numbers
-      productName = productName.replace(/\b(?:in|on|at|with|of|for|to|the|a|an|kg|g|l|ml|pcs|pieces|packets)\b/gi, '');
-      productName = productName.replace(/\d+(?:\.\d+)?/g, '');
-      productName = productName.trim();
-    }
-  }
-  
-  if (productName) {
-    details.name = productName;
-  }
-  
-  // Extract quantity
-  const quantityRegex = /\b(\d+(?:\.\d+)?)\s*(kg|g|l|ml|pieces|pcs|packets|boxes)\b/i;
-  const quantityMatch = lowerCommand.match(quantityRegex);
-  
-  if (quantityMatch) {
-    details.quantity = parseFloat(quantityMatch[1]);
-    details.unit = quantityMatch[2].toLowerCase();
-  }
-  
-  // Extract position/location/rack
-  const rackRegex = /\b(?:rack|position|shelf|loc|location)\s*(\d+|[a-zA-Z]+)\b/i;
-  const rackMatch = lowerCommand.match(rackRegex);
-  
-  if (rackMatch) {
-    details.position = rackMatch[0];
-  }
-  
-  // Extract price
-  const priceRegex = /\b(?:(?:price|cost|at|for)\s+)?(?:₹|\$)?\s*(\d+(?:\.\d+)?)\b/i;
-  const priceMatch = lowerCommand.match(priceRegex);
-  
-  if (priceMatch && !lowerCommand.includes('quantity')) {
-    details.price = parseFloat(priceMatch[1]);
-  }
-  
-  // Extract expiry date
-  const expiryRegex = /\b(?:expiry|expires|expiration|exp)(?:\s+(?:date|on))?\s+([a-zA-Z]+\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}-\d{1,2}-\d{2,4})\b/i;
-  const expiryMatch = lowerCommand.match(expiryRegex);
-  
-  if (expiryMatch) {
-    details.expiry = expiryMatch[1];
-  } else {
-    // Try to find month names followed by year
-    const monthYearRegex = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i;
-    const monthYearMatch = lowerCommand.match(monthYearRegex);
+    // Pattern: "add [product]" or "add a [product]"
+    const addProductRegex = /\b(?:add|create|make)\s+(?:a\s+)?(?!bill|cart|shop)([a-zA-Z\s]+?)(?=\s+(?:in|on|at|with|of|for|to|rack|\d|₹|\$|price|expiry|expiration)|$)/i;
     
-    if (monthYearMatch) {
-      details.expiry = `${monthYearMatch[1]} ${monthYearMatch[2]}`;
+    // Pattern: "add X kg of [product]"
+    const qtyProductRegex = /\b(?:add|create)\s+\d+(?:\.\d+)?\s*(?:kg|g|l|ml|pcs|pieces|packets)(?:\s+of)?\s+([a-zA-Z\s]+?)(?=\s+(?:in|on|at|with|to|rack|\d|₹|\$|price|expiry|expiration)|$)/i;
+    
+    // Try different patterns to extract product name
+    if (addProductRegex.test(lowerCommand)) {
+      const match = lowerCommand.match(addProductRegex);
+      if (match && match[1]) {
+        productName = match[1].trim();
+      }
+    } else if (qtyProductRegex.test(lowerCommand)) {
+      const match = lowerCommand.match(qtyProductRegex);
+      if (match && match[1]) {
+        productName = match[1].trim();
+      }
+    }
+    
+    if (productName) {
+      details.name = productName;
     }
   }
   
+  console.log('Extracted product details:', details);
   return details;
 };
 
@@ -344,19 +296,24 @@ export const processBillingVoiceCommand = (command: string) => {
 };
 
 /**
- * Search for a product image using a generic placeholder
+ * Search for a product image using Unsplash API
  * In a real app, this would connect to a product image API
  */
 export const searchProductImage = async (productName: string): Promise<string | null> => {
-  // This is a mock implementation that would normally call an API
-  // to search for product images
-  console.log(`Searching for image of: ${productName}`);
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Return a placeholder image URL (in a real app, this would be from an API)
-  return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
+  try {
+    // Try to get a real product image from Unsplash
+    console.log(`Searching for image of: ${productName}`);
+    
+    const unsplashUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(productName)},product,food`;
+    
+    // Return the Unsplash URL directly
+    return unsplashUrl;
+  } catch (error) {
+    console.error('Error searching for product image:', error);
+    
+    // Fallback to placeholder
+    return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
+  }
 };
 
 /**
@@ -384,5 +341,28 @@ export const identifyShelves = (imageUrl: string) => {
   
   return {
     shelfCoordinates
+  };
+};
+
+/**
+ * Update existing product details with new information from voice command
+ */
+export const updateProductDetails = async (
+  existingDetails: ProductDetails, 
+  command: string
+): Promise<ProductDetails> => {
+  // Process the new command to extract entities
+  const newEntities = await processWithSpacy(command);
+  const newDetails = extractProductDetailsFromEntities(newEntities);
+  
+  // Merge the new details with existing details, only updating fields
+  // that were provided in the new command
+  return {
+    ...existingDetails,
+    quantity: newDetails.quantity || existingDetails.quantity,
+    unit: newDetails.unit || existingDetails.unit,
+    position: newDetails.position || existingDetails.position,
+    price: newDetails.price || existingDetails.price,
+    expiry: newDetails.expiry || existingDetails.expiry,
   };
 };
