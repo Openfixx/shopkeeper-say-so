@@ -1,12 +1,12 @@
 
-import { SpacyEntity } from './types';
+import { Entity } from './types';
 
 /**
  * Mock implementation of SpaCy NLP processing
  * This simulates what a real SpaCy API would return
  */
-export const mockProcessText = (text: string): SpacyEntity[] => {
-  const entities: SpacyEntity[] = [];
+export const mockProcessText = (text: string): Entity[] => {
+  const entities: Entity[] = [];
   
   // Pattern matching for product quantities with numbers (both digits and words)
   const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets)/gi;

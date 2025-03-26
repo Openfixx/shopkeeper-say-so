@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -162,8 +161,26 @@ const AddProduct: React.FC = () => {
       
       if (isContinuation) {
         // This is a continuation command, update existing product details
-        const updatedDetails = await updateProductDetails(formData, command);
-        setFormData(updatedDetails);
+        const updatedDetails = await updateProductDetails({
+          name: formData.name,
+          quantity: formData.quantity,
+          unit: formData.unit,
+          position: formData.position,
+          price: formData.price,
+          expiry: formData.expiry,
+          image: formData.image
+        }, command);
+        
+        setFormData({
+          name: updatedDetails.name,
+          quantity: updatedDetails.quantity || formData.quantity,
+          unit: updatedDetails.unit || formData.unit,
+          position: updatedDetails.position || formData.position,
+          expiry: updatedDetails.expiry || formData.expiry,
+          price: updatedDetails.price || formData.price,
+          image: formData.image // Keep existing image
+        });
+        
         toast.dismiss();
         toast.success('Product details updated');
       } else {
@@ -173,13 +190,13 @@ const AddProduct: React.FC = () => {
         if (productDetails.name) {
           // Set the form data with the extracted details
           setFormData({
-            name: productDetails.name || '',
+            name: productDetails.name,
             quantity: productDetails.quantity || 0,
             unit: productDetails.unit || 'kg',
             position: productDetails.position || '',
             expiry: productDetails.expiry || '',
             price: productDetails.price || 0,
-            image: '',  // Will be auto-populated by useEffect
+            image: '' // Will be auto-populated by useEffect
           });
           
           toast.dismiss();

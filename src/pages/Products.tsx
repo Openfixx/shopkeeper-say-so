@@ -84,9 +84,9 @@ const Products: React.FC = () => {
     if (commandInfo.type === VOICE_COMMAND_TYPES.ADD_PRODUCT) {
       setIsProcessingVoice(true);
       
-      const productDetails = extractProductDetails(command);
-      
-      if (Object.keys(productDetails).length > 0) {
+      try {
+        const productDetails = await extractProductDetails(command);
+        
         if (productDetails.name) {
           if (!productDetails.image && productDetails.name) {
             try {
@@ -116,9 +116,10 @@ const Products: React.FC = () => {
           setIsAddDialogOpen(true);
           toast.info('Please provide product details');
         }
-      } else {
+      } catch (error) {
+        console.error('Error extracting product details:', error);
+        toast.error('Failed to process product details');
         setIsAddDialogOpen(true);
-        toast.info('Please provide product details');
       }
       
       setIsProcessingVoice(false);

@@ -3,7 +3,7 @@
  * Functions for processing and handling voice commands
  */
 
-import { processWithSpacy, extractProductDetailsFromEntities } from './spacyApi';
+import { processWithSpacy, extractProductDetailsFromEntities, Entity, SpacyProcessResult } from './spacyApi';
 
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
@@ -16,8 +16,8 @@ export const VOICE_COMMAND_TYPES = {
   UNKNOWN: 'unknown'
 };
 
-interface ProductDetails {
-  name?: string;
+export interface ProductDetails {
+  name: string;
   quantity?: number;
   unit?: string;
   position?: string;
@@ -36,11 +36,11 @@ interface CommandResult {
  */
 export const extractProductDetails = async (command: string): Promise<ProductDetails> => {
   // First process the command with SpaCy NLP
-  const entities = await processWithSpacy(command);
-  console.log('Extracted entities:', entities);
+  const result = await processWithSpacy(command);
+  console.log('Extracted entities:', result.entities);
   
   // Extract structured product details from the entities
-  const details = extractProductDetailsFromEntities(entities);
+  const details = extractProductDetailsFromEntities(result.entities);
   
   // If SpaCy didn't find a product name, use fallback regex method
   if (!details.name) {
@@ -71,8 +71,13 @@ export const extractProductDetails = async (command: string): Promise<ProductDet
     }
   }
   
+  // Ensure we always return a valid product name
+  if (!details.name) {
+    details.name = "Unnamed Product";
+  }
+  
   console.log('Extracted product details:', details);
-  return details;
+  return details as ProductDetails;
 };
 
 /**
@@ -176,10 +181,9 @@ export const detectCommandType = (command: string): CommandResult => {
       /\badd\s+(?!\b(?:to|in|bill)\b)/i.test(lowerCommand)) && 
       !(/\b(?:bill|cart)\b/i.test(lowerCommand))) {
     
-    const productDetails = extractProductDetails(command);
     return {
       type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
-      data: productDetails
+      data: { command }
     };
   }
   
@@ -352,8 +356,8 @@ export const updateProductDetails = async (
   command: string
 ): Promise<ProductDetails> => {
   // Process the new command to extract entities
-  const newEntities = await processWithSpacy(command);
-  const newDetails = extractProductDetailsFromEntities(newEntities);
+  const result = await processWithSpacy(command);
+  const newDetails = extractProductDetailsFromEntities(result.entities);
   
   // Merge the new details with existing details, only updating fields
   // that were provided in the new command

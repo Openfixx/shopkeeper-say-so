@@ -18,6 +18,8 @@ export interface Entity {
   description?: string;
 }
 
+export type SpacyEntity = Entity;
+
 export interface SpacyProcessResult {
   success: boolean;
   text: string;

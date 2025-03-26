@@ -13,7 +13,7 @@ export * from './spacy/mockApi';
  * Process text with SpaCy NLP
  * This is the main function that should be used by components
  */
-export const processWithSpacy = async (text: string) => {
+export const processWithSpacy = async (text: string): Promise<SpacyProcessResult> => {
   try {
     const { processText } = await import('./spacy/api');
     const result = await processText(text);
@@ -23,21 +23,27 @@ export const processWithSpacy = async (text: string) => {
     console.error('Error processing text with SpaCy:', error);
     // Fall back to mock processing if the API call fails
     const { mockProcessText } = await import('./spacy/mockApi');
-    return mockProcessText(text);
+    const mockEntities = mockProcessText(text);
+    return {
+      success: true,
+      text,
+      entities: mockEntities,
+      error: undefined
+    };
   }
 };
 
 /**
  * Extract specific entities from SpaCy results
  */
-export const extractEntities = (entities: any[], type: string) => {
+export const extractEntities = (entities: Entity[], type: string) => {
   return entities.filter(entity => entity.label === type);
 };
 
 /**
  * Extract product details from SpaCy entities
  */
-export const extractProductDetailsFromEntities = (entities: any[]) => {
+export const extractProductDetailsFromEntities = (entities: Entity[]) => {
   const details: {
     name?: string;
     quantity?: number;
