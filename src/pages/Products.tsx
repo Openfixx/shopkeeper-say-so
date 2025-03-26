@@ -26,7 +26,12 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { extractProductDetails, searchProductImage } from '@/utils/voiceCommandUtils';
+import { 
+  extractProductDetails, 
+  searchProductImage, 
+  detectCommandType, 
+  VOICE_COMMAND_TYPES 
+} from '@/utils/voiceCommandUtils';
 
 interface ProductFormData {
   name: string;

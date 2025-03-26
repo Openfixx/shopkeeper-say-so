@@ -1,4 +1,3 @@
-
 /**
  * Voice Command Utilities
  * Functions for processing and handling voice commands
@@ -358,4 +357,32 @@ export const searchProductImage = async (productName: string): Promise<string | 
   
   // Return a placeholder image URL (in a real app, this would be from an API)
   return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
+};
+
+/**
+ * Identify shelves in a rack image
+ * In a real app, this would use computer vision
+ */
+export const identifyShelves = (imageUrl: string) => {
+  // This is a mock implementation that would normally use computer vision
+  console.log(`Analyzing rack image to identify shelves`);
+  
+  // Generate some mock shelf coordinates
+  const numShelves = Math.floor(Math.random() * 3) + 3; // 3-5 shelves
+  const shelfCoordinates = [];
+  
+  const shelfHeight = 100 / (numShelves + 1); // distribute evenly
+  
+  for (let i = 0; i < numShelves; i++) {
+    shelfCoordinates.push({
+      top: (i + 1) * shelfHeight,
+      left: 0,
+      width: 100,
+      height: 10
+    });
+  }
+  
+  return {
+    shelfCoordinates
+  };
 };
