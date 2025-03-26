@@ -44,7 +44,8 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
         text: word,
         label,
         start,
-        end
+        end,
+        description: ENTITY_DESCRIPTIONS[label]
       });
     }
     
@@ -83,7 +84,8 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
         text: match[0],
         label,
         start: match.index,
-        end: match.index + match[0].length
+        end: match.index + match[0].length,
+        description: ENTITY_DESCRIPTIONS[label]
       });
     }
   }
@@ -97,7 +99,8 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
       text: numberMatch[0],
       label: 'CARDINAL',
       start: numberMatch.index,
-      end: numberMatch.index + numberMatch[0].length
+      end: numberMatch.index + numberMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['CARDINAL']
     });
   }
 
@@ -106,4 +109,74 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
     text,
     success: true
   };
+};
+
+/**
+ * Mock implementation of processText function
+ */
+export const mockProcessText = (text: string): Entity[] => {
+  // Simple implementation to extract entities
+  const entities: Entity[] = [];
+  
+  // Extract names (simplified, just capitalized words)
+  const nameRegex = /\b[A-Z][a-z]+\b/g;
+  let nameMatch;
+  
+  while ((nameMatch = nameRegex.exec(text)) !== null) {
+    entities.push({
+      text: nameMatch[0],
+      label: 'PERSON',
+      start: nameMatch.index,
+      end: nameMatch.index + nameMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['PERSON']
+    });
+  }
+  
+  // Extract dates (very simplified)
+  const dateRegex = /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}\b/gi;
+  let dateMatch;
+  
+  while ((dateMatch = dateRegex.exec(text)) !== null) {
+    entities.push({
+      text: dateMatch[0],
+      label: 'DATE',
+      start: dateMatch.index,
+      end: dateMatch.index + dateMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['DATE']
+    });
+  }
+  
+  // Extract money (very simplified)
+  const moneyRegex = /\$\s*\d+(?:\.\d{2})?|\d+\s*(?:dollars|USD)\b/gi;
+  let moneyMatch;
+  
+  while ((moneyMatch = moneyRegex.exec(text)) !== null) {
+    entities.push({
+      text: moneyMatch[0],
+      label: 'MONEY',
+      start: moneyMatch.index,
+      end: moneyMatch.index + moneyMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['MONEY']
+    });
+  }
+  
+  // Extract locations (very simplified, just location names)
+  const locations = ['New York', 'London', 'Paris', 'Tokyo', 'Berlin', 'Rome', 'Madrid', 'Delhi', 'Mumbai', 'Beijing', 'Shanghai', 'Sydney'];
+  
+  for (const location of locations) {
+    const locationRegex = new RegExp(`\\b${location}\\b`, 'gi');
+    let locationMatch;
+    
+    while ((locationMatch = locationRegex.exec(text)) !== null) {
+      entities.push({
+        text: locationMatch[0],
+        label: 'GPE',
+        start: locationMatch.index,
+        end: locationMatch.index + locationMatch[0].length,
+        description: ENTITY_DESCRIPTIONS['GPE']
+      });
+    }
+  }
+  
+  return entities;
 };

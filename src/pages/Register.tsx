@@ -18,10 +18,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const { register, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { language, translations } = useLanguage();
-
-  // Translation map for different languages
-  const t = translations[language] || {};
+  const { language, t, setLanguage } = useLanguage();
 
   useEffect(() => {
     // If user is already authenticated, redirect to dashboard
@@ -34,17 +31,17 @@ const Register = () => {
     e.preventDefault();
     
     if (!name || !email || !password || !confirmPassword) {
-      toast.error(t.pleaseEnterAllFields || 'Please enter all fields');
+      toast.error(t('pleaseEnterAllFields'));
       return;
     }
     
     if (password !== confirmPassword) {
-      toast.error(t.passwordsDoNotMatch || 'Passwords do not match');
+      toast.error(t('passwordsDoNotMatch'));
       return;
     }
     
     if (password.length < 6) {
-      toast.error(t.passwordTooShort || 'Password must be at least 6 characters');
+      toast.error(t('passwordTooShort'));
       return;
     }
     
@@ -52,11 +49,11 @@ const Register = () => {
     
     try {
       await register(name, email, password);
-      toast.success(t.registrationSuccessful || 'Registration successful. Please check your email for verification link.');
+      toast.success(t('registrationSuccessful'));
       navigate('/login');
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast.error(error.message || t.registrationFailed || 'Registration failed');
+      toast.error(error.message || t('registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -70,25 +67,28 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute top-4 right-4">
-        <LanguageSelector />
+        <LanguageSelector 
+          currentLanguage={language} 
+          onLanguageChange={setLanguage}
+        />
       </div>
       
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">{t.registerTitle || 'Create an Account'}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t('registerTitle')}</CardTitle>
           <CardDescription>
-            {t.registerSubtitle || 'Enter your details to create a new account'}
+            {t('registerSubtitle')}
           </CardDescription>
         </CardHeader>
         
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">{t.name || 'Name'}</Label>
+              <Label htmlFor="name">{t('name')}</Label>
               <Input
                 id="name"
                 type="text" 
-                placeholder={t.namePlaceholder || 'Enter your name'}
+                placeholder={t('namePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -96,11 +96,11 @@ const Register = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="email">{t.email || 'Email'}</Label>
+              <Label htmlFor="email">{t('email')}</Label>
               <Input
                 id="email"
                 type="email" 
-                placeholder={t.emailPlaceholder || 'Enter your email'}
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -108,11 +108,11 @@ const Register = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">{t.password || 'Password'}</Label>
+              <Label htmlFor="password">{t('password')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder={t.passwordPlaceholder || '••••••••'}
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -120,11 +120,11 @@ const Register = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">{t.confirmPassword || 'Confirm Password'}</Label>
+              <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder={t.confirmPasswordPlaceholder || '••••••••'}
+                placeholder={t('confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -143,14 +143,14 @@ const Register = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
                 </div>
               ) : (
-                t.registerButton || 'Register'
+                t('registerButton')
               )}
             </Button>
             
             <div className="text-center text-sm mt-4">
-              <span>{t.alreadyHaveAccount || 'Already have an account?'} </span>
+              <span>{t('alreadyHaveAccount')} </span>
               <Link to="/login" className="text-primary hover:underline">
-                {t.loginNow || 'Login now'}
+                {t('loginNow')}
               </Link>
             </div>
           </CardFooter>

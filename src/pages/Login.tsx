@@ -16,10 +16,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { language, translations } = useLanguage();
-
-  // Translation map for different languages
-  const t = translations[language] || {};
+  const { language, t, setLanguage } = useLanguage();
 
   useEffect(() => {
     // If user is already authenticated, redirect to dashboard
@@ -32,7 +29,7 @@ const Login = () => {
     e.preventDefault();
     
     if (!email || !password) {
-      toast.error(t.pleaseEnterCredentials || 'Please enter your credentials');
+      toast.error(t('pleaseEnterCredentials'));
       return;
     }
     
@@ -44,12 +41,12 @@ const Login = () => {
       if (result?.error) {
         toast.error(result.error.message);
       } else {
-        toast.success(t.loginSuccessful || 'Login successful');
+        toast.success(t('loginSuccessful'));
         navigate('/');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error.message || t.loginFailed || 'Login failed');
+      toast.error(error.message || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -64,12 +61,12 @@ const Login = () => {
       if (result?.error) {
         toast.error(result.error.message);
       } else {
-        toast.success(t.demoLoginSuccessful || 'Demo login successful');
+        toast.success(t('demoLoginSuccessful'));
         navigate('/');
       }
     } catch (error: any) {
       console.error('Demo login error:', error);
-      toast.error(error.message || t.loginFailed || 'Login failed');
+      toast.error(error.message || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -83,25 +80,28 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute top-4 right-4">
-        <LanguageSelector />
+        <LanguageSelector 
+          currentLanguage={language} 
+          onLanguageChange={setLanguage}
+        />
       </div>
       
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">{t.loginTitle || 'Login to Your Account'}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t('loginTitle')}</CardTitle>
           <CardDescription>
-            {t.loginSubtitle || 'Enter your credentials to access your account'}
+            {t('loginSubtitle')}
           </CardDescription>
         </CardHeader>
         
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t.email || 'Email'}</Label>
+              <Label htmlFor="email">{t('email')}</Label>
               <Input
                 id="email"
                 type="email" 
-                placeholder={t.emailPlaceholder || 'Enter your email'}
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -110,12 +110,12 @@ const Login = () => {
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t.password || 'Password'}</Label>
+                <Label htmlFor="password">{t('password')}</Label>
               </div>
               <Input
                 id="password"
                 type="password"
-                placeholder={t.passwordPlaceholder || '••••••••'}
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -134,7 +134,7 @@ const Login = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
                 </div>
               ) : (
-                t.loginButton || 'Login'
+                t('loginButton')
               )}
             </Button>
             
@@ -150,14 +150,14 @@ const Login = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
                 </div>
               ) : (
-                t.demoLogin || 'Demo Login'
+                t('demoLogin')
               )}
             </Button>
             
             <div className="text-center text-sm mt-4">
-              <span>{t.noAccount || 'Don\'t have an account?'} </span>
+              <span>{t('noAccount')} </span>
               <Link to="/register" className="text-primary hover:underline">
-                {t.registerNow || 'Register now'}
+                {t('registerNow')}
               </Link>
             </div>
           </CardFooter>

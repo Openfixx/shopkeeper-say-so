@@ -6,6 +6,7 @@ interface LanguageContextType {
   language: string;
   setLanguage: (code: string) => void;
   t: (key: string) => string;
+  translations: Record<string, Record<string, string>>;
 }
 
 // Default translations
@@ -34,6 +35,34 @@ const translations: Record<string, Record<string, string>> = {
     'position': 'Position',
     'expiry': 'Expiry Date',
     'voice_command': 'Voice Command',
+    'loginTitle': 'Login to Your Account',
+    'loginSubtitle': 'Enter your credentials to access your account',
+    'email': 'Email',
+    'emailPlaceholder': 'Enter your email',
+    'password': 'Password',
+    'passwordPlaceholder': '••••••••',
+    'loginButton': 'Login',
+    'pleaseEnterCredentials': 'Please enter your credentials',
+    'loginSuccessful': 'Login successful',
+    'loginFailed': 'Login failed',
+    'demoLogin': 'Demo Login',
+    'demoLoginSuccessful': 'Demo login successful',
+    'noAccount': 'Don\'t have an account?',
+    'registerNow': 'Register now',
+    'registerTitle': 'Create an Account',
+    'registerSubtitle': 'Enter your details to create a new account',
+    'name': 'Name',
+    'namePlaceholder': 'Enter your name',
+    'confirmPassword': 'Confirm Password',
+    'confirmPasswordPlaceholder': '••••••••',
+    'registerButton': 'Register',
+    'pleaseEnterAllFields': 'Please enter all fields',
+    'passwordsDoNotMatch': 'Passwords do not match',
+    'passwordTooShort': 'Password must be at least 6 characters',
+    'registrationSuccessful': 'Registration successful. Please check your email for verification link.',
+    'registrationFailed': 'Registration failed',
+    'alreadyHaveAccount': 'Already have an account?',
+    'loginNow': 'Login now',
   },
   'hi-IN': {
     'dashboard': 'डैशबोर्ड',
@@ -76,6 +105,7 @@ const LanguageContext = createContext<LanguageContextType>({
   language: 'en-US',
   setLanguage: () => {},
   t: (key: string) => key,
+  translations: translations,
 });
 
 export const useLanguage = () => useContext(LanguageContext);
@@ -104,7 +134,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, translations }}>
       {children}
     </LanguageContext.Provider>
   );
