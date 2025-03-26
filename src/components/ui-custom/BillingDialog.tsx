@@ -166,17 +166,19 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   };
   
   const processCommand = (command: string) => {
-    const items = extractBillItems(command);
+    const commandInfo = detectCommandType(command);
     
-    if (items.length > 0) {
+    if (commandInfo.type === VOICE_COMMAND_TYPES.CREATE_BILL && commandInfo.data?.items?.length > 0) {
       let addedCount = 0;
       
-      items.forEach(item => {
+      commandInfo.data.items.forEach(item => {
         const matchingProducts = findProduct(item.name);
         
         if (matchingProducts.length > 0) {
           const product = matchingProducts[0];
-          addToBill(product.id, item.quantity);
+          let quantity = item.quantity;
+          
+          addToBill(product.id, quantity);
           addedCount++;
         }
       });
@@ -187,23 +189,45 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
         toast.warning("Found items in your command, but they're not in inventory");
       }
     } else {
-      const words = command.toLowerCase().split(/\s+/);
-      let addedAny = false;
+      const items = extractBillItems(command);
       
-      words.forEach(word => {
-        if (word.length < 3) return;
+      if (items.length > 0) {
+        let addedCount = 0;
         
-        const matchingProducts = findProduct(word);
-        if (matchingProducts.length > 0) {
-          const product = matchingProducts[0];
-          addToBill(product.id, 1);
-          addedAny = true;
-          toast.success(`Added ${product.name} to bill`);
+        items.forEach(item => {
+          const matchingProducts = findProduct(item.name);
+          
+          if (matchingProducts.length > 0) {
+            const product = matchingProducts[0];
+            addToBill(product.id, item.quantity);
+            addedCount++;
+          }
+        });
+        
+        if (addedCount > 0) {
+          toast.success(`Added ${addedCount} item(s) to bill`);
+        } else {
+          toast.warning("Found items in your command, but they're not in inventory");
         }
-      });
-      
-      if (!addedAny) {
-        toast.info(`Couldn't identify any products in "${command}"`);
+      } else {
+        const words = command.toLowerCase().split(/\s+/);
+        let addedAny = false;
+        
+        words.forEach(word => {
+          if (word.length < 3) return;
+          
+          const matchingProducts = findProduct(word);
+          if (matchingProducts.length > 0) {
+            const product = matchingProducts[0];
+            addToBill(product.id, 1);
+            addedAny = true;
+            toast.success(`Added ${product.name} to bill`);
+          }
+        });
+        
+        if (!addedAny) {
+          toast.info(`Couldn't identify any products in "${command}"`);
+        }
       }
     }
   };

@@ -112,71 +112,111 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
 };
 
 /**
- * Mock implementation of processText function
+ * Enhanced mock implementation of processText function to extract product details
  * Ensure this is exported with the exact name 'mockProcessText' to match the import in api.ts
  */
 export const mockProcessText = (text: string): Entity[] => {
-  // Simple implementation to extract entities
+  // Enhanced implementation to extract entities for product management
   const entities: Entity[] = [];
   
-  // Extract names (simplified, just capitalized words)
-  const nameRegex = /\b[A-Z][a-z]+\b/g;
-  let nameMatch;
+  // Extract product name (nouns after "add" or before units)
+  const productNameRegex = /(?:add|create|make)\s+(?:\d+\s+[a-zA-Z]+\s+of\s+)?([a-zA-Z\s]+)(?=\s+(?:in|on|at|with|of|for|₹|\$)|\s+\d+|\s+rack|\s+expiry)/i;
+  const nameMatch = text.match(productNameRegex);
   
-  while ((nameMatch = nameRegex.exec(text)) !== null) {
+  if (nameMatch && nameMatch[1]) {
+    const productName = nameMatch[1].trim();
     entities.push({
-      text: nameMatch[0],
-      label: 'PERSON',
-      start: nameMatch.index,
-      end: nameMatch.index + nameMatch[0].length,
-      description: ENTITY_DESCRIPTIONS['PERSON']
+      text: productName,
+      label: 'PRODUCT',
+      start: nameMatch.index! + nameMatch[0].indexOf(productName),
+      end: nameMatch.index! + nameMatch[0].indexOf(productName) + productName.length,
+      description: ENTITY_DESCRIPTIONS['PRODUCT'] || 'Product name'
     });
   }
   
-  // Extract dates (very simplified)
-  const dateRegex = /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}\b/gi;
-  let dateMatch;
+  // Extract quantity with units (kg, g, l, ml, etc.)
+  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|g|l|ml|pieces|pcs|packets|boxes)/i;
+  const quantityMatch = text.match(quantityRegex);
   
-  while ((dateMatch = dateRegex.exec(text)) !== null) {
+  if (quantityMatch) {
     entities.push({
-      text: dateMatch[0],
-      label: 'DATE',
-      start: dateMatch.index,
-      end: dateMatch.index + dateMatch[0].length,
-      description: ENTITY_DESCRIPTIONS['DATE']
+      text: quantityMatch[0],
+      label: 'QUANTITY',
+      start: quantityMatch.index!,
+      end: quantityMatch.index! + quantityMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['QUANTITY'] || 'Product quantity'
     });
   }
   
-  // Extract money (very simplified)
-  const moneyRegex = /\$\s*\d+(?:\.\d{2})?|\d+\s*(?:dollars|USD)\b/gi;
-  let moneyMatch;
+  // Extract position/rack information
+  const positionRegex = /(?:rack|position|shelf|loc|location)\s*(\d+|[a-zA-Z]+)/i;
+  const positionMatch = text.match(positionRegex);
   
-  while ((moneyMatch = moneyRegex.exec(text)) !== null) {
+  if (positionMatch) {
     entities.push({
-      text: moneyMatch[0],
+      text: positionMatch[0],
+      label: 'POSITION',
+      start: positionMatch.index!,
+      end: positionMatch.index! + positionMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['POSITION'] || 'Product position or rack'
+    });
+  }
+  
+  // Extract price information (₹, $, etc.)
+  const priceRegex = /(?:price|cost|₹|\$)\s*(\d+(?:\.\d+)?)/i;
+  const priceMatch = text.match(priceRegex);
+  
+  if (priceMatch) {
+    entities.push({
+      text: priceMatch[0],
       label: 'MONEY',
-      start: moneyMatch.index,
-      end: moneyMatch.index + moneyMatch[0].length,
-      description: ENTITY_DESCRIPTIONS['MONEY']
+      start: priceMatch.index!,
+      end: priceMatch.index! + priceMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['MONEY'] || 'Product price'
     });
   }
   
-  // Extract locations (very simplified, just location names)
-  const locations = ['New York', 'London', 'Paris', 'Tokyo', 'Berlin', 'Rome', 'Madrid', 'Delhi', 'Mumbai', 'Beijing', 'Shanghai', 'Sydney'];
+  // Extract expiry date
+  const expiryRegex = /(?:expiry|expires|expiration|exp)\s+(?:date|on)?\s*([a-zA-Z]+\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}-\d{1,2}-\d{2,4})/i;
+  const expiryMatch = text.match(expiryRegex);
   
-  for (const location of locations) {
-    const locationRegex = new RegExp(`\\b${location}\\b`, 'gi');
-    let locationMatch;
-    
-    while ((locationMatch = locationRegex.exec(text)) !== null) {
-      entities.push({
-        text: locationMatch[0],
-        label: 'GPE',
-        start: locationMatch.index,
-        end: locationMatch.index + locationMatch[0].length,
-        description: ENTITY_DESCRIPTIONS['GPE']
-      });
-    }
+  if (expiryMatch) {
+    entities.push({
+      text: expiryMatch[0],
+      label: 'DATE',
+      start: expiryMatch.index!,
+      end: expiryMatch.index! + expiryMatch[0].length,
+      description: ENTITY_DESCRIPTIONS['DATE'] || 'Product expiry date'
+    });
+  }
+  
+  // Command type detection (add product, create bill, search product)
+  if (/\b(?:add|create|make)\s+(?:a\s+)?product\b/i.test(text)) {
+    entities.push({
+      text: text.match(/\b(?:add|create|make)\s+(?:a\s+)?product\b/i)![0],
+      label: 'COMMAND',
+      start: text.match(/\b(?:add|create|make)\s+(?:a\s+)?product\b/i)!.index!,
+      end: text.match(/\b(?:add|create|make)\s+(?:a\s+)?product\b/i)!.index! + text.match(/\b(?:add|create|make)\s+(?:a\s+)?product\b/i)![0].length,
+      description: 'Command to add a product'
+    });
+  } 
+  else if (/\b(?:create|make|start|new)\s+(?:a\s+)?bill\b/i.test(text)) {
+    entities.push({
+      text: text.match(/\b(?:create|make|start|new)\s+(?:a\s+)?bill\b/i)![0],
+      label: 'COMMAND',
+      start: text.match(/\b(?:create|make|start|new)\s+(?:a\s+)?bill\b/i)!.index!,
+      end: text.match(/\b(?:create|make|start|new)\s+(?:a\s+)?bill\b/i)!.index! + text.match(/\b(?:create|make|start|new)\s+(?:a\s+)?bill\b/i)![0].length,
+      description: 'Command to create a bill'
+    });
+  }
+  else if (/\b(?:search|find|locate|where)\s+(?:is|for)?\s+(?:the\s+)?/i.test(text)) {
+    entities.push({
+      text: text.match(/\b(?:search|find|locate|where)\s+(?:is|for)?\s+(?:the\s+)?/i)![0],
+      label: 'COMMAND',
+      start: text.match(/\b(?:search|find|locate|where)\s+(?:is|for)?\s+(?:the\s+)?/i)!.index!,
+      end: text.match(/\b(?:search|find|locate|where)\s+(?:is|for)?\s+(?:the\s+)?/i)!.index! + text.match(/\b(?:search|find|locate|where)\s+(?:is|for)?\s+(?:the\s+)?/i)![0].length,
+      description: 'Command to search for a product'
+    });
   }
   
   return entities;

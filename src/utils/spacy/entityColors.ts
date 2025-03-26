@@ -1,33 +1,35 @@
 
 /**
- * Entity Color Utilities
- * Functions for styling and displaying NER entities
+ * Entity Colors
+ * Color mapping for entity highlighting
  */
 
-/**
- * Get entity color based on entity label
- */
+// Function to get color for entity based on label
 export const getEntityColor = (label: string): string => {
   const colorMap: Record<string, string> = {
-    'PERSON': '#ff5e5e',
-    'NORP': '#ffb347',
-    'FAC': '#84b6f4',
-    'ORG': '#77dd77',
-    'GPE': '#fdcae1',
-    'LOC': '#84dcc6',
-    'PRODUCT': '#a0a0ff',
-    'EVENT': '#bc8f8f',
-    'WORK_OF_ART': '#d3a4f9',
-    'LAW': '#f1e1ff',
-    'LANGUAGE': '#98fb98',
-    'DATE': '#aec6cf',
-    'TIME': '#b39eb5',
-    'PERCENT': '#ffe4e1',
-    'MONEY': '#98fb98',
-    'QUANTITY': '#f0e68c',
-    'ORDINAL': '#dda0dd',
-    'CARDINAL': '#e6e6fa',
+    'PERSON': '#ffadad',
+    'ORG': '#ffd6a5',
+    'GPE': '#fdffb6',
+    'LOC': '#caffbf',
+    'PRODUCT': '#9bf6ff',
+    'EVENT': '#a0c4ff',
+    'WORK_OF_ART': '#bdb2ff',
+    'LAW': '#ffc6ff',
+    'LANGUAGE': '#fffffc',
+    'DATE': '#ffd6a5',
+    'TIME': '#caffbf',
+    'PERCENT': '#9bf6ff',
+    'MONEY': '#a0c4ff',
+    'QUANTITY': '#bdb2ff',
+    'ORDINAL': '#ffc6ff',
+    'CARDINAL': '#fffffc',
+    'COMMAND': '#ffadad',
+    'POSITION': '#ffd6a5',
+    'UNIT': '#fdffb6',
+    'EXPIRY': '#caffbf',
+    'NORP': '#9bf6ff',
+    'FAC': '#a0c4ff',
   };
-
-  return colorMap[label] || '#cccccc';
+  
+  return colorMap[label] || '#eeeeee';
 };

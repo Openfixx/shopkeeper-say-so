@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -75,16 +74,15 @@ const Products: React.FC = () => {
     setCurrentTranscript(command);
     const lowerCommand = command.toLowerCase();
     
-    // Handle navigation to add product page with voice data
-    if (lowerCommand.includes('add product') || lowerCommand.startsWith('add ')) {
+    const commandInfo = detectCommandType(command);
+    
+    if (commandInfo.type === VOICE_COMMAND_TYPES.ADD_PRODUCT) {
       setIsProcessingVoice(true);
       
-      // Extract product details from the command
       const productDetails = extractProductDetails(command);
       
       if (Object.keys(productDetails).length > 0) {
         if (productDetails.name) {
-          // If we don't have an image but have a name, try to fetch one
           if (!productDetails.image && productDetails.name) {
             try {
               const imageUrl = await searchProductImage(productDetails.name);
@@ -110,42 +108,22 @@ const Products: React.FC = () => {
           setIsAddDialogOpen(true);
           toast.success(`Product details extracted: ${productDetails.name}`);
         } else {
-          // If we can't determine a product name, just open the add dialog
-          navigate('/add-product');
+          setIsAddDialogOpen(true);
+          toast.info('Please provide product details');
         }
       } else {
-        navigate('/add-product');
+        setIsAddDialogOpen(true);
+        toast.info('Please provide product details');
       }
       
       setIsProcessingVoice(false);
-    } else if (lowerCommand.includes('create bill') || 
-               lowerCommand.includes('add bill') || 
-               lowerCommand.includes('bill banao') || 
-               lowerCommand.includes('bill banado') ||
-               lowerCommand.includes('bill')) {
+    } else if (commandInfo.type === VOICE_COMMAND_TYPES.CREATE_BILL) {
       navigate('/billing');
       toast.success('Opening billing page');
-    } else if (lowerCommand.includes('search') || 
-               lowerCommand.includes('find') || 
-               lowerCommand.includes('where is') ||
-               lowerCommand.includes('locate')) {
-      // Extract search term
-      let searchTerm = '';
-      if (lowerCommand.includes('search for')) {
-        searchTerm = lowerCommand.split('search for')[1].trim();
-      } else if (lowerCommand.includes('find')) {
-        searchTerm = lowerCommand.split('find')[1].trim();
-      } else if (lowerCommand.includes('search')) {
-        searchTerm = lowerCommand.split('search')[1].trim();
-      } else if (lowerCommand.includes('where is')) {
-        searchTerm = lowerCommand.split('where is')[1].trim();
-      } else if (lowerCommand.includes('locate')) {
-        searchTerm = lowerCommand.split('locate')[1].trim();
-      }
-      
-      if (searchTerm) {
-        setSearchQuery(searchTerm);
-        toast.info(`Searching for "${searchTerm}"`);
+    } else if (commandInfo.type === VOICE_COMMAND_TYPES.SEARCH_PRODUCT) {
+      if (commandInfo.data?.searchTerm) {
+        setSearchQuery(commandInfo.data.searchTerm);
+        toast.info(`Searching for "${commandInfo.data.searchTerm}"`);
       } else {
         toast.info('Please specify what to search for');
       }
@@ -180,7 +158,6 @@ const Products: React.FC = () => {
   };
 
   const captureImage = () => {
-    // Create an input element to capture image
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -530,7 +507,6 @@ const Products: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Current Transcript Dialog (for debugging) */}
       {currentTranscript && (
         <Dialog open={isVoiceDialogOpen} onOpenChange={setIsVoiceDialogOpen}>
           <DialogContent className="max-w-md">

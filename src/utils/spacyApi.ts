@@ -9,9 +9,11 @@ export * from './spacy/types';
 export * from './spacy/entityColors';
 export * from './spacy/mockApi';
 
-// Add alias for processText to match what's expected in VoiceFeatures
+/**
+ * Process text with SpaCy NLP
+ * This is the main function that should be used by components
+ */
 export const processWithSpacy = async (text: string) => {
-  // Re-export processText with the name processWithSpacy
   const { processText } = await import('./spacy/api');
   return processText(text);
 };

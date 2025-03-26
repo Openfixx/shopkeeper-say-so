@@ -81,7 +81,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
             setTranscript(finalTranscript);
             setTranscriptHistory(prev => [...prev, finalTranscript]);
             
-            // Process any command directly without requiring specific command prefixes
+            // Process command using our improved NLP
             const commandInfo = detectCommandType(finalTranscript);
             
             // Set interpreted command for display
@@ -95,11 +95,28 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
                 if (commandInfo.data?.quantity) {
                   interpretedMsg += ` (${commandInfo.data.quantity}${commandInfo.data.unit || ''})`;
                 }
+                if (commandInfo.data?.price) {
+                  interpretedMsg += ` at price: ${commandInfo.data.price}`;
+                }
+                if (commandInfo.data?.position) {
+                  interpretedMsg += ` in ${commandInfo.data.position}`;
+                }
+                if (commandInfo.data?.expiry) {
+                  interpretedMsg += ` expiry: ${commandInfo.data.expiry}`;
+                }
                 break;
               case VOICE_COMMAND_TYPES.CREATE_BILL:
                 interpretedMsg = 'Creating bill';
                 if (commandInfo.data?.items?.length) {
                   interpretedMsg += ` with ${commandInfo.data.items.length} item(s)`;
+                  commandInfo.data.items.forEach((item, index) => {
+                    if (index < 3) { // Show only first 3 items to keep display manageable
+                      interpretedMsg += `\n- ${item.name} (${item.quantity}${item.unit || ''})`;
+                    }
+                  });
+                  if (commandInfo.data.items.length > 3) {
+                    interpretedMsg += `\n- and ${commandInfo.data.items.length - 3} more...`;
+                  }
                 }
                 break;
               case VOICE_COMMAND_TYPES.SEARCH_PRODUCT:

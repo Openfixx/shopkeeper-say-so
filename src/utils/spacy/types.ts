@@ -1,8 +1,14 @@
 
 /**
- * SpaCy API Types
- * Types and interfaces for SpaCy NLP integration
+ * SpaCy Types
+ * Type definitions for SpaCy NLP API
  */
+
+export interface SpacyOptions {
+  model?: string;
+  includeTokens?: boolean;
+  includeSentences?: boolean;
+}
 
 export interface Entity {
   text: string;
@@ -13,36 +19,34 @@ export interface Entity {
 }
 
 export interface SpacyProcessResult {
-  entities: Entity[];
-  text: string;
   success: boolean;
+  text: string;
+  entities: Entity[];
   error?: string;
 }
 
-export interface SpacyOptions {
-  apiKey?: string;
-  apiEndpoint?: string;
-  model?: string;
-}
-
-// Map of entity labels to descriptions
+// Entity descriptions for better user understanding
 export const ENTITY_DESCRIPTIONS: Record<string, string> = {
-  'PERSON': 'People, including fictional',
-  'NORP': 'Nationalities or religious or political groups',
-  'FAC': 'Buildings, airports, highways, bridges, etc.',
-  'ORG': 'Companies, agencies, institutions, etc.',
-  'GPE': 'Countries, cities, states',
-  'LOC': 'Non-GPE locations, mountain ranges, bodies of water',
-  'PRODUCT': 'Objects, vehicles, foods, etc. (not services)',
-  'EVENT': 'Named hurricanes, battles, wars, sports events, etc.',
-  'WORK_OF_ART': 'Titles of books, songs, etc.',
-  'LAW': 'Named documents made into laws',
-  'LANGUAGE': 'Any named language',
-  'DATE': 'Absolute or relative dates or periods',
-  'TIME': 'Times smaller than a day',
-  'PERCENT': 'Percentage, including "%"',
-  'MONEY': 'Monetary values, including unit',
-  'QUANTITY': 'Measurements, as of weight or distance',
-  'ORDINAL': '"first", "second", etc.',
-  'CARDINAL': 'Numerals that do not fall under another type',
+  'PERSON': 'Person name',
+  'ORG': 'Organization name',
+  'GPE': 'Geopolitical entity (country, city, state)',
+  'LOC': 'Non-GPE location (mountain, water body)',
+  'PRODUCT': 'Product name or object',
+  'EVENT': 'Named event (hurricane, battle, war, etc.)',
+  'WORK_OF_ART': 'Title of book, song, etc.',
+  'LAW': 'Named law or legal document',
+  'LANGUAGE': 'Named language',
+  'DATE': 'Absolute or relative date',
+  'TIME': 'Time of day',
+  'PERCENT': 'Percentage',
+  'MONEY': 'Monetary value',
+  'QUANTITY': 'Measurement (weight, length, etc.)',
+  'ORDINAL': 'Ordinal number (first, second, etc.)',
+  'CARDINAL': 'Cardinal number',
+  'COMMAND': 'Voice command',
+  'POSITION': 'Product position or rack',
+  'UNIT': 'Unit of measurement',
+  'EXPIRY': 'Expiry date',
+  'NORP': 'Nationalities, religious or political groups',
+  'FAC': 'Facility (buildings, airports, etc.)',
 };
