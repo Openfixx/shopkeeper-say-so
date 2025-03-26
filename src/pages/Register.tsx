@@ -1,129 +1,161 @@
 
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+import { useLanguage } from '@/context/LanguageContext';
+import LanguageSelector from '@/components/ui-custom/LanguageSelector';
 
-const Register: React.FC = () => {
+const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { register, isLoading } = useAuth();
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  
+  const { language, translations } = useLanguage();
+
+  // Translation map for different languages
+  const t = translations[language] || {};
+
+  useEffect(() => {
+    // If user is already authenticated, redirect to dashboard
+    if (isAuthenticated && !authLoading) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await register(name, email, password);
-    navigate('/');
+    
+    if (!name || !email || !password || !confirmPassword) {
+      toast.error(t.pleaseEnterAllFields || 'Please enter all fields');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      toast.error(t.passwordsDoNotMatch || 'Passwords do not match');
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast.error(t.passwordTooShort || 'Password must be at least 6 characters');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      await register(name, email, password);
+      toast.success(t.registrationSuccessful || 'Registration successful. Please check your email for verification link.');
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast.error(error.message || t.registrationFailed || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
+  // If already authenticated, redirect to home
+  if (isAuthenticated && !authLoading) {
+    return <Navigate to="/" />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-background to-secondary/30">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold font-display tracking-tight mb-2">Inventory Pro</h1>
-          <p className="text-muted-foreground">Create your account</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+      
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">{t.registerTitle || 'Create an Account'}</CardTitle>
+          <CardDescription>
+            {t.registerSubtitle || 'Enter your details to create a new account'}
+          </CardDescription>
+        </CardHeader>
         
-        <div className="glass-card p-8 rounded-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                Full Name
-              </label>
+              <Label htmlFor="name">{t.name || 'Name'}</Label>
               <Input
                 id="name"
-                type="text"
+                type="text" 
+                placeholder={t.namePlaceholder || 'Enter your name'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-                autoComplete="name"
                 required
-                className="w-full"
               />
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
+              <Label htmlFor="email">{t.email || 'Email'}</Label>
               <Input
                 id="email"
-                type="email"
+                type="email" 
+                placeholder={t.emailPlaceholder || 'Enter your email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                autoComplete="email"
                 required
-                className="w-full"
               />
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
+              <Label htmlFor="password">{t.password || 'Password'}</Label>
               <Input
                 id="password"
                 type="password"
+                placeholder={t.passwordPlaceholder || '••••••••'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
                 required
-                className="w-full"
               />
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 8 characters long
-              </p>
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">{t.confirmPassword || 'Confirm Password'}</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder={t.confirmPasswordPlaceholder || '••••••••'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+          </CardContent>
+          
+          <CardFooter className="flex flex-col gap-4">
             <Button 
               type="submit" 
-              className="w-full h-11" 
-              disabled={isLoading}
+              className="w-full"
+              disabled={loading || authLoading}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
-                </>
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                </div>
               ) : (
-                "Create account"
+                t.registerButton || 'Register'
               )}
             </Button>
-          </form>
-          
-          <div className="mt-6 text-center text-sm">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
-          </div>
-        </div>
-        
-        <div className="mt-8 text-center text-xs text-muted-foreground">
-          <p>
-            By continuing, you agree to our{" "}
-            <a href="#" className="hover:underline">
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="#" className="hover:underline">
-              Privacy Policy
-            </a>
-            .
-          </p>
-        </div>
-      </motion.div>
+            
+            <div className="text-center text-sm mt-4">
+              <span>{t.alreadyHaveAccount || 'Already have an account?'} </span>
+              <Link to="/login" className="text-primary hover:underline">
+                {t.loginNow || 'Login now'}
+              </Link>
+            </div>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 };

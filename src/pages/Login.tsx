@@ -1,192 +1,168 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import ShopNicheSelector from '@/components/ui-custom/ShopNicheSelector';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, AlertCircle, Loader2 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import LanguageSelector from '@/components/ui-custom/LanguageSelector';
 
-const Login: React.FC = () => {
-  const navigate = useNavigate();
-  const { login, isAuthenticated, isLoading } = useAuth();
+const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginInProgress, setLoginInProgress] = useState(false);
-  const [isNicheSelectorOpen, setIsNicheSelectorOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Check if user is already authenticated and redirect appropriately
+  const [loading, setLoading] = useState(false);
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { language, translations } = useLanguage();
+
+  // Translation map for different languages
+  const t = translations[language] || {};
+
   useEffect(() => {
-    if (isAuthenticated) {
-      const hasSetNiche = localStorage.getItem('shop_niche');
-      if (!hasSetNiche) {
-        setIsNicheSelectorOpen(true);
-      } else {
-        navigate('/');
-      }
+    // If user is already authenticated, redirect to dashboard
+    if (isAuthenticated && !authLoading) {
+      navigate('/');
     }
-  }, [isAuthenticated, navigate]);
-  
-  const handleLogin = async (e: React.FormEvent) => {
+  }, [isAuthenticated, authLoading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     
     if (!email || !password) {
-      toast.error('Please fill in all fields');
+      toast.error(t.pleaseEnterCredentials || 'Please enter your credentials');
       return;
     }
     
-    setLoginInProgress(true);
+    setLoading(true);
+    
     try {
-      // For demo purposes
-      if (email === 'demo@example.com' && password === 'password') {
-        const result = await login(email, password);
-        toast.success('Login successful! Welcome to Inventory Pro.');
-        
-        // Check if shop niche is set, if not open the selector
-        const hasSetNiche = localStorage.getItem('shop_niche');
-        if (!hasSetNiche) {
-          setIsNicheSelectorOpen(true);
-        } else {
-          navigate('/');
-        }
+      const result = await login(email, password);
+      
+      if (result?.error) {
+        toast.error(result.error.message);
       } else {
-        const result = await login(email, password);
-        
-        if (result && result.error) {
-          setError(result.error.message);
-          toast.error(result.error.message);
-        } else {
-          toast.success('Login successful! Welcome to Inventory Pro.');
-          
-          // Check if shop niche is set, if not open the selector
-          const hasSetNiche = localStorage.getItem('shop_niche');
-          if (!hasSetNiche) {
-            setIsNicheSelectorOpen(true);
-          } else {
-            navigate('/');
-          }
-        }
+        toast.success(t.loginSuccessful || 'Login successful');
+        navigate('/');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.message || 'Login failed. Please check your credentials and try again.');
-      toast.error('Login failed. Please check your credentials and try again.');
+      toast.error(error.message || t.loginFailed || 'Login failed');
     } finally {
-      setLoginInProgress(false);
+      setLoading(false);
     }
   };
-  
-  const handleNicheSelection = (niche: string) => {
-    localStorage.setItem('shop_niche', niche);
-    toast.success(`Welcome to Inventory Pro for ${niche}!`);
-    navigate('/');
+
+  // Quick login for demo purposes
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    try {
+      const result = await login('demo@example.com', 'password');
+      
+      if (result?.error) {
+        toast.error(result.error.message);
+      } else {
+        toast.success(t.demoLoginSuccessful || 'Demo login successful');
+        navigate('/');
+      }
+    } catch (error: any) {
+      console.error('Demo login error:', error);
+      toast.error(error.message || t.loginFailed || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
+  // If already authenticated, redirect to home
+  if (isAuthenticated && !authLoading) {
+    return <Navigate to="/" />;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+      
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">{t.loginTitle || 'Login to Your Account'}</CardTitle>
           <CardDescription>
-            Enter your email and password to access your account
+            {t.loginSubtitle || 'Enter your credentials to access your account'}
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleLogin}>
+        
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            <Alert className="bg-blue-50 text-blue-700 border-blue-200">
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Use <strong>demo@example.com</strong> and password <strong>password</strong> for demo access
-              </AlertDescription>
-            </Alert>
-            
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
+              <Label htmlFor="email">{t.email || 'Email'}</Label>
+              <Input
                 id="email"
-                type="email"
-                placeholder="example@example.com"
+                type="email" 
+                placeholder={t.emailPlaceholder || 'Enter your email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
+            
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link 
-                  to="/forgot-password"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
+                <Label htmlFor="password">{t.password || 'Password'}</Label>
               </div>
-              <Input 
+              <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder={t.passwordPlaceholder || '••••••••'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="remember"
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="remember" className="text-sm font-normal">
-                Remember me
-              </Label>
-            </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          
+          <CardFooter className="flex flex-col gap-4">
             <Button 
               type="submit" 
               className="w-full"
-              disabled={loginInProgress || isLoading}
+              disabled={loading || authLoading}
             >
-              {loginInProgress ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                </div>
               ) : (
-                'Sign in'
+                t.loginButton || 'Login'
               )}
             </Button>
-            <div className="text-center text-sm">
-              Don't have an account?{' '}
-              <Link 
-                to="/register"
-                className="text-primary hover:underline"
-              >
-                Sign up
+            
+            <Button 
+              type="button"
+              variant="outline" 
+              className="w-full"
+              onClick={handleDemoLogin}
+              disabled={loading || authLoading}
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                t.demoLogin || 'Demo Login'
+              )}
+            </Button>
+            
+            <div className="text-center text-sm mt-4">
+              <span>{t.noAccount || 'Don\'t have an account?'} </span>
+              <Link to="/register" className="text-primary hover:underline">
+                {t.registerNow || 'Register now'}
               </Link>
             </div>
           </CardFooter>
         </form>
       </Card>
-      
-      <ShopNicheSelector 
-        open={isNicheSelectorOpen} 
-        onOpenChange={setIsNicheSelectorOpen}
-        onSelect={handleNicheSelection}
-      />
     </div>
   );
 };
