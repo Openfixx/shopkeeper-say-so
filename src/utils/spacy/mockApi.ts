@@ -113,6 +113,7 @@ export const mockSpacyApiCall = async (text: string, options: SpacyOptions): Pro
 
 /**
  * Mock implementation of processText function
+ * Ensure this is exported with the exact name 'mockProcessText' to match the import in api.ts
  */
 export const mockProcessText = (text: string): Entity[] => {
   // Simple implementation to extract entities
