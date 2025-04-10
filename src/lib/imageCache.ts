@@ -11,21 +11,44 @@ export const getCachedImage = async (productName: string) => {
 };
 
 export const cacheProductImage = async (productName: string, imageUrl: string) => {
-  // Download image to store in Supabase
-  const response = await fetch(imageUrl);
-  const blob = await response.blob();
-  const file = new File([blob], `${productName}.jpg`, { type: blob.type });
+  // Verify image exists
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject('Invalid image');
+    img.src = imageUrl;
+  });
 
-  // Upload to Supabase Storage
-  const { publicUrl } = await supabase.uploadProductImage(productName, file);
-
-  // Save reference in database
-  await supabase
+  const { data, error } = await supabase
     .from('products')
     .upsert({ 
-      name: productName.toLowerCase(), 
-      image_url: publicUrl 
-    });
-  
-  return publicUrl;
+      name: productName.toLowerCase(),
+      image_url: imageUrl 
+    })
+    .select();
+
+  if (error) throw error;
+  return data[0].image_url;
+};
+
+export const fetchProductImage = async (productName: string) => {
+  // Check cache first
+  const cached = await getCachedImage(productName);
+  if (cached) {
+    const { error } = await supabase.storage
+      .from('product-images')
+      .download(cached.split('/').pop()!);
+    if (!error) return cached;
+  }
+
+  // Fetch new image
+  try {
+    const res = await fetch(
+      `https://duckduckgo.com/?q=${productName}&iax=images&ia=images&format=json`
+    );
+    const imageUrl = (await res.json()).image_results[0]?.thumbnail;
+    return imageUrl ? await cacheProductImage(productName, imageUrl) : null;
+  } catch {
+    return null;
+  }
 };
