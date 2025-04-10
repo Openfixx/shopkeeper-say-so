@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
 
@@ -42,14 +41,22 @@ export const supabase = (() => {
         signUp: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
         getSession: async () => ({ data: { session: null }, error: null }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } })
+      },
+      storage: {
+        from: () => ({
+          upload: async () => ({ data: { path: 'mock-path.jpg' }, error: null }),
+          getPublicUrl: () => ({ data: { publicUrl: '/placeholder.png' } })
+        })
       },
       from: () => ({
         select: () => ({
           eq: () => ({
-            single: async () => ({ data: null, error: null })
+            single: async () => ({ data: null, error: null }),
+            maybeSingle: async () => ({ data: null, error: null })
           }),
-          insert: async () => ({ error: null })
+          insert: async () => ({ data: null, error: null }),
+          upsert: async () => ({ data: null, error: null })
         })
       })
     };
@@ -57,29 +64,81 @@ export const supabase = (() => {
   }
 })();
 
-// Add to existing supabase client
+// ======================
+// Storage Functions
+// ======================
+
 export const uploadProductImage = async (productName: string, imageFile: File) => {
   try {
-    // Generate unique filename
-    const fileName = `${productName.toLowerCase().replace(/ /g, '-')}-${Date.now()}.jpg`;
+    // Sanitize filename
+    const fileName = `${productName.toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')}-${Date.now()}.jpg`;
     
-    // Upload to Supabase Storage
+    // Upload with error handling
     const { data, error } = await supabase.storage
       .from('product-images')
-      .upload(fileName, imageFile);
+      .upload(fileName, imageFile, {
+        cacheControl: '3600',
+        upsert: false // Prevent accidental overwrites
+      });
 
     if (error) throw error;
 
-    // Return public URL
+    // Get long-lived URL
     return supabase.storage
       .from('product-images')
-      .getPublicUrl(data.path);
+      .getPublicUrl(data.path, {
+        download: false
+      }).data.publicUrl;
+      
   } catch (error) {
-    console.error("Image upload failed:", error);
-    return { publicUrl: "/placeholder.png" };
+    console.error("[Supabase] Image upload failed:", error);
+    return null;
   }
 };
-// Database types
+
+// ======================
+// Product CRUD Operations
+// ======================
+
+export const findProduct = async (name: string) => {
+  const { data, error } = await supabase
+    .from('products')
+    .select()
+    .eq('name', name.toLowerCase())
+    .maybeSingle();
+
+  return { data, error };
+};
+
+export const saveProduct = async (product: Omit<DbProduct, 'created_at'>) => {
+  return await supabase
+    .from('products')
+    .upsert({
+      ...product,
+      created_at: new Date().toISOString()
+    })
+    .select();
+};
+
+// ======================
+// Inventory Operations
+// ======================
+
+export const addInventoryItem = async (
+  item: Omit<DbInventoryItem, 'id' | 'created_at'>
+) => {
+  return await supabase
+    .from('inventory')
+    .insert({
+      ...item,
+      created_at: new Date().toISOString()
+    })
+    .select();
+};
+
+// ======================
+// Database Types
 // ======================
 
 export type DbProduct = {
@@ -99,6 +158,42 @@ export type DbInventoryItem = {
   created_at: string;    // Auto-generated
 };
 
-// Keep existing types unchanged below this line
+// Keep your existing types below
 export type DbBill = {
-  /* ... rest of your existing types ... */
+  id: string;
+  total: number;
+  delivery_option: boolean;
+  payment_method: string;
+  partial_payment: boolean;
+  created_at: string;
+  user_id: string;
+};
+
+export type DbBillItem = {
+  id: string;
+  bill_id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  total: number;
+};
+
+export type DbShop = {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  distance?: number;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+};
+
+export type DbStockAlert = {
+  id: string;
+  product_id: string;
+  threshold: number;
+  notification_sent: boolean;
+  created_at: string;
+  user_id: string;
+};
