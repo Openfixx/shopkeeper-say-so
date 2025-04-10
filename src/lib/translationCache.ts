@@ -11,7 +11,7 @@ const defaultTerms: TranslationCache = {
   "नमक": { translation: "salt", timestamp: Date.now() }
 };
 
-export const getTranslationCache = (): TranslationCache => {
+export const getTranslationCache = (): Record<string, string> => {
   const cache = localStorage.getItem(CACHE_KEY);
   return cache ? { ...defaultTerms, ...JSON.parse(cache) } : defaultTerms;
 };
