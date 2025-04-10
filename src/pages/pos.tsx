@@ -1,34 +1,39 @@
-import { useState } from 'react';
-import VoiceInput from '../components/VoiceInput';
-import BillGenerator from '../components/BillGenerator';
-import { translate } from '../lib/translate';
-import { addItem } from '../lib/inventory';
+// Add this new state
+const [activeProduct, setActiveProduct] = useState('');
 
-export default function POS() {
-  const [items, setItems] = useState<{ name: string; price: number }[]>([]);
-
-  const handleCommand = (text: string) => {
-    // Example commands:
-    // "Add sugar ₹50"
-    // "5 किलो चीनी ₹100"
-    const translatedText = translate(text);
-    const match = translatedText.match(/(?:Add|)\s*(\d*\s*\w+)\s*₹?(\d+)/i);
+// Modify handleVoiceCommand
+const handleVoiceCommand = async (transcript: string) => {
+  const processedText = /* ... translation logic ... */;
+  
+  const match = processedText.match(/Add (\d+) (\w+).*₹(\d+)/i);
+  if (match) {
+    const [_, quantity, product, price] = match;
+    setActiveProduct(product); // Highlight product in UI
     
-    if (match) {
-      const newItem = {
-        name: match[1].trim(),  // "sugar" or "5 kilo sugar"
-        price: Number(match[2]) // 50
-      };
-      setItems([...items, newItem]);
-      addItem(newItem);
-    }
-  };
+    const imageUrl = await fetchProductImage(product);
+    
+    await supabase.from('inventory').insert([{
+      product,
+      quantity: Number(quantity),
+      price: Number(price),
+      image_url: imageUrl
+    }]);
+  }
+};
 
-  return (
-    <div className="pos-container">
-      <h1>Shopkeeper POS</h1>
-      <VoiceInput onCommand={handleCommand} />
-      <BillGenerator items={items} />
-    </div>
-  );
-}
+// In your return statement
+return (
+  <div>
+    {/* ... existing code ... */}
+    {activeProduct && (
+      <div className="active-product">
+        Editing: {activeProduct}
+        <ProductImagePicker 
+          productName={activeProduct}
+          initialImage={items.find(i => i.product === activeProduct)?.image_url || ''}
+          onImageConfirmed={() => setActiveProduct('')}
+        />
+      </div>
+    )}
+  </div>
+);
