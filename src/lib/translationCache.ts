@@ -1,26 +1,41 @@
 const CACHE_KEY = "hindi_english_map";
 
+type TranslationCache = Record<string, {
+  translation: string;
+  timestamp: number;
+}>;
+
 // Initialize with common terms
-const defaultTerms: Record<string, string> = {
-  "चीनी": "sugar", "नमक": "salt", "तेल": "oil", "अटा": "flour"
+const defaultTerms: TranslationCache = {
+  "चीनी": { translation: "sugar", timestamp: Date.now() },
+  "नमक": { translation: "salt", timestamp: Date.now() }
 };
 
-export const getTranslationCache = () => {
+export const getTranslationCache = (): TranslationCache => {
   const cache = localStorage.getItem(CACHE_KEY);
   return cache ? { ...defaultTerms, ...JSON.parse(cache) } : defaultTerms;
 };
 
 export const saveTranslation = (hindi: string, english: string) => {
   const cache = getTranslationCache();
-  cache[hindi] = english;
+  cache[hindi] = { translation: english, timestamp: Date.now() };
   localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
 };
 
 export const translateHindi = async (text: string) => {
   const cache = getTranslationCache();
-  if (cache[text]) return cache[text];
+  
+  // Clear entries older than 24 hours
+  Object.keys(cache).forEach(key => {
+    if (Date.now() - cache[key].timestamp > 86400000) {
+      delete cache[key];
+    }
+  });
 
-  // DuckDuckGo API fallback
+  // Check cache first
+  if (cache[text]) return cache[text].translation;
+
+  // API fallback (DuckDuckGo)
   try {
     const res = await fetch(
       `https://api.duckduckgo.com/?q=${encodeURIComponent(text + " meaning in english")}&format=json`
@@ -32,17 +47,3 @@ export const translateHindi = async (text: string) => {
     return text;
   }
 };
-// Add TTL (Time-To-Live) to cached translations
-const saveTranslation = (hindi: string, english: string) => {
-  const cache = getTranslationCache();
-  cache[hindi] = {
-    translation: english,
-    timestamp: Date.now()
-  };
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-};
-
-// Add when retrieving:
-if (cache[hindi] && Date.now() - cache[hindi].timestamp > 86400000) {
-  delete cache[hindi]; // Clear after 24hrs
-}
