@@ -1,18 +1,29 @@
-import { useVoice } from '../lib/voice';
+import { useState } from 'react';
+import ProductImagePicker from './ProductImagePicker';
 
-interface VoiceInputProps {
-  onCommand: (text: string) => void;
-}
+export default function VoiceInput({ onCommand }: { onCommand: (text: string) => void }) {
+  const [imagePickerVisible, setImagePickerVisible] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState('');
 
-export default function VoiceInput({ onCommand }: VoiceInputProps) {
-  const { text, listen } = useVoice();
+  const handleProcessCommand = async (text: string) => {
+    const productMatch = text.match(/Add \d+ (\w+)/i);
+    if (productMatch) {
+      setCurrentProduct(productMatch[1]);
+      setImagePickerVisible(true);
+    }
+    onCommand(text);
+  };
 
   return (
-    <div className="voice-input">
-      <button onClick={() => listen('hi-IN')}>Speak Hindi</button>
-      <button onClick={() => listen('en-IN')}>Speak English</button>
-      <p>You said: {text}</p>
-      <button onClick={() => onCommand(text)}>Process Command</button>
+    <div>
+      {/* ... existing voice input code ... */}
+      {imagePickerVisible && (
+        <ProductImagePicker
+          productName={currentProduct}
+          initialImage={`https://source.unsplash.com/100x100/?${currentProduct}`}
+          onImageConfirmed={() => setImagePickerVisible(false)}
+        />
+      )}
     </div>
   );
 }
