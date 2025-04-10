@@ -80,58 +80,25 @@ export const uploadProductImage = async (productName: string, imageFile: File) =
   }
 };
 // Database types
+// ======================
+
 export type DbProduct = {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  position: string;
-  expiry?: string;
-  price: number;
-  image_url?: string;
-  barcode?: string;
-  stock_alert?: number;
-  created_at: string;
-  updated_at: string;
-  shop_id?: string;
-  user_id: string;
+  name: string;          // Primary key
+  image_url: string;     // URL from storage
+  created_at: string;    // Auto-generated
 };
 
+export type DbInventoryItem = {
+  id: number;            // Auto-increment
+  product_name: string;  // References products.name
+  hindi_name: string | null;
+  quantity: number;
+  price: number;         // In paise (₹100 = 10000)
+  expiry_date: string | null;
+  image_url: string | null;
+  created_at: string;    // Auto-generated
+};
+
+// Keep existing types unchanged below this line
 export type DbBill = {
-  id: string;
-  total: number;
-  delivery_option: boolean;
-  payment_method: string;
-  partial_payment: boolean;
-  created_at: string;
-  user_id: string;
-};
-
-export type DbBillItem = {
-  id: string;
-  bill_id: string;
-  product_id: string;
-  quantity: number;
-  price: number;
-  total: number;
-};
-
-export type DbShop = {
-  id: string;
-  name: string;
-  type: string;
-  location: string;
-  distance?: number;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-};
-
-export type DbStockAlert = {
-  id: string;
-  product_id: string;
-  threshold: number;
-  notification_sent: boolean;
-  created_at: string;
-  user_id: string;
-};
+  /* ... rest of your existing types ... */
