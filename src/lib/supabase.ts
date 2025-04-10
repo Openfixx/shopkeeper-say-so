@@ -57,6 +57,28 @@ export const supabase = (() => {
   }
 })();
 
+// Add to existing supabase client
+export const uploadProductImage = async (productName: string, imageFile: File) => {
+  try {
+    // Generate unique filename
+    const fileName = `${productName.toLowerCase().replace(/ /g, '-')}-${Date.now()}.jpg`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, imageFile);
+
+    if (error) throw error;
+
+    // Return public URL
+    return supabase.storage
+      .from('product-images')
+      .getPublicUrl(data.path);
+  } catch (error) {
+    console.error("Image upload failed:", error);
+    return { publicUrl: "/placeholder.png" };
+  }
+};
 // Database types
 export type DbProduct = {
   id: string;
