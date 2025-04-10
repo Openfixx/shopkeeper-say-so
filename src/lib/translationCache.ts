@@ -32,3 +32,17 @@ export const translateHindi = async (text: string) => {
     return text;
   }
 };
+// Add TTL (Time-To-Live) to cached translations
+const saveTranslation = (hindi: string, english: string) => {
+  const cache = getTranslationCache();
+  cache[hindi] = {
+    translation: english,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+};
+
+// Add when retrieving:
+if (cache[hindi] && Date.now() - cache[hindi].timestamp > 86400000) {
+  delete cache[hindi]; // Clear after 24hrs
+}
