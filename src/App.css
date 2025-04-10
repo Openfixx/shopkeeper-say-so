@@ -40,3 +40,22 @@
 .read-the-docs {
   color: #888;
 }
+/* Add these new styles */
+.active-product {
+  border: 2px solid #3b82f6;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+}
+
+.image-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.image-picker img {
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+}
