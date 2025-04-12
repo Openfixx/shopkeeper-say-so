@@ -22,7 +22,6 @@ export default defineConfig({
   
   optimizeDeps: {
     esbuildOptions: {
-      tsconfig: "none",
       tsconfigRaw: `{
         "compilerOptions": {
           "jsx": "react-jsx",
@@ -52,7 +51,6 @@ export default defineConfig({
   },
   
   esbuild: {
-    tsconfig: "none",
     tsconfigRaw: `{
       "compilerOptions": {
         "jsx": "react-jsx",
