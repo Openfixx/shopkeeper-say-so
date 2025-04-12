@@ -24,9 +24,8 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
   // Completely bypass tsconfig.json and provide inline config
   optimizeDeps: {
     esbuildOptions: {
-      // Use "none" to skip tsconfig.json without type errors
-      tsconfig: "none",
-      tsconfigRaw: JSON.stringify({
+      tsconfig: false,
+      tsconfigRaw: {
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
@@ -43,7 +42,7 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
           }
         },
         include: ["src"]
-      })
+      }
     }
   },
   
@@ -56,9 +55,8 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Use "none" to skip tsconfig.json without type errors
-    tsconfig: "none",
-    tsconfigRaw: JSON.stringify({
+    tsconfig: false,
+    tsconfigRaw: {
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
@@ -75,6 +73,6 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
         }
       },
       include: ["src"]
-    })
+    }
   }
 }));
