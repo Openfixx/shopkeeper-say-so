@@ -1,18 +1,14 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ProductImagePicker from './ProductImagePicker';
-import { getCachedTranslation } from '@/lib/translationCache';
-import { supabase } from '@/integrations/supabase/client';
-import EnhancedVoiceCommand from './ui-custom/EnhancedVoiceCommand';
-import { fetchProductImage } from '@/utils/fetchImage';
+import { useVoiceRecognition } from '@/lib/voice';
 
 export interface VoiceInputProps {
-  onCommand: (text: string) => void;
+  onCommand: (text: string, data?: any) => void;
   className?: string;
   placeholder?: string;
   supportedLanguages?: string[];
@@ -21,125 +17,84 @@ export interface VoiceInputProps {
 export default function VoiceInput({ 
   onCommand, 
   className,
-  placeholder = "Try saying 'Add 5 kg sugar price ₹50'",
+  placeholder = "Try saying 'Add 5 kg sugar price ₹50 to rack 3'",
   supportedLanguages = ['en-US', 'hi-IN']
 }: VoiceInputProps) {
   const [imagePickerVisible, setImagePickerVisible] = useState(false);
   const [currentProduct, setCurrentProduct] = useState('');
   const [initialImage, setInitialImage] = useState('');
   const [processedData, setProcessedData] = useState<any>(null);
-  const [lastTranscript, setLastTranscript] = useState('');
   const [processingComplete, setProcessingComplete] = useState(false);
-  const [isProcessingContinuation, setIsProcessingContinuation] = useState(false);
+  
+  const { 
+    text: lastTranscript, 
+    isListening, 
+    listen, 
+    commandResult 
+  } = useVoiceRecognition();
 
-  // Process voice command with the enhanced NLP capabilities
-  const handleVoiceResult = async (text: string, data: any) => {
-    setLastTranscript(text);
+  // Process voice command results
+  useEffect(() => {
+    if (commandResult) {
+      handleVoiceResult(commandResult);
+    }
+  }, [commandResult]);
+
+  const handleVoiceResult = async (result: any) => {
+    const enhancedData = {
+      product: result.productName,
+      quantity: extractQuantity(lastTranscript),
+      price: extractPrice(lastTranscript),
+      position: result.rackNumber ? `Rack ${result.rackNumber}` : undefined,
+      command: lastTranscript.toLowerCase().includes('add') ? 'add' : 
+               lastTranscript.toLowerCase().includes('create') ? 'create' : undefined
+    };
+
+    setProcessedData(enhancedData);
     setProcessingComplete(false);
     
-    if (data?.processed) {
-      setProcessedData(data.processed);
-      
-      // Check if we have a product command
-      if (data.processed.product && (
-          data.processed.command?.includes('add') ||
-          data.processed.command?.includes('create') ||
-          text.toLowerCase().includes('add') ||
-          text.toLowerCase().includes('create')
-      )) {
-        // We have a product to add
-        setCurrentProduct(data.processed.product);
-        
-        // Set initial image if provided by the API
-        if (data.imageUrl) {
-          setInitialImage(data.imageUrl);
-        } else {
-          // Try to fetch an image for the product
-          const imageUrl = await fetchProductImage(data.processed.product);
-          if (imageUrl) {
-            setInitialImage(imageUrl);
-          }
-        }
-        
-        // Show image picker
-        setImagePickerVisible(true);
-      }
+    if (enhancedData.product && enhancedData.command) {
+      setCurrentProduct(enhancedData.product);
+      setInitialImage(result.imageUrl || '');
+      setImagePickerVisible(true);
     }
     
-    // Pass the command to parent component
-    onCommand(text);
+    onCommand(lastTranscript, { processed: enhancedData });
     setProcessingComplete(true);
   };
 
-  // Handle continuation of processing after image confirmation
-  const handleContinueProcessing = () => {
-    setIsProcessingContinuation(true);
-    if (processedData && lastTranscript) {
-      // Re-process with the same data to continue the workflow
-      handleVoiceResult(lastTranscript, { processed: processedData });
-      toast.info("Continuing processing...");
-    }
+  const extractQuantity = (text: string) => {
+    const match = text.match(/(\d+)\s*(kg|g|ml|l|pieces?|pcs)/i);
+    return match ? { value: parseInt(match[1]), unit: match[2].toLowerCase() } : null;
   };
 
-  // Handle image confirmation
+  const extractPrice = (text: string) => {
+    const match = text.match(/₹?(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  };
+
   const handleImageConfirmed = () => {
     setImagePickerVisible(false);
     toast.success(`Image confirmed for ${currentProduct}`);
-    
-    // Auto-continue processing after image is confirmed
-    if (processingComplete) {
-      toast.info("Continue with next command or action");
-      // Auto-trigger next step in the workflow after a short delay
-      setTimeout(handleContinueProcessing, 500);
-    }
   };
-
-  // This effect adds a "continue" button when processing is complete
-  useEffect(() => {
-    if (processingComplete && lastTranscript && !isProcessingContinuation) {
-      toast.success("Command processed! Continue with next command", {
-        action: {
-          label: "Continue",
-          onClick: handleContinueProcessing
-        }
-      });
-    }
-    
-    // Reset the continuation flag after processing
-    if (processingComplete) {
-      setIsProcessingContinuation(false);
-    }
-  }, [processingComplete, lastTranscript]);
 
   return (
     <div className={cn("relative", className)}>
       <div className="space-y-4">
-        <EnhancedVoiceCommand
-          onResult={handleVoiceResult}
+        <Button
+          onClick={() => listen(supportedLanguages[0])}
+          disabled={isListening}
+          variant={isListening ? "destructive" : "default"}
           size="lg"
-          autoProcess={true}
-          supportedLanguages={supportedLanguages}
-          floating={false}
-          alwaysShowControls={true}
-          listenerTimeout={15000} // Extended listener timeout
-        />
+          className="w-full"
+        >
+          {isListening ? "Listening..." : "Start Voice Command"}
+        </Button>
         
         {lastTranscript && (
           <Card className="mt-4 border border-primary/10 shadow-lg">
             <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <h3 className="font-medium">Last Command</h3>
-                {processingComplete && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs"
-                    onClick={handleContinueProcessing}
-                  >
-                    Continue Process
-                  </Button>
-                )}
-              </div>
+              <h3 className="font-medium">Last Command</h3>
               <p className="text-sm bg-muted/40 p-2 rounded-md">{lastTranscript}</p>
               
               {processedData && (
@@ -147,22 +102,22 @@ export default function VoiceInput({
                   <div className="text-xs text-muted-foreground">Detected entities:</div>
                   <div className="flex flex-wrap gap-2">
                     {processedData.product && (
-                      <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800">
+                      <Badge variant="secondary">
                         Product: {processedData.product}
                       </Badge>
                     )}
                     {processedData.quantity && (
-                      <Badge className="bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-100 border-green-200 dark:border-green-800">
+                      <Badge variant="secondary">
                         Qty: {processedData.quantity.value} {processedData.quantity.unit}
                       </Badge>
                     )}
                     {processedData.price && (
-                      <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800">
+                      <Badge variant="secondary">
                         Price: ₹{processedData.price}
                       </Badge>
                     )}
                     {processedData.position && (
-                      <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800">
+                      <Badge variant="secondary">
                         Position: {processedData.position}
                       </Badge>
                     )}
@@ -174,7 +129,6 @@ export default function VoiceInput({
         )}
       </div>
 
-      {/* Product Image Picker Modal */}
       {imagePickerVisible && (
         <ProductImagePicker
           productName={currentProduct}
