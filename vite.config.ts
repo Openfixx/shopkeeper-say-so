@@ -20,14 +20,14 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Override esbuild configuration to ignore tsconfig errors
+  
+  // Configure the build to bypass tsconfig.json entirely
   optimizeDeps: {
-    exclude: [], 
     esbuildOptions: {
-      // Ignore tsconfig issues
-      logOverride: { 'tsconfig-invalid': 'silent' },
-      // Provide inline tsconfig to avoid reading the file
-      tsconfigRaw: JSON.stringify({
+      // Completely ignore tsconfig.json
+      tsconfig: 'none',
+      // Define all TS options inline
+      tsconfigRaw: {
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
@@ -44,18 +44,21 @@ export default defineConfig(({ mode }) => ({
           }
         },
         include: ["src"]
-      })
+      }
     }
   },
+  
   build: {
     commonjsOptions: {
       transformMixedEsModules: true,
     },
   },
-  // Apply the same esbuild configuration to the main build process
+  
+  // Apply the same configuration to the main build process
   esbuild: {
-    logOverride: { 'tsconfig-invalid': 'silent' },
-    tsconfigRaw: JSON.stringify({
+    // Completely ignore tsconfig.json
+    tsconfig: 'none',
+    tsconfigRaw: {
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
@@ -72,6 +75,6 @@ export default defineConfig(({ mode }) => ({
         }
       },
       include: ["src"]
-    })
+    }
   }
 }));
