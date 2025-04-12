@@ -4,16 +4,13 @@ import { supabase as officialClient } from '@/integrations/supabase/client';
 // Get environment variables with better error handling
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
 // Add this near other supabase functions
 export const withUser = async (data: any) => {
   const { data: { user } } = await supabase.auth.getUser();
   return { ...data, user_id: user?.id };
 };
 
-// Usage example when inserting:
-await supabase.from('products').insert(
-  await withUser({ name: "Coffee", price: 100 })
-);
 // Create Supabase client with proper error handling
 export const supabase = (() => {
   try {
@@ -50,7 +47,7 @@ export const supabase = (() => {
         signUp: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
         getSession: async () => ({ data: { session: null }, error: null }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } })
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
       },
       storage: {
         from: () => ({
