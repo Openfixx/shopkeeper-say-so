@@ -5,15 +5,14 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    process.env.NODE_ENV !== 'production' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -24,24 +23,24 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     esbuildOptions: {
       tsconfig: "none",
-      tsconfigRaw: JSON.stringify({
-        compilerOptions: {
-          jsx: "react-jsx",
-          target: "ESNext",
-          module: "ESNext",
-          moduleResolution: "bundler",
-          strict: true,
-          resolveJsonModule: true,
-          isolatedModules: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
-          noEmit: true,
-          paths: {
+      tsconfigRaw: `{
+        "compilerOptions": {
+          "jsx": "react-jsx",
+          "target": "ESNext",
+          "module": "ESNext",
+          "moduleResolution": "bundler",
+          "strict": true,
+          "resolveJsonModule": true,
+          "isolatedModules": true,
+          "esModuleInterop": true,
+          "skipLibCheck": true,
+          "noEmit": true,
+          "paths": {
             "@/*": ["./src/*"]
           }
         },
-        include: ["src"]
-      })
+        "include": ["src"]
+      }`
     }
   },
   
@@ -54,23 +53,23 @@ export default defineConfig(({ mode }) => ({
   
   esbuild: {
     tsconfig: "none",
-    tsconfigRaw: JSON.stringify({
-      compilerOptions: {
-        jsx: "react-jsx",
-        target: "ESNext",
-        module: "ESNext",
-        moduleResolution: "bundler",
-        strict: true,
-        resolveJsonModule: true,
-        isolatedModules: true,
-        esModuleInterop: true,
-        skipLibCheck: true,
-        noEmit: true,
-        paths: {
+    tsconfigRaw: `{
+      "compilerOptions": {
+        "jsx": "react-jsx",
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "paths": {
           "@/*": ["./src/*"]
         }
       },
-      include: ["src"]
-    })
+      "include": ["src"]
+    }`
   }
-}));
+});
