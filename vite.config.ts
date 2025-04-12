@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => ({
   // Completely bypass tsconfig.json and provide inline config
   optimizeDeps: {
     esbuildOptions: {
-      // Skip tsconfig file by using empty string
-      tsconfig: '',
+      // Skip tsconfig file completely using "none" value
+      tsconfig: 'none',
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
@@ -56,8 +56,8 @@ export default defineConfig(({ mode }) => ({
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Skip tsconfig file by using empty string
-    tsconfig: '',
+    // Skip tsconfig file completely using "none" value
+    tsconfig: 'none',
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
