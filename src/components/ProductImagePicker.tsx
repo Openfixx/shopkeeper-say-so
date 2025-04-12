@@ -11,7 +11,7 @@ export default function ProductImagePicker({
   productName: string;
   initialImage: string;
   onImageConfirmed: (url: string) => void;
-  onCancel?: () => void;
+  onCancel?: () => void;  // Made explicitly optional with ?
 }) {
   const [image, setImage] = useState(initialImage);
   const [isLoading, setIsLoading] = useState(false);

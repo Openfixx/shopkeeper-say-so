@@ -28,7 +28,33 @@ export default defineConfig(({ mode }) => ({
       transformMixedEsModules: true,
     },
   },
-  // Try to make Vite more resilient to tsconfig issues
+  // Make Vite completely ignore tsconfig.json issues
+  optimizeDeps: {
+    esbuildOptions: {
+      logOverride: {
+        'tsconfig-invalid': 'silent',
+      },
+      tsconfigRaw: {
+        compilerOptions: {
+          jsx: "react-jsx",
+          target: "ESNext",
+          module: "ESNext",
+          moduleResolution: "bundler",
+          strict: true,
+          resolveJsonModule: true,
+          isolatedModules: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          noEmit: true,
+          paths: {
+            "@/*": ["./src/*"]
+          }
+        },
+        include: ["src"]
+      }
+    }
+  },
+  // Additional override for esbuild
   esbuild: {
     logOverride: {
       'tsconfig-invalid': 'silent',
