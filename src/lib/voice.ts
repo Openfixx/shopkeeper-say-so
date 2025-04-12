@@ -1,3 +1,6 @@
+
+import { useState } from 'react';
+
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);

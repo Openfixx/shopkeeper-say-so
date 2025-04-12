@@ -1,87 +1,110 @@
 
-// Enhanced version with type safety, cache expiration, and DuckDuckGo integration
-type TranslationCache = Record<string, {
-  translation: string;
-  timestamp: number; // Unix epoch in ms
-}>;
+import { supabase } from './supabase';
 
-const CACHE_KEY = "shopkeeper_translation_cache";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Simple in-memory cache for translations
+const translationCache: Record<string, string> = {};
 
-// Initialize with common grocery terms
-const DEFAULT_TRANSLATIONS: TranslationCache = {
-  "चीनी": { translation: "sugar", timestamp: Date.now() },
-  "नमक": { translation: "salt", timestamp: Date.now() },
-  "तेल": { translation: "oil", timestamp: Date.now() }
+// Hindi to English translation map for common products
+const HINDI_TO_ENGLISH_MAP: Record<string, string> = {
+  "चीनी": "sugar",
+  "नमक": "salt",
+  "तेल": "oil",
+  "अटा": "flour",
+  "दाल": "lentils",
+  "चावल": "rice",
+  "मसाला": "spice",
+  "चाय": "tea",
+  "दूध": "milk",
+  "पानी": "water",
+  "सब्जी": "vegetable",
+  "फल": "fruit",
+  "मिर्च": "pepper",
+  "हल्दी": "turmeric",
+  "धनिया": "coriander",
+  "जीरा": "cumin",
+  "लहसुन": "garlic",
+  "अदरक": "ginger",
+  "प्याज": "onion",
+  "टमाटर": "tomato",
+  "आलू": "potato"
 };
 
-export const getTranslationCache = (): TranslationCache => {
-  try {
-    const cache = localStorage.getItem(CACHE_KEY);
-    return cache ? { ...DEFAULT_TRANSLATIONS, ...JSON.parse(cache) } : DEFAULT_TRANSLATIONS;
-  } catch {
-    return DEFAULT_TRANSLATIONS;
+/**
+ * Translate Hindi text to English
+ * First tries cache, then local dictionary, finally calls API if needed
+ */
+export const translateHindi = async (hindiText: string): Promise<string> => {
+  // Check cache first
+  if (translationCache[hindiText]) {
+    return translationCache[hindiText];
   }
-};
-
-export const saveTranslation = (hindi: string, english: string): void => {
-  const cache = getTranslationCache();
-  cache[hindi] = { translation: english, timestamp: Date.now() };
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-};
-
-export const translateHindi = async (text: string): Promise<string> => {
-  const cache = getTranslationCache();
   
-  // Clean expired entries (older than 24h)
-  Object.keys(cache).forEach(key => {
-    if (Date.now() - cache[key].timestamp > CACHE_TTL_MS) {
-      delete cache[key];
-    }
-  });
-
-  // Return cached translation if available
-  if (cache[text]) return cache[text].translation;
-
-  // API fallback to DuckDuckGo
   try {
-    const encodedQuery = encodeURIComponent(`${text} meaning in english`);
-    const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1`);
+    // First try simple word-by-word translation using our dictionary
+    let translatedText = hindiText;
     
-    if (!response.ok) {
-      throw new Error(`DuckDuckGo API error: ${response.status}`);
-    }
+    // Replace Hindi words with English equivalents
+    Object.keys(HINDI_TO_ENGLISH_MAP).forEach(hindiWord => {
+      const englishWord = HINDI_TO_ENGLISH_MAP[hindiWord];
+      const regex = new RegExp(hindiWord, 'gi');
+      translatedText = translatedText.replace(regex, englishWord);
+    });
     
-    const data = await response.json();
-    
-    // Try to extract a concise translation from the API response
-    let translation = '';
-    
-    if (data.AbstractText) {
-      // First try to get from AbstractText (usually the definition)
-      const cleanText = data.AbstractText.split(/[,;.\n]/)[0].trim();
-      if (cleanText) translation = cleanText;
-    } 
-    else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-      // Then try RelatedTopics
-      const firstTopic = data.RelatedTopics[0].Text;
-      if (firstTopic) {
-        const match = firstTopic.match(/means\s+(\w+)/i);
-        if (match) translation = match[1];
+    // If we didn't change anything and we have Supabase edge function, use that
+    if (translatedText === hindiText) {
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
+          body: { 
+            type: 'translate', 
+            data: hindiText,
+            source_lang: 'hi',
+            target_lang: 'en'
+          }
+        });
+        
+        if (!error && data?.translated) {
+          translatedText = data.translated;
+        }
+      } catch (apiError) {
+        console.error('Translation API error:', apiError);
+        // Continue with our best attempt
       }
     }
     
-    // If we couldn't extract a good translation, fall back to the original text
-    if (!translation) {
-      console.warn(`Couldn't extract translation for "${text}" from DuckDuckGo`);
-      translation = text;
+    // Update cache
+    translationCache[hindiText] = translatedText;
+    return translatedText;
+    
+  } catch (error) {
+    console.error('Error translating Hindi text:', error);
+    return hindiText; // Return original text if translation fails
+  }
+};
+
+/**
+ * Fetch a product image from search engines
+ */
+export const fetchProductImage = async (productName: string): Promise<string | null> => {
+  try {
+    // Try to use the Supabase edge function
+    const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
+      body: { 
+        type: 'fetch_image', 
+        data: productName 
+      }
+    });
+    
+    if (error) throw error;
+    
+    if (data?.imageUrl) {
+      return data.imageUrl;
     }
     
-    saveTranslation(text, translation);
-    console.log(`Translated "${text}" to "${translation}" using DuckDuckGo API`);
-    return translation;
+    // Fallback to Unsplash
+    return `https://source.unsplash.com/300x300/?${encodeURIComponent(productName)},product`;
+    
   } catch (error) {
-    console.error("Translation API failed:", error);
-    return text; // Graceful fallback
+    console.error('Error fetching product image:', error);
+    return null;
   }
 };

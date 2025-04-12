@@ -1,4 +1,23 @@
+
 import { supabase } from './supabase';
+
+// Types
+export interface Product {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
+export interface InventoryItem {
+  id: string; 
+  product_name: string;
+  quantity: number;
+  price: number;
+  hindi_name?: string;
+  expiry_date?: string;
+  image_url?: string;
+  created_at: string;
+}
 
 // 1. Add new product (with image caching)
 export const addProduct = async (
@@ -29,7 +48,11 @@ export const addProduct = async (
     .single();
 
   if (error) throw error;
-  return data;
+  return {
+    id: data.id || '',
+    name: data.name,
+    imageUrl: data.image_url
+  };
 };
 
 // 2. Add inventory item
@@ -56,4 +79,19 @@ export const getInventory = async () => {
 
   if (error) throw error;
   return data;
+};
+
+// 4. Generate bill from items (missing function that's causing errors)
+export const generateBill = (items: { name: string; price: number }[]) => {
+  const billItems = items.map(item => ({
+    name: item.name,
+    price: item.price
+  }));
+  
+  const total = billItems.reduce((sum, item) => sum + item.price, 0);
+  
+  return {
+    items: billItems,
+    total
+  };
 };

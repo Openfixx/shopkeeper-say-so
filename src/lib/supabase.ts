@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
 
@@ -148,9 +149,20 @@ export const addInventoryItem = async (
 // ======================
 
 export type DbProduct = {
-  name: string;          // Primary key
-  image_url: string;     // URL from storage
-  created_at: string;    // Auto-generated
+  id: string;           // Added for compatibility with InventoryContext
+  name: string;         // Primary key
+  image_url: string;    // URL from storage
+  created_at: string;   // Auto-generated
+  quantity?: number;    // Added for compatibility with InventoryContext
+  unit?: string;        // Added for compatibility with InventoryContext
+  position?: string;    // Added for compatibility with InventoryContext
+  price?: number;       // Added for compatibility with InventoryContext
+  expiry?: string;      // Added for compatibility with InventoryContext
+  barcode?: string;     // Added for compatibility with InventoryContext
+  stock_alert?: number; // Added for compatibility with InventoryContext
+  updated_at?: string;  // Added for compatibility with InventoryContext
+  shop_id?: string;     // Added for compatibility with InventoryContext
+  user_id?: string;     // Added for compatibility with InventoryContext
 };
 
 export type DbInventoryItem = {
