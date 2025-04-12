@@ -20,12 +20,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Override esbuild configuration to ignore tsconfig errors
   optimizeDeps: {
-    exclude: [], // Adjust if needed for specific packages
+    exclude: [], 
     esbuildOptions: {
-      logOverride: {
-        'tsconfig-invalid': 'silent',
-      },
+      // Ignore tsconfig issues
+      logOverride: { 'tsconfig-invalid': 'silent' },
+      // Provide inline tsconfig to avoid reading the file
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
@@ -51,11 +52,9 @@ export default defineConfig(({ mode }) => ({
       transformMixedEsModules: true,
     },
   },
-  // Additional override for esbuild
+  // Apply the same esbuild configuration to the main build process
   esbuild: {
-    logOverride: {
-      'tsconfig-invalid': 'silent',
-    },
+    logOverride: { 'tsconfig-invalid': 'silent' },
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
