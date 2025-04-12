@@ -20,9 +20,11 @@ export default defineConfig({
     },
   },
   
+  // Remove specific tsconfig file reference and use inline config
   optimizeDeps: {
     esbuildOptions: {
-      tsconfigRaw: JSON.stringify({
+      // Provide inline compiler options that match what would be in tsconfig.json
+      tsconfigRaw: {
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
@@ -39,7 +41,7 @@ export default defineConfig({
           }
         },
         include: ["src"]
-      })
+      }
     }
   },
   
@@ -51,7 +53,8 @@ export default defineConfig({
   },
   
   esbuild: {
-    tsconfigRaw: JSON.stringify({
+    // Provide same inline compiler options here
+    tsconfigRaw: {
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
@@ -68,6 +71,6 @@ export default defineConfig({
         }
       },
       include: ["src"]
-    })
+    }
   }
 });
