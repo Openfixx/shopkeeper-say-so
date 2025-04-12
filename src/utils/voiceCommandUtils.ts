@@ -1,3 +1,4 @@
+
 /**
  * Voice Command Utilities
  * Functions for processing and handling voice commands
@@ -157,18 +158,22 @@ const enhanceWithNumberExtraction = async (command: string, initialDetails: Part
     }
   }
   
-  // Extract position/rack information
+  // Extract position/rack information - IMPROVED to extract only numbers
   if (!details.position) {
-    const positionPatterns = [
-      /(?:in|on|at)\s+(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i,
-      /(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i,
-      /(?:position|place|put|store)\s+(?:in|on|at)?\s+(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i
+    // Patterns specifically designed to extract rack/shelf numbers
+    const rackNumberPatterns = [
+      /(?:in|on|at|to)\s+rack\s+(\d+|[a-z])/i,
+      /(?:in|on|at|to)\s+shelf\s+(\d+|[a-z])/i,
+      /rack\s+(\d+|[a-z])/i,
+      /shelf\s+(\d+|[a-z])/i,
+      /(?:in|on|at|to)\s+box\s+(\d+|[a-z])/i,
     ];
     
-    for (const pattern of positionPatterns) {
+    for (const pattern of rackNumberPatterns) {
       const match = lowerCommand.match(pattern);
-      if (match) {
-        details.position = match[0];
+      if (match && match[1]) {
+        // Extract just the number/letter identifier
+        details.position = match[1].trim();
         break;
       }
     }

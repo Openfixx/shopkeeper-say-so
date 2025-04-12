@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -80,15 +81,19 @@ function customNER(text: string) {
     });
   }
   
-  // Extract rack/location information
+  // Extract rack/location information - IMPROVED to capture the number specifically
   const locationRegex = /(rack|रैक|शेल्फ|shelf)\s*(\d+|[a-zA-Z]+)|(\d+|[a-zA-Z]+)\s*(rack|रैक|शेल्फ|shelf)|में रख|में रखें|(on|at|in)\s+storage|बॉक्स\s*(\d+)|ड्रॉवर\s*(\d+)/gi;
   while ((match = locationRegex.exec(text)) !== null) {
+    // Extract specific rack number if available
+    const rackMatch = match[0].match(/\d+|[a-zA-Z]+/);
+    const rackNumber = rackMatch ? rackMatch[0] : match[0];
+    
     entities.push({
       text: match[0],
       label: "POSITION",
       start: match.index,
       end: match.index + match[0].length,
-      description: "Storage position"
+      description: rackNumber
     });
   }
   
@@ -146,28 +151,32 @@ async function fetchProductImage(product: string): Promise<string | null> {
     for (const query of searchQueries) {
       const encodedQuery = encodeURIComponent(query);
       
-      // Using the DuckDuckGo API in JSON format
-      const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1&t=lovable_inventory_app`);
-      
-      if (!response.ok) {
-        console.error(`DuckDuckGo API error for query "${query}": ${response.status}`);
-        continue;
-      }
-      
-      const data = await response.json();
-      
-      // Try to get image from Image entity
-      if (data.Image && data.Image.length > 0) {
-        return `https://duckduckgo.com${data.Image}`;
-      }
-      
-      // Try to get from related topics
-      if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-        for (const topic of data.RelatedTopics) {
-          if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
-            return `https://duckduckgo.com${topic.Icon.URL}`;
+      try {
+        // Using the DuckDuckGo API in JSON format
+        const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1&t=lovable_inventory_app`);
+        
+        if (!response.ok) {
+          console.error(`DuckDuckGo API error for query "${query}": ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        // Try to get image from Image entity
+        if (data.Image && data.Image.length > 0) {
+          return `https://duckduckgo.com${data.Image}`;
+        }
+        
+        // Try to get from related topics
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+          for (const topic of data.RelatedTopics) {
+            if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
+              return `https://duckduckgo.com${topic.Icon.URL}`;
+            }
           }
         }
+      } catch (error) {
+        console.error(`Error fetching from DuckDuckGo for query "${query}":`, error);
       }
     }
     
@@ -203,7 +212,7 @@ function processEntities(entities: any[], text: string) {
     if (quantityMatch) {
       result.quantity = {
         value: parseFloat(quantityMatch[1]),
-        unit: quantityMatch[2]
+        unit: quantityMatch[2] || 'pcs'
       };
     }
   } else {
@@ -212,15 +221,21 @@ function processEntities(entities: any[], text: string) {
     if (numericMatch) {
       result.quantity = {
         value: parseFloat(numericMatch[1]),
-        unit: numericMatch[2]
+        unit: numericMatch[2] || 'pcs'
       };
     }
   }
   
-  // Find position
+  // Find position - IMPROVED to extract just the number/identifier
   const positionEntity = entities.find(e => e.label === "POSITION");
   if (positionEntity) {
-    result.position = positionEntity.text;
+    // Extract just the rack/shelf number
+    const positionMatch = positionEntity.text.match(/\b(\d+|[a-zA-Z])\b/);
+    if (positionMatch) {
+      result.position = positionMatch[1];
+    } else {
+      result.position = positionEntity.description || positionEntity.text;
+    }
   }
   
   // Find price with enhanced pattern matching

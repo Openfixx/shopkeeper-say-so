@@ -29,10 +29,12 @@ export default function VoiceInput({
   const [initialImage, setInitialImage] = useState('');
   const [processedData, setProcessedData] = useState<any>(null);
   const [lastTranscript, setLastTranscript] = useState('');
+  const [processingComplete, setProcessingComplete] = useState(false);
 
   // Process voice command with the enhanced NLP capabilities
   const handleVoiceResult = async (text: string, data: any) => {
     setLastTranscript(text);
+    setProcessingComplete(false);
     
     if (data?.processed) {
       setProcessedData(data.processed);
@@ -65,13 +67,35 @@ export default function VoiceInput({
     
     // Pass the command to parent component
     onCommand(text);
+    setProcessingComplete(true);
   };
 
   // Handle image confirmation
   const handleImageConfirmed = () => {
     setImagePickerVisible(false);
     toast.success(`Image confirmed for ${currentProduct}`);
+    
+    // Auto-continue processing after image is confirmed
+    if (processingComplete) {
+      toast.info("Continue with next command or action");
+      // Could auto-trigger next step in the workflow here
+    }
   };
+
+  // This effect adds a "continue" button when processing is complete
+  useEffect(() => {
+    if (processingComplete && lastTranscript) {
+      toast.success("Command processed! Continue with next command", {
+        action: {
+          label: "Continue",
+          onClick: () => {
+            // This could trigger the next step in the workflow
+            toast.info("Ready for next command");
+          }
+        }
+      });
+    }
+  }, [processingComplete, lastTranscript]);
 
   return (
     <div className={cn("relative", className)}>
@@ -83,6 +107,7 @@ export default function VoiceInput({
           supportedLanguages={supportedLanguages}
           floating={false}
           alwaysShowControls={true}
+          listenerTimeout={15000} // Extended listener timeout
         />
         
         {lastTranscript && (
@@ -90,6 +115,19 @@ export default function VoiceInput({
             <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-start">
                 <h3 className="font-medium">Last Command</h3>
+                {processingComplete && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs"
+                    onClick={() => {
+                      // Re-process the last command
+                      handleVoiceResult(lastTranscript, processedData);
+                    }}
+                  >
+                    Continue Process
+                  </Button>
+                )}
               </div>
               <p className="text-sm bg-muted/40 p-2 rounded-md">{lastTranscript}</p>
               
@@ -131,6 +169,7 @@ export default function VoiceInput({
           productName={currentProduct}
           initialImage={initialImage}
           onImageConfirmed={handleImageConfirmed}
+          onCancel={() => setImagePickerVisible(false)}
         />
       )}
     </div>

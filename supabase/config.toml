@@ -1,2 +1,27 @@
 
-project_id = "dypjflendokbbixxahxp"
+project_id = "your_project_id"
+[api]
+enabled = true
+[api.serve]
+port = 54321
+hostname = "localhost"
+[db]
+port = 54322
+[studio]
+enabled = true
+port = 54323
+hostname = "localhost"
+[inbucket]
+enabled = true
+port = 54324
+[storage]
+enabled = true
+[auth]
+enabled = true
+[realtime]
+enabled = true
+[functions]
+[functions.ai-voice-processing]
+verify_jwt = false
+[functions.fetch-image]
+verify_jwt = false
