@@ -4,6 +4,7 @@
  */
 
 import { processWithSpacy, extractProductDetailsFromEntities, Entity, SpacyProcessResult } from './spacyApi';
+import { translateHindi } from '@/lib/translationCache';
 
 export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
@@ -35,16 +36,23 @@ interface CommandResult {
  * Extract product details from a voice command using SpaCy NLP
  */
 export const extractProductDetails = async (command: string): Promise<ProductDetails> => {
-  // First process the command with SpaCy NLP
-  const result = await processWithSpacy(command);
+  // First try to translate if it has Hindi characters
+  const translatedCommand = await translateHindi(command);
+  console.log('Translated command:', translatedCommand);
+  
+  // Process the command with SpaCy NLP
+  const result = await processWithSpacy(translatedCommand);
   console.log('Extracted entities:', result.entities);
   
   // Extract structured product details from the entities
   const details = extractProductDetailsFromEntities(result.entities);
   
+  // Enhanced number extraction - look specifically for quantities and numbers
+  const enhancedDetails = await enhanceWithNumberExtraction(translatedCommand, details);
+  
   // If SpaCy didn't find a product name, use fallback regex method
-  if (!details.name) {
-    const lowerCommand = command.toLowerCase();
+  if (!enhancedDetails.name) {
+    const lowerCommand = translatedCommand.toLowerCase();
     let productName = '';
     
     // Pattern: "add [product]" or "add a [product]"
@@ -67,17 +75,106 @@ export const extractProductDetails = async (command: string): Promise<ProductDet
     }
     
     if (productName) {
-      details.name = productName;
+      enhancedDetails.name = productName;
     }
   }
   
   // Ensure we always return a valid product name
-  if (!details.name) {
-    details.name = "Unnamed Product";
+  if (!enhancedDetails.name) {
+    enhancedDetails.name = "Unnamed Product";
   }
   
-  console.log('Extracted product details:', details);
-  return details as ProductDetails;
+  console.log('Final extracted product details:', enhancedDetails);
+  return enhancedDetails as ProductDetails;
+};
+
+/**
+ * Enhanced number and quantity extraction
+ */
+const enhanceWithNumberExtraction = async (command: string, initialDetails: Partial<ProductDetails>): Promise<Partial<ProductDetails>> => {
+  const details = { ...initialDetails };
+  const lowerCommand = command.toLowerCase();
+  
+  // Extract quantities with more comprehensive regex patterns
+  const quantityPatterns = [
+    // X kg/g/l/ml etc.
+    /(\d+(?:\.\d+)?)\s*(kg|किलो|किग्रा|कि\.ग्रा|kilogram|kilograms|gram|gm|g|गम|गाम|लीटर|लि|ml|मि\.ली|liter|liters|l|पैकेट|packet|packets|pcs|pieces|box|boxes)/gi,
+    
+    // X bags/containers
+    /(\d+(?:\.\d+)?)\s*(bags|containers|bottles|jars|units|pack|पैक)/gi,
+    
+    // Numbers spelled out in English
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+(kg|gram|liter|packet|piece|box)/gi,
+    
+    // Simple number followed by product
+    /(\d+(?:\.\d+)?)\s+([a-zA-Z\s]{3,})/i
+  ];
+  
+  // Try to extract quantity
+  if (!details.quantity) {
+    for (const pattern of quantityPatterns) {
+      const match = pattern.exec(lowerCommand);
+      if (match) {
+        // Convert spelled numbers to digits if needed
+        let quantity;
+        if (['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].includes(match[1].toLowerCase())) {
+          const numberWords = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+          };
+          quantity = numberWords[match[1].toLowerCase() as keyof typeof numberWords];
+        } else {
+          quantity = parseFloat(match[1]);
+        }
+        
+        details.quantity = quantity;
+        details.unit = match[2] || 'pcs';
+        break;
+      }
+    }
+  }
+  
+  // Extract price information
+  if (!details.price) {
+    const pricePatterns = [
+      // Standard price formats
+      /₹\s*(\d+(?:\.\d+)?)/i,
+      /rs\.?\s*(\d+(?:\.\d+)?)/i,
+      /(\d+(?:\.\d+)?)\s*rupees/i,
+      /price\s*(?:is|:)?\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i,
+      /(?:costs|at|for)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i,
+      
+      // Hindi price mentions
+      /(?:दाम|कीमत|मूल्य)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i
+    ];
+    
+    for (const pattern of pricePatterns) {
+      const match = lowerCommand.match(pattern);
+      if (match && match[1]) {
+        details.price = parseFloat(match[1]);
+        break;
+      }
+    }
+  }
+  
+  // Extract position/rack information
+  if (!details.position) {
+    const positionPatterns = [
+      /(?:in|on|at)\s+(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i,
+      /(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i,
+      /(?:position|place|put|store)\s+(?:in|on|at)?\s+(rack|shelf|box|container|drawer)\s*(\d+|[a-zA-Z])/i
+    ];
+    
+    for (const pattern of positionPatterns) {
+      const match = lowerCommand.match(pattern);
+      if (match) {
+        details.position = match[0];
+        break;
+      }
+    }
+  }
+  
+  return details;
 };
 
 /**

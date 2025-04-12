@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -7,12 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Mic, MicOff, Volume, TextSelect, Loader2, RefreshCw, Check, 
-  X, Info, VolumeX, BarChart2, Wand2
+  X, Info, VolumeX, BarChart2, Wand2, Languages
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useInventory } from '@/context/InventoryContext';
-import { translateHindi } from '@/lib/translationCache';
+import { getCachedTranslation } from '@/lib/translationCache';
 import { supabase } from '@/integrations/supabase/client';
 
 interface EnhancedVoiceCommandProps {
@@ -25,6 +24,7 @@ interface EnhancedVoiceCommandProps {
   processCommand?: boolean;
   listenerTimeout?: number; // auto-stop after this many milliseconds
   floating?: boolean;
+  alwaysShowControls?: boolean;
 }
 
 const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
@@ -37,6 +37,7 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
   processCommand = true,
   listenerTimeout = 10000,
   floating = false,
+  alwaysShowControls = false,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -46,6 +47,7 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
   const [confidence, setConfidence] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const recognition = useRef<SpeechRecognition | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const { addProduct } = useInventory();
@@ -99,6 +101,16 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
           if (finalTranscript) {
             setTranscript(finalTranscript);
             
+            // Store in command history
+            setCommandHistory(prev => {
+              // Limit history to last 5 commands
+              const newHistory = [...prev, finalTranscript];
+              if (newHistory.length > 5) {
+                return newHistory.slice(newHistory.length - 5);
+              }
+              return newHistory;
+            });
+            
             // Reset timeout as we got results
             if (timeoutRef.current) {
               window.clearTimeout(timeoutRef.current);
@@ -144,6 +156,13 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
       stopListening();
     };
   }, [language, autoProcess, listenerTimeout]);
+
+  // Keep controls expanded if always show controls is true
+  useEffect(() => {
+    if (alwaysShowControls) {
+      setIsExpanded(true);
+    }
+  }, [alwaysShowControls]);
 
   const startListening = () => {
     if (!recognition.current) {
@@ -202,6 +221,9 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
         }
       }, 300);
     }
+    
+    // Show a toast with the new language
+    toast.success(`Switched to ${supportedLanguages[nextIndex] === 'hi-IN' ? 'Hindi' : 'English'}`);
   };
 
   const processTranscript = async (text: string) => {
@@ -211,7 +233,10 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
     try {
       // Try to detect Hindi text and translate if needed
       const isHindi = /[\u0900-\u097F]/.test(text);
-      const processedText = isHindi ? await translateHindi(text) : text;
+      const processedText = isHindi ? await getCachedTranslation(text) : text;
+
+      console.log('Processing transcript:', text);
+      console.log('Processed/translated text:', processedText);
 
       // Process with NLP edge function
       const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
@@ -264,6 +289,12 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
     }
   };
 
+  // Re-process last command with a different command
+  const reprocessWithCommand = async (storedCommand: string) => {
+    setTranscript(storedCommand);
+    await processTranscript(storedCommand);
+  };
+
   const mainButtonSize = buttonSizeClasses[size];
   
   const buttonVariants = {
@@ -283,15 +314,15 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
 
   return (
     <div className={cn("relative", className, floating && "fixed bottom-8 right-8 z-50")}>
-      {showTranscript && (isListening || transcript || isProcessing) && (
+      {showTranscript && (isListening || transcript || isProcessing || isExpanded) && (
         <AnimatePresence>
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className={cn("absolute bottom-full mb-2 w-64 right-0")}
+            className={cn("absolute bottom-full mb-2 w-80 right-0")}
           >
-            <Card className="shadow-lg">
+            <Card className="shadow-lg border border-primary/10">
               <CardContent className="p-3 space-y-2">
                 {isListening && (
                   <div className="flex items-center gap-1 text-xs">
@@ -303,8 +334,8 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
                   </div>
                 )}
                 
-                <div className="min-h-[40px] text-sm">
-                  {transcript || (isListening ? 'Listening...' : '')}
+                <div className="min-h-[40px] text-sm bg-muted/40 p-2 rounded-md">
+                  {transcript || (isListening ? 'Listening for command...' : 'Say a command')}
                 </div>
                 
                 {isProcessing && (
@@ -339,30 +370,49 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
                     <div className="text-xs font-medium mb-1">Detected:</div>
                     <div className="flex flex-wrap gap-1">
                       {processedData.processed.product && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950">
-                          Product: {processedData.processed.product}
+                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                          {processedData.processed.product}
                         </Badge>
                       )}
                       {processedData.processed.quantity && (
-                        <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950">
-                          Qty: {processedData.processed.quantity.value} {processedData.processed.quantity.unit}
+                        <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                          {processedData.processed.quantity.value} {processedData.processed.quantity.unit}
                         </Badge>
                       )}
                       {processedData.processed.price && (
-                        <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950">
+                        <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
                           ₹{processedData.processed.price}
                         </Badge>
                       )}
                       {processedData.processed.position && (
-                        <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950">
+                        <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
                           {processedData.processed.position}
                         </Badge>
                       )}
                       {processedData.processed.command && (
-                        <Badge variant="outline" className="text-xs bg-rose-50 dark:bg-rose-950">
+                        <Badge variant="outline" className="text-xs bg-rose-50 dark:bg-rose-950 border-rose-200 dark:border-rose-800">
                           {processedData.processed.command}
                         </Badge>
                       )}
+                    </div>
+                  </div>
+                )}
+                
+                {commandHistory.length > 0 && (
+                  <div className="mt-1 pt-2 border-t border-muted">
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5">Recent commands:</p>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
+                      {commandHistory.map((cmd, i) => (
+                        <Button 
+                          key={i} 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 text-xs py-0 px-2 truncate max-w-[200px] justify-start"
+                          onClick={() => reprocessWithCommand(cmd)}
+                        >
+                          {cmd}
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -436,31 +486,31 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
           </Button>
         </motion.div>
         
-        {isExpanded && (
+        {(isExpanded || alwaysShowControls) && (
           <AnimatePresence>
             <motion.div 
               className="flex items-center gap-1"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
+              initial={{ opacity: 0, scale: 0.8, width: 0 }}
+              animate={{ opacity: 1, scale: 1, width: 'auto' }}
+              exit={{ opacity: 0, scale: 0.8, width: 0 }}
               transition={{ duration: 0.2 }}
             >
               <Button 
                 type="button"
                 size="icon"
                 variant="outline"
-                className="h-8 w-8 rounded-full"
+                className="h-8 w-8 rounded-full bg-white/50 backdrop-blur-sm"
                 onClick={toggleLanguage}
                 title={`Change language (current: ${language === 'hi-IN' ? 'Hindi' : 'English'})`}
               >
-                <TextSelect className="h-4 w-4" />
+                <Languages className="h-4 w-4" />
               </Button>
               
               <Button 
                 type="button"
                 size="icon"
                 variant={transcript ? "outline" : "ghost"}
-                className="h-8 w-8 rounded-full"
+                className={cn("h-8 w-8 rounded-full", transcript ? "bg-white/50 backdrop-blur-sm" : "")}
                 onClick={() => {
                   if (transcript) {
                     // Use browser's speech synthesis to read back the transcript
@@ -472,8 +522,21 @@ const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
                 disabled={!transcript}
                 title="Read transcript aloud"
               >
-                {transcript ? <Volume className="h-4 w-4" /> : <VolumeX className="h-4 w-4 opacity-50" />}
+                {transcript ? <Volume className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
+              
+              {!alwaysShowControls && (
+                <Button 
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => setIsExpanded(false)}
+                  title="Collapse controls"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </motion.div>
           </AnimatePresence>
         )}

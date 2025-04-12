@@ -20,28 +20,29 @@ export default defineConfig({
     },
   },
   
-  // Remove specific tsconfig file reference and use inline config
   optimizeDeps: {
     esbuildOptions: {
-      // Provide inline compiler options that match what would be in tsconfig.json
-      tsconfigRaw: {
+      tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
-          module: "ESNext",
-          moduleResolution: "bundler",
+          useDefineForClassFields: true,
+          lib: ["DOM", "DOM.Iterable", "ESNext"],
+          allowJs: false,
+          skipLibCheck: true,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
           strict: true,
+          forceConsistentCasingInFileNames: true,
+          moduleResolution: "Node",
           resolveJsonModule: true,
           isolatedModules: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
           noEmit: true,
           paths: {
             "@/*": ["./src/*"]
           }
-        },
-        include: ["src"]
-      }
+        }
+      })
     }
   },
   
@@ -53,24 +54,26 @@ export default defineConfig({
   },
   
   esbuild: {
-    // Provide same inline compiler options here
-    tsconfigRaw: {
+    tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
-        module: "ESNext",
-        moduleResolution: "bundler",
+        useDefineForClassFields: true,
+        lib: ["DOM", "DOM.Iterable", "ESNext"],
+        allowJs: false,
+        skipLibCheck: true,
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
         strict: true,
+        forceConsistentCasingInFileNames: true,
+        moduleResolution: "Node",
         resolveJsonModule: true,
         isolatedModules: true,
-        esModuleInterop: true,
-        skipLibCheck: true,
         noEmit: true,
         paths: {
           "@/*": ["./src/*"]
         }
-      },
-      include: ["src"]
-    }
+      }
+    })
   }
 });

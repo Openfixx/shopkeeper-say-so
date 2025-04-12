@@ -1,15 +1,15 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Loader2, Check, X, Play, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ProductImagePicker from './ProductImagePicker';
-import { translateHindi } from '@/lib/translationCache';
+import { getCachedTranslation } from '@/lib/translationCache';
 import { supabase } from '@/integrations/supabase/client';
 import EnhancedVoiceCommand from './ui-custom/EnhancedVoiceCommand';
+import { fetchProductImage } from '@/utils/fetchImage';
 
 export interface VoiceInputProps {
   onCommand: (text: string) => void;
@@ -51,8 +51,11 @@ export default function VoiceInput({
         if (data.imageUrl) {
           setInitialImage(data.imageUrl);
         } else {
-          // Try to fetch an image from DuckDuckGo
-          await fetchProductImage(data.processed.product);
+          // Try to fetch an image for the product
+          const imageUrl = await fetchProductImage(data.processed.product);
+          if (imageUrl) {
+            setInitialImage(imageUrl);
+          }
         }
         
         // Show image picker
@@ -62,36 +65,6 @@ export default function VoiceInput({
     
     // Pass the command to parent component
     onCommand(text);
-  };
-
-  // Fetch product image from DuckDuckGo via edge function
-  const fetchProductImage = async (productName: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
-        body: { 
-          type: 'fetch_image', 
-          data: productName 
-        }
-      });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (data?.imageUrl) {
-        setInitialImage(data.imageUrl);
-        return data.imageUrl;
-      } else {
-        // Fallback to Unsplash
-        setInitialImage(`https://source.unsplash.com/100x100/?${encodeURIComponent(productName)}`);
-        return null;
-      }
-    } catch (error) {
-      console.error('Error fetching product image:', error);
-      // Fallback to Unsplash
-      setInitialImage(`https://source.unsplash.com/100x100/?${encodeURIComponent(productName)}`);
-      return null;
-    }
   };
 
   // Handle image confirmation
@@ -109,50 +82,38 @@ export default function VoiceInput({
           autoProcess={true}
           supportedLanguages={supportedLanguages}
           floating={false}
+          alwaysShowControls={true}
         />
         
         {lastTranscript && (
-          <Card className="mt-4">
+          <Card className="mt-4 border border-primary/10 shadow-lg">
             <CardContent className="p-4 space-y-3">
               <div className="flex justify-between items-start">
                 <h3 className="font-medium">Last Command</h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => {
-                    // Use browser's speech synthesis to read back the transcript
-                    const utterance = new SpeechSynthesisUtterance(lastTranscript);
-                    utterance.lang = 'en-US';
-                    window.speechSynthesis.speak(utterance);
-                  }}
-                >
-                  <Play className="h-3 w-3" />
-                </Button>
               </div>
-              <p className="text-sm">{lastTranscript}</p>
+              <p className="text-sm bg-muted/40 p-2 rounded-md">{lastTranscript}</p>
               
               {processedData && (
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">Detected entities:</div>
                   <div className="flex flex-wrap gap-2">
                     {processedData.product && (
-                      <Badge variant="outline">
+                      <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-800">
                         Product: {processedData.product}
                       </Badge>
                     )}
                     {processedData.quantity && (
-                      <Badge variant="outline">
+                      <Badge className="bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-100 border-green-200 dark:border-green-800">
                         Qty: {processedData.quantity.value} {processedData.quantity.unit}
                       </Badge>
                     )}
                     {processedData.price && (
-                      <Badge variant="outline">
+                      <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800">
                         Price: ₹{processedData.price}
                       </Badge>
                     )}
                     {processedData.position && (
-                      <Badge variant="outline">
+                      <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-100 border-purple-200 dark:border-purple-800">
                         Position: {processedData.position}
                       </Badge>
                     )}

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -133,40 +132,54 @@ function customNER(text: string) {
   return entities.sort((a, b) => a.start - b.start);
 }
 
-// Fetch product image from DuckDuckGo
+// Fetch product image from DuckDuckGo with improved reliability
 async function fetchProductImage(product: string): Promise<string | null> {
   try {
-    const encodedQuery = encodeURIComponent(`${product} product`);
-    const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1`);
+    // Try multiple search queries to increase chances of finding an image
+    const searchQueries = [
+      `${product} product`,
+      product,
+      `${product} food item`,
+      `${product} grocery`
+    ];
     
-    if (!response.ok) {
-      throw new Error(`DuckDuckGo API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Try to get image from Image entity
-    if (data.Image && data.Image.length > 0) {
-      return `https://duckduckgo.com${data.Image}`;
-    }
-    
-    // Try to get from related topics
-    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-      for (const topic of data.RelatedTopics) {
-        if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
-          return `https://duckduckgo.com${topic.Icon.URL}`;
+    for (const query of searchQueries) {
+      const encodedQuery = encodeURIComponent(query);
+      
+      // Using the DuckDuckGo API in JSON format
+      const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1&t=lovable_inventory_app`);
+      
+      if (!response.ok) {
+        console.error(`DuckDuckGo API error for query "${query}": ${response.status}`);
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      // Try to get image from Image entity
+      if (data.Image && data.Image.length > 0) {
+        return `https://duckduckgo.com${data.Image}`;
+      }
+      
+      // Try to get from related topics
+      if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+        for (const topic of data.RelatedTopics) {
+          if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
+            return `https://duckduckgo.com${topic.Icon.URL}`;
+          }
         }
       }
     }
     
-    return null;
+    // Fallback to Unsplash if no image found on DuckDuckGo
+    return `https://source.unsplash.com/300x300/?${encodeURIComponent(product)}`;
   } catch (error) {
     console.error("Error fetching product image:", error);
     return null;
   }
 }
 
-// Process extracted entities into structured format
+// Process extracted entities into structured format with improved extraction
 function processEntities(entities: any[], text: string) {
   const result: {
     product?: string,
@@ -183,7 +196,7 @@ function processEntities(entities: any[], text: string) {
     result.product = productEntity.text;
   }
   
-  // Find quantity
+  // Find quantity with enhanced pattern matching
   const quantityEntity = entities.find(e => e.label === "QUANTITY");
   if (quantityEntity) {
     const quantityMatch = quantityEntity.text.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+|किलो|किग्रा|गम|गाम|लीटर|लि|मि\.ली|पैकेट)/);
@@ -191,6 +204,15 @@ function processEntities(entities: any[], text: string) {
       result.quantity = {
         value: parseFloat(quantityMatch[1]),
         unit: quantityMatch[2]
+      };
+    }
+  } else {
+    // Try to extract numeric values as a fallback
+    const numericMatch = text.match(/\b(\d+(?:\.\d+)?)\s*([a-zA-Z]+|किलो|किग्रा|गम|गाम|लीटर|लि|मि\.ली|पैकेट)\b/);
+    if (numericMatch) {
+      result.quantity = {
+        value: parseFloat(numericMatch[1]),
+        unit: numericMatch[2]
       };
     }
   }
@@ -201,10 +223,16 @@ function processEntities(entities: any[], text: string) {
     result.position = positionEntity.text;
   }
   
-  // Find price
+  // Find price with enhanced pattern matching
   const priceEntity = entities.find(e => e.label === "MONEY");
   if (priceEntity) {
     const priceMatch = priceEntity.text.match(/(\d+(?:\.\d+)?)/);
+    if (priceMatch) {
+      result.price = parseFloat(priceMatch[1]);
+    }
+  } else {
+    // Try to extract price as a fallback
+    const priceMatch = text.match(/(?:₹|rs\.?|price|cost|at)\s*(\d+(?:\.\d+)?)/i);
     if (priceMatch) {
       result.price = parseFloat(priceMatch[1]);
     }
@@ -220,6 +248,12 @@ function processEntities(entities: any[], text: string) {
   const commandEntity = entities.find(e => e.label === "COMMAND");
   if (commandEntity) {
     result.command = commandEntity.text.toLowerCase();
+  } else {
+    // Extract command from text as fallback
+    const commandMatch = text.match(/\b(add|create|find|search|update|remove|delete|bill)\b/i);
+    if (commandMatch) {
+      result.command = commandMatch[1].toLowerCase();
+    }
   }
   
   return result;
