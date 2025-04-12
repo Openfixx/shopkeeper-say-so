@@ -22,24 +22,24 @@ export default defineConfig({
   
   optimizeDeps: {
     esbuildOptions: {
-      tsconfigRaw: `{
-        "compilerOptions": {
-          "jsx": "react-jsx",
-          "target": "ESNext",
-          "module": "ESNext",
-          "moduleResolution": "bundler",
-          "strict": true,
-          "resolveJsonModule": true,
-          "isolatedModules": true,
-          "esModuleInterop": true,
-          "skipLibCheck": true,
-          "noEmit": true,
-          "paths": {
+      tsconfigRaw: JSON.stringify({
+        compilerOptions: {
+          jsx: "react-jsx",
+          target: "ESNext",
+          module: "ESNext",
+          moduleResolution: "bundler",
+          strict: true,
+          resolveJsonModule: true,
+          isolatedModules: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          noEmit: true,
+          paths: {
             "@/*": ["./src/*"]
           }
         },
-        "include": ["src"]
-      }`
+        include: ["src"]
+      })
     }
   },
   
@@ -51,23 +51,23 @@ export default defineConfig({
   },
   
   esbuild: {
-    tsconfigRaw: `{
-      "compilerOptions": {
-        "jsx": "react-jsx",
-        "target": "ESNext",
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "strict": true,
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "noEmit": true,
-        "paths": {
+    tsconfigRaw: JSON.stringify({
+      compilerOptions: {
+        jsx: "react-jsx",
+        target: "ESNext",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        strict: true,
+        resolveJsonModule: true,
+        isolatedModules: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        noEmit: true,
+        paths: {
           "@/*": ["./src/*"]
         }
       },
-      "include": ["src"]
-    }`
+      include: ["src"]
+    })
   }
 });
