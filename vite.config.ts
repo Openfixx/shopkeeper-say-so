@@ -21,13 +21,13 @@ export default defineConfig(({ mode }) => ({
     },
   },
   
-  // Configure the build to bypass tsconfig.json entirely
+  // Force Vite to completely ignore tsconfig.json and use inline settings instead
   optimizeDeps: {
     esbuildOptions: {
-      // Completely ignore tsconfig.json
-      tsconfig: 'none',
-      // Define all TS options inline
-      tsconfigRaw: {
+      // Use an empty string to completely bypass tsconfig.json
+      tsconfig: '',
+      // Define all TS options inline as string to avoid parsing issues
+      tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
           }
         },
         include: ["src"]
-      }
+      })
     }
   },
   
@@ -52,13 +52,16 @@ export default defineConfig(({ mode }) => ({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // Add chunkSizeWarningLimit to avoid warnings for large chunks
+    chunkSizeWarningLimit: 1000
   },
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Completely ignore tsconfig.json
-    tsconfig: 'none',
-    tsconfigRaw: {
+    // Use an empty string to completely bypass tsconfig.json
+    tsconfig: '',
+    // Use string format for tsconfigRaw to avoid parsing issues
+    tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
@@ -75,6 +78,6 @@ export default defineConfig(({ mode }) => ({
         }
       },
       include: ["src"]
-    }
+    })
   }
 }));
