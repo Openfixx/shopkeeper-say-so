@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import VoiceInput from '@/components/VoiceInput';
 import ProductImagePicker from '@/components/ProductImagePicker';
-import { translateHindi, fetchProductImage } from '@/lib/translationCache';
+import { translateHindi } from '@/lib/translationCache';
+import { getCachedImage } from '@/utils/fetchImage';
 import { DbInventoryItem } from '@/lib/supabase';
 
 export default function PosPage() {
@@ -45,7 +47,7 @@ export default function PosPage() {
 
       // 4. Fetch image if new product
       if (!existingProduct) {
-        imageUrl = await fetchProductImage(productName);
+        imageUrl = await getCachedImage(productName);
         
         // Save new product
         await supabase.from('products').insert([{
