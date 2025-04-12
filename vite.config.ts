@@ -1,11 +1,11 @@
 
-import { defineConfig } from "vite";
+import { defineConfig, ConfigEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }: ConfigEnv) => ({
   server: {
     host: "::",
     port: 8080,
@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => ({
   // Completely bypass tsconfig.json and provide inline config
   optimizeDeps: {
     esbuildOptions: {
-      // Set to false to completely ignore tsconfig.json
-      tsconfig: false,
+      // Use empty string to skip tsconfig.json without type errors
+      tsconfig: "",
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
@@ -56,8 +56,8 @@ export default defineConfig(({ mode }) => ({
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Set to false to completely ignore tsconfig.json
-    tsconfig: false,
+    // Use empty string to skip tsconfig.json without type errors
+    tsconfig: "",
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
