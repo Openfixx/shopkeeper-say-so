@@ -1,26 +1,62 @@
-// ▲ Add these helper functions RIGHT AFTER the imports (Line 2) ▼
-// ========================
+
+// Helper functions for voice parsing
 const parseRackNumber = (text: string): number | null => {
   const numberMap: Record<string, number> = {
     one: 1, two: 2, three: 3, four: 4, five: 5,
     six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   };
-  const match = text.match(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
-  return match ? numberMap[match[0].toLowerCase()] || parseInt(match[0]) : null;
+  
+  // Look for patterns like "rack 3", "rack number 4", "on rack five"
+  const rackPatterns = [
+    /rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    /on\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    /to\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    /in\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+  ];
+  
+  for (const pattern of rackPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      // Convert word to number if needed
+      if (isNaN(parseInt(match[1]))) {
+        return numberMap[match[1].toLowerCase()] || null;
+      }
+      return parseInt(match[1]);
+    }
+  }
+  
+  return null;
 };
 
 const fetchProductImage = async (productName: string): Promise<string> => {
-  const response = await fetch(
-    `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json`
-  );
-  const data = await response.json();
-  return data.Image || ''; // Fallback if no image
+  try {
+    console.log("Fetching image for:", productName);
+    const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("Image fetch response:", data);
+    
+    if (data?.imageUrl) {
+      return data.imageUrl;
+    }
+    
+    // Fallback to placeholder
+    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+  } catch (error) {
+    console.error("Error fetching product image:", error);
+    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+  }
 };
-// ========================
 
-
-// ▼ Replace the ENTIRE `useVoiceRecognition` hook (Lines 5-32) ▼
-// ========================
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -56,15 +92,29 @@ export const useVoiceRecognition = () => {
       const transcript = await recognize(lang);
       setText(transcript);
 
+      console.log("Raw transcript:", transcript);
+      
       // Parse the voice command
+      // Extract rack number directly
       const rackNumber = parseRackNumber(transcript);
+      console.log("Extracted rack number:", rackNumber);
+      
+      // Extract product name by removing rack references
       const productName = transcript
-        .replace(/rack\s+\w+/i, '')
-        .replace(/(add|to)/i, '')
+        .replace(/(?:on|in|at|to)\s+rack\s+(?:number\s+)?\w+/i, '')
+        .replace(/rack\s+(?:number\s+)?\w+/i, '')
+        .replace(/(add|create|\s+to|\s+in|\s+on)/ig, '')
         .trim();
+      
+      console.log("Extracted product name:", productName);
+      
+      // Fetch image
       const imageUrl = await fetchProductImage(productName);
+      console.log("Fetched image URL:", imageUrl);
 
       setCommandResult({ productName, rackNumber, imageUrl });
+    } catch (error) {
+      console.error("Voice recognition error:", error);
     } finally {
       setIsListening(false);
     }
@@ -72,4 +122,3 @@ export const useVoiceRecognition = () => {
 
   return { text, isListening, listen, commandResult };
 };
-// ========================

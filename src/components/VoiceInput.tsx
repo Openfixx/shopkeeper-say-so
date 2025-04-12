@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,15 +42,22 @@ export default function VoiceInput({
   }, [commandResult]);
 
   const handleVoiceResult = async (result: any) => {
+    // Extract position - make sure we get just the number
+    let position = undefined;
+    if (result.rackNumber) {
+      position = `${result.rackNumber}`;
+    }
+
     const enhancedData = {
       product: result.productName,
       quantity: extractQuantity(lastTranscript),
       price: extractPrice(lastTranscript),
-      position: result.rackNumber ? `Rack ${result.rackNumber}` : undefined,
+      position: position,
       command: lastTranscript.toLowerCase().includes('add') ? 'add' : 
                lastTranscript.toLowerCase().includes('create') ? 'create' : undefined
     };
 
+    console.log("Enhanced data from voice command:", enhancedData);
     setProcessedData(enhancedData);
     setProcessingComplete(false);
     

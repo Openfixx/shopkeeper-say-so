@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { cacheProductImage } from '../lib/imageCache';
-import { fetchProductImage } from '@/utils/fetchImage';
 
 export interface ProductImagePickerProps {
   productName: string;
@@ -31,19 +30,33 @@ export default function ProductImagePicker({
     if (!initialImage) {
       findProductImage();
     } else {
-      // Load alternative images in the background
-      loadAlternativeImages();
+      setImage(initialImage);
     }
   }, [initialImage, productName]);
 
   const findProductImage = async () => {
     setIsLoading(true);
     try {
-      const imageUrl = await fetchProductImage(productName);
-      if (imageUrl) {
-        setImage(imageUrl);
+      console.log(`Searching for image of ${productName} via API`);
+      const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data?.imageUrl) {
+        console.log(`Found image for ${productName}:`, data.imageUrl);
+        setImage(data.imageUrl);
+        toast.success('Product image found');
       } else {
-        // Fallback to placeholder
+        console.log(`No image found for ${productName}`);
         setImage(`https://placehold.co/300x300?text=${encodeURIComponent(productName)}`);
         toast.error('Could not find product image');
       }
@@ -59,26 +72,54 @@ export default function ProductImagePicker({
   const loadAlternativeImages = async () => {
     setIsSearching(true);
     try {
-      // Try to get a few alternative images from Unsplash with different queries
+      // Try to get a few alternative images with different queries
       const variations = [
         `${productName} product`,
         `${productName} package`,
         `${productName} grocery`
       ];
-
-      const promises = variations.map(query => 
-        fetch(`https://source.unsplash.com/200x200/?${encodeURIComponent(query)}`)
-          .then(res => res.url)
-      );
-
-      const results = await Promise.all(promises);
-      setAlternativeImages(results.filter(url => url !== image));
+      
+      const altImages: string[] = [];
+      
+      for (const query of variations) {
+        try {
+          const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.imageUrl && data.imageUrl !== image && !altImages.includes(data.imageUrl)) {
+              altImages.push(data.imageUrl);
+            }
+          }
+        } catch (e) {
+          console.error(`Error loading alternative for "${query}":`, e);
+        }
+      }
+      
+      setAlternativeImages(altImages);
+      
+      if (altImages.length === 0) {
+        toast.info('No alternative images found');
+      }
     } catch (error) {
       console.error('Error loading alternative images:', error);
+      toast.error('Failed to load alternative images');
     } finally {
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    // Load alternative images when the component mounts
+    if (productName && !isSearching) {
+      loadAlternativeImages();
+    }
+  }, [productName]);
 
   const handleConfirm = async () => {
     setIsLoading(true);
@@ -143,6 +184,10 @@ export default function ProductImagePicker({
                       src={url} 
                       alt={`Alternative ${index + 1}`}
                       className="w-16 h-16 object-cover" 
+                      onError={(e) => {
+                        // Remove this alternative if it fails to load
+                        setAlternativeImages(prevAlt => prevAlt.filter(item => item !== url));
+                      }}
                     />
                   </div>
                 ))

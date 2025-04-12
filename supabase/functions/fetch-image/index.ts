@@ -6,24 +6,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to fetch images from DuckDuckGo with improved reliability
+// Improved function to fetch images from DuckDuckGo with better reliability
 async function fetchDuckDuckGoImage(query: string): Promise<string | null> {
   try {
     console.log(`Searching DuckDuckGo for images of: ${query}`);
     
-    // Try different variations of the query
+    // Try different variations of the query to improve results
     const queryVariations = [
       query,
       `${query} product`,
-      `${query} item`,
-      `${query} package`
+      `${query} package`,
+      `${query} grocery item`,
+      `${query} food item`
     ];
     
     // Try each query variation
     for (const currentQuery of queryVariations) {
       try {
-        // API endpoint for DuckDuckGo
-        const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(currentQuery)}&format=json&no_html=1&skip_disambig=1&t=lovable_inventory_app`;
+        console.log(`Trying query variation: ${currentQuery}`);
+        
+        // Use DuckDuckGo API with a unique parameter to avoid caching
+        const timestamp = new Date().getTime();
+        const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(currentQuery)}&format=json&t=lovableshop${timestamp}`;
         
         const response = await fetch(apiUrl);
         
@@ -33,27 +37,31 @@ async function fetchDuckDuckGoImage(query: string): Promise<string | null> {
         }
         
         const data = await response.json();
-        console.log(`DuckDuckGo response received for: ${currentQuery}`);
+        console.log(`Got DuckDuckGo response for: ${currentQuery}`);
         
-        // Attempt to extract image from various parts of the response
+        // Try to extract image from various parts of the response
         if (data.Image && data.Image.length > 0) {
-          return `https://duckduckgo.com${data.Image}`;
+          const imageUrl = `https://duckduckgo.com${data.Image}`;
+          console.log(`Found image in Image field: ${imageUrl}`);
+          return imageUrl;
         }
         
+        // Check for related topics with icons
         if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-          // Try to find an image in any of the related topics
           for (const topic of data.RelatedTopics) {
             if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
-              return `https://duckduckgo.com${topic.Icon.URL}`;
+              const imageUrl = `https://duckduckgo.com${topic.Icon.URL}`;
+              console.log(`Found image in RelatedTopics: ${imageUrl}`);
+              return imageUrl;
             }
           }
         }
       } catch (innerError) {
-        console.error(`Error fetching from DuckDuckGo for query: ${currentQuery}`, innerError);
+        console.error(`Error with query variation ${currentQuery}:`, innerError);
       }
     }
     
-    // If no image found after trying all variations, return null
+    console.log("No images found in DuckDuckGo response after trying all variations");
     return null;
   } catch (error) {
     console.error("Error in fetchDuckDuckGoImage:", error);
@@ -78,7 +86,7 @@ serve(async (req) => {
     
     console.log(`Processing image search for: ${query}`);
     
-    // Try to get image from DuckDuckGo
+    // Try to get image from DuckDuckGo with multiple attempts
     const imageUrl = await fetchDuckDuckGoImage(query);
     
     if (imageUrl) {

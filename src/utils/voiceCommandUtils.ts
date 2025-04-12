@@ -157,41 +157,60 @@ const enhanceWithNumberExtraction = async (command: string, initialDetails: Part
     }
   }
   
-  // Extract position/rack information - IMPROVED to extract only rack numbers
+  // IMPROVED: Extract position/rack information - extract ONLY the number, not "rack" or "shelf"
   if (!details.position) {
-    // Patterns specifically designed to extract rack/shelf numbers
-    const rackNumberPatterns = [
-      /rack\s+(?:number\s+)?(\d+|[a-z])/i,
-      /shelf\s+(?:number\s+)?(\d+|[a-z])/i,
-      /(?:on|in|at)\s+rack\s+(?:number\s+)?(\d+|[a-z])/i,
-      /(?:on|in|at)\s+shelf\s+(?:number\s+)?(\d+|[a-z])/i,
-      /(?:on|in|at)\s+box\s+(?:number\s+)?(\d+|[a-z])/i,
-      /(?:position|pos|loc|location)\s+(\d+|[a-z])/i,
+    // First look for explicit rack/shelf numbers with various patterns
+    const numberWordMap: Record<string, string> = {
+      'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 
+      'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+    };
+    
+    // First try to find rack/shelf with number
+    const rackPatterns = [
+      // Match "rack 3", "shelf 5", etc.
+      /(?:rack|shelf)\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      // Match "on rack 3", "in shelf 5", etc.
+      /(?:on|in|at)\s+(?:rack|shelf)\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      // Match "to rack 3", "to shelf 5", etc.
+      /to\s+(?:rack|shelf)\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      // Just rack/shelf number
+      /rack\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      /shelf\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i
     ];
     
-    for (const pattern of rackNumberPatterns) {
+    for (const pattern of rackPatterns) {
       const match = lowerCommand.match(pattern);
       if (match && match[1]) {
-        // Extract just the number/letter identifier
-        details.position = match[1].trim();
-        console.log("Extracted position:", details.position);
+        // Convert word numbers to digits if needed
+        if (numberWordMap[match[1].toLowerCase()]) {
+          details.position = numberWordMap[match[1].toLowerCase()];
+        } else {
+          details.position = match[1];
+        }
+        console.log(`Found rack/shelf number: ${details.position}`);
         break;
       }
     }
     
-    // If we still don't have a position but the command mentions rack/shelf
+    // If we still don't have a position, try a more general approach for any number after rack/shelf
     if (!details.position && (lowerCommand.includes('rack') || lowerCommand.includes('shelf'))) {
-      // Try to find any number in the command
-      const numberMatch = lowerCommand.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
-      if (numberMatch && numberMatch[1]) {
-        // Convert word numbers to digits if needed
-        const numberWords: Record<string, string> = {
-          'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 
-          'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
-        };
+      const rackIndex = lowerCommand.indexOf('rack');
+      const shelfIndex = lowerCommand.indexOf('shelf');
+      const startIndex = Math.max(rackIndex, shelfIndex);
+      
+      if (startIndex >= 0) {
+        // Look for a number in the next few words after "rack" or "shelf"
+        const afterText = lowerCommand.substring(startIndex);
+        const numberMatch = afterText.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
         
-        details.position = numberWords[numberMatch[1].toLowerCase()] || numberMatch[1];
-        console.log("Extracted number as position:", details.position);
+        if (numberMatch && numberMatch[1]) {
+          if (numberWordMap[numberMatch[1].toLowerCase()]) {
+            details.position = numberWordMap[numberMatch[1].toLowerCase()];
+          } else {
+            details.position = numberMatch[1];
+          }
+          console.log(`Found number after rack/shelf: ${details.position}`);
+        }
       }
     }
   }
@@ -444,12 +463,12 @@ export const searchProductImage = async (productName: string): Promise<string | 
       return data.imageUrl;
     } else {
       console.log("DuckDuckGo API returned no results");
-      // Return a placeholder instead of falling back to Unsplash
+      // Return a placeholder
       return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
     }
   } catch (error) {
     console.error('Error searching for product image:', error);
-    // Return a placeholder instead of falling back to Unsplash
+    // Return a placeholder
     return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
   }
 };
