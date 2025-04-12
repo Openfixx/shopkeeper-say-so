@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => ({
       logOverride: {
         'tsconfig-invalid': 'silent',
       },
-      tsconfigRaw: {
+      tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
           target: "ESNext",
@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => ({
           }
         },
         include: ["src"]
-      }
+      })
     }
   },
   build: {
@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
     logOverride: {
       'tsconfig-invalid': 'silent',
     },
-    tsconfigRaw: {
+    tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
         target: "ESNext",
@@ -73,6 +73,6 @@ export default defineConfig(({ mode }) => ({
         }
       },
       include: ["src"]
-    }
+    })
   }
 }));
