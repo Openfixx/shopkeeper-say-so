@@ -1,6 +1,5 @@
-import { useState } from 'react';
-
-// Helper function: Extract rack number (e.g., "rack seven" → 7)
+// ▲ Add these helper functions RIGHT AFTER the imports (Line 2) ▼
+// ========================
 const parseRackNumber = (text: string): number | null => {
   const numberMap: Record<string, number> = {
     one: 1, two: 2, three: 3, four: 4, five: 5,
@@ -10,7 +9,6 @@ const parseRackNumber = (text: string): number | null => {
   return match ? numberMap[match[0].toLowerCase()] || parseInt(match[0]) : null;
 };
 
-// Helper function: Fetch product image from DuckDuckGo
 const fetchProductImage = async (productName: string): Promise<string> => {
   const response = await fetch(
     `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json`
@@ -18,7 +16,11 @@ const fetchProductImage = async (productName: string): Promise<string> => {
   const data = await response.json();
   return data.Image || ''; // Fallback if no image
 };
+// ========================
 
+
+// ▼ Replace the ENTIRE `useVoiceRecognition` hook (Lines 5-32) ▼
+// ========================
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -54,26 +56,20 @@ export const useVoiceRecognition = () => {
       const transcript = await recognize(lang);
       setText(transcript);
 
-      // Parse voice command (e.g., "Add apples to rack seven")
+      // Parse the voice command
       const rackNumber = parseRackNumber(transcript);
-      const productName = transcript.replace(/rack\s+\w+/i, '').replace('add', '').trim();
+      const productName = transcript
+        .replace(/rack\s+\w+/i, '')
+        .replace(/(add|to)/i, '')
+        .trim();
       const imageUrl = await fetchProductImage(productName);
 
-      setCommandResult({
-        productName,
-        rackNumber,
-        imageUrl,
-      });
+      setCommandResult({ productName, rackNumber, imageUrl });
     } finally {
       setIsListening(false);
     }
   };
 
-  return { 
-    text, 
-    isListening, 
-    listen, 
-    commandResult, // Expose parsed command data
-    resetCommand: () => setCommandResult(null), // Optional cleanup
-  };
+  return { text, isListening, listen, commandResult };
 };
+// ========================
