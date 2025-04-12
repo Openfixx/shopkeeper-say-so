@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   
   optimizeDeps: {
     esbuildOptions: {
-      tsconfig: false,
+      tsconfig: "none",
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => ({
   },
   
   esbuild: {
-    tsconfig: false,
+    tsconfig: "none",
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
