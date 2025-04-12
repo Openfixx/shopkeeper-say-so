@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => ({
   // Force Vite to completely ignore tsconfig.json and use inline settings instead
   optimizeDeps: {
     esbuildOptions: {
-      // Set to 'empty string' to completely bypass tsconfig.json
-      tsconfig: '',
+      // Set to 'none' to completely bypass tsconfig.json
+      tsconfig: 'none',
       // Define all TS options inline as a string
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
@@ -57,8 +57,8 @@ export default defineConfig(({ mode }) => ({
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Set to 'empty string' to completely bypass tsconfig.json
-    tsconfig: '',
+    // Set to 'none' to completely bypass tsconfig.json
+    tsconfig: 'none',
     // Define all TS options inline as a string
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
