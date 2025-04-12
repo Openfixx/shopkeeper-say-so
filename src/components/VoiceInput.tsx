@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ export default function VoiceInput({
   const [processedData, setProcessedData] = useState<any>(null);
   const [lastTranscript, setLastTranscript] = useState('');
   const [processingComplete, setProcessingComplete] = useState(false);
+  const [isProcessingContinuation, setIsProcessingContinuation] = useState(false);
 
   // Process voice command with the enhanced NLP capabilities
   const handleVoiceResult = async (text: string, data: any) => {
@@ -70,6 +71,16 @@ export default function VoiceInput({
     setProcessingComplete(true);
   };
 
+  // Handle continuation of processing after image confirmation
+  const handleContinueProcessing = () => {
+    setIsProcessingContinuation(true);
+    if (processedData && lastTranscript) {
+      // Re-process with the same data to continue the workflow
+      handleVoiceResult(lastTranscript, { processed: processedData });
+      toast.info("Continuing processing...");
+    }
+  };
+
   // Handle image confirmation
   const handleImageConfirmed = () => {
     setImagePickerVisible(false);
@@ -78,22 +89,25 @@ export default function VoiceInput({
     // Auto-continue processing after image is confirmed
     if (processingComplete) {
       toast.info("Continue with next command or action");
-      // Could auto-trigger next step in the workflow here
+      // Auto-trigger next step in the workflow after a short delay
+      setTimeout(handleContinueProcessing, 500);
     }
   };
 
   // This effect adds a "continue" button when processing is complete
   useEffect(() => {
-    if (processingComplete && lastTranscript) {
+    if (processingComplete && lastTranscript && !isProcessingContinuation) {
       toast.success("Command processed! Continue with next command", {
         action: {
           label: "Continue",
-          onClick: () => {
-            // This could trigger the next step in the workflow
-            toast.info("Ready for next command");
-          }
+          onClick: handleContinueProcessing
         }
       });
+    }
+    
+    // Reset the continuation flag after processing
+    if (processingComplete) {
+      setIsProcessingContinuation(false);
     }
   }, [processingComplete, lastTranscript]);
 
@@ -120,10 +134,7 @@ export default function VoiceInput({
                     variant="outline" 
                     size="sm" 
                     className="text-xs"
-                    onClick={() => {
-                      // Re-process the last command
-                      handleVoiceResult(lastTranscript, processedData);
-                    }}
+                    onClick={handleContinueProcessing}
                   >
                     Continue Process
                   </Button>

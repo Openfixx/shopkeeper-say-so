@@ -1,4 +1,3 @@
-
 /**
  * Voice Command Utilities
  * Functions for processing and handling voice commands
@@ -158,15 +157,16 @@ const enhanceWithNumberExtraction = async (command: string, initialDetails: Part
     }
   }
   
-  // Extract position/rack information - IMPROVED to extract only numbers
+  // Extract position/rack information - IMPROVED to extract only rack numbers
   if (!details.position) {
     // Patterns specifically designed to extract rack/shelf numbers
     const rackNumberPatterns = [
-      /(?:in|on|at|to)\s+rack\s+(\d+|[a-z])/i,
-      /(?:in|on|at|to)\s+shelf\s+(\d+|[a-z])/i,
-      /rack\s+(\d+|[a-z])/i,
-      /shelf\s+(\d+|[a-z])/i,
-      /(?:in|on|at|to)\s+box\s+(\d+|[a-z])/i,
+      /rack\s+(?:number\s+)?(\d+|[a-z])/i,
+      /shelf\s+(?:number\s+)?(\d+|[a-z])/i,
+      /(?:on|in|at)\s+rack\s+(?:number\s+)?(\d+|[a-z])/i,
+      /(?:on|in|at)\s+shelf\s+(?:number\s+)?(\d+|[a-z])/i,
+      /(?:on|in|at)\s+box\s+(?:number\s+)?(\d+|[a-z])/i,
+      /(?:position|pos|loc|location)\s+(\d+|[a-z])/i,
     ];
     
     for (const pattern of rackNumberPatterns) {
@@ -174,7 +174,24 @@ const enhanceWithNumberExtraction = async (command: string, initialDetails: Part
       if (match && match[1]) {
         // Extract just the number/letter identifier
         details.position = match[1].trim();
+        console.log("Extracted position:", details.position);
         break;
+      }
+    }
+    
+    // If we still don't have a position but the command mentions rack/shelf
+    if (!details.position && (lowerCommand.includes('rack') || lowerCommand.includes('shelf'))) {
+      // Try to find any number in the command
+      const numberMatch = lowerCommand.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+      if (numberMatch && numberMatch[1]) {
+        // Convert word numbers to digits if needed
+        const numberWords: Record<string, string> = {
+          'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 
+          'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+        };
+        
+        details.position = numberWords[numberMatch[1].toLowerCase()] || numberMatch[1];
+        console.log("Extracted number as position:", details.position);
       }
     }
   }
@@ -402,22 +419,37 @@ export const processBillingVoiceCommand = (command: string) => {
 };
 
 /**
- * Search for a product image using Unsplash API
- * In a real app, this would connect to a product image API
+ * Search for a product image using DuckDuckGo API
  */
 export const searchProductImage = async (productName: string): Promise<string | null> => {
   try {
-    // Try to get a real product image from Unsplash
-    console.log(`Searching for image of: ${productName}`);
+    console.log(`Searching for image of product: ${productName}`);
     
-    const unsplashUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(productName)},product,food`;
+    // Use the DuckDuckGo API through Supabase edge function
+    const response = await fetch('/api/fetch-image?q=' + encodeURIComponent(productName), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     
-    // Return the Unsplash URL directly
-    return unsplashUrl;
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data?.imageUrl) {
+      console.log("Found image on DuckDuckGo:", data.imageUrl);
+      return data.imageUrl;
+    } else {
+      console.log("DuckDuckGo API returned no results");
+      // Return a placeholder instead of falling back to Unsplash
+      return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
+    }
   } catch (error) {
     console.error('Error searching for product image:', error);
-    
-    // Fallback to placeholder
+    // Return a placeholder instead of falling back to Unsplash
     return `https://placehold.co/200x200?text=${encodeURIComponent(productName)}`;
   }
 };

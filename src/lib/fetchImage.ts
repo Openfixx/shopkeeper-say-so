@@ -6,7 +6,7 @@ export const fetchProductImage = async (productName: string) => {
   const cachedImage = await getCachedImage(productName);
   if (cachedImage) return cachedImage;
 
-  // First try DuckDuckGo API
+  // Use DuckDuckGo API through our Supabase edge function
   try {
     console.log("Fetching image from DuckDuckGo for:", productName);
     
@@ -23,18 +23,12 @@ export const fetchProductImage = async (productName: string) => {
       return await cacheProductImage(productName, data.imageUrl);
     } else {
       console.log("DuckDuckGo API failed or returned no results:", error || "No image found");
+      // Use a placeholder image instead
+      const placeholderUrl = `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+      return await cacheProductImage(productName, placeholderUrl);
     }
   } catch (error) {
-    console.error("DuckDuckGo image fetch failed:", error);
-  }
-  
-  // Fallback to Unsplash if DuckDuckGo fails
-  try {
-    console.log("Falling back to Unsplash for:", productName);
-    const unsplashUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(productName + " product")}`;
-    return await cacheProductImage(productName, unsplashUrl);
-  } catch (error) {
-    console.error("All image fetch methods failed:", error);
+    console.error("Image fetch failed:", error);
     return "/placeholder.png";
   }
 };

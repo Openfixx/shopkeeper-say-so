@@ -3,47 +3,42 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 /**
- * Fetch product image from DuckDuckGo or other sources
+ * Fetch product image from DuckDuckGo
  */
 export const fetchProductImage = async (productName: string): Promise<string | null> => {
   try {
-    // First try to fetch from DuckDuckGo via edge function
-    try {
-      toast.loading(`Finding image for ${productName}...`);
-      
-      const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
-        body: { 
-          type: 'fetch_image', 
-          data: productName 
-        }
-      });
-      
-      toast.dismiss();
-      
-      if (error) {
-        throw new Error(error.message);
+    toast.loading(`Finding image for ${productName}...`);
+    
+    // Use the fetch-image edge function
+    const response = await fetch('/api/fetch-image?q=' + encodeURIComponent(productName), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
       }
-      
-      if (data?.imageUrl) {
-        console.log('Image found:', data.imageUrl);
-        toast.success('Image found!');
-        return data.imageUrl;
-      }
-    } catch (error) {
-      console.error('Error fetching from edge function:', error);
+    });
+    
+    toast.dismiss();
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
     }
     
-    // Fallback to Unsplash API if DuckDuckGo failed
-    console.log('Falling back to Unsplash for images');
-    toast.info('Trying alternative image source...');
+    const data = await response.json();
     
-    const unsplashUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(`${productName} product`)}`;
-    return unsplashUrl;
+    if (data?.imageUrl) {
+      console.log('Image found:', data.imageUrl);
+      toast.success('Image found!');
+      return data.imageUrl;
+    } else {
+      console.log('No image found from API');
+      // Use a placeholder instead of Unsplash
+      return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+    }
   } catch (error) {
-    console.error('All image fetching methods failed:', error);
+    console.error('Error fetching image:', error);
     toast.error('Could not find an image');
     
-    // Final fallback to placeholder
+    // Use a placeholder
     return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
   }
 };
