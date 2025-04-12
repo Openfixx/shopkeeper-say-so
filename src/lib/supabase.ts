@@ -48,6 +48,7 @@ export const supabase = (() => {
         signUp: async () => ({ data: null, error: null }),
         signOut: async () => ({ error: null }),
         getSession: async () => ({ data: { session: null }, error: null }),
+        getUser: async () => ({ data: { user: null }, error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
       },
       storage: {
@@ -65,7 +66,10 @@ export const supabase = (() => {
           insert: async () => ({ data: null, error: null }),
           upsert: async () => ({ data: null, error: null })
         })
-      })
+      }),
+      functions: {
+        invoke: async () => ({ data: null, error: null })
+      }
     };
     return mockClient as any;
   }

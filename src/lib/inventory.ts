@@ -81,7 +81,7 @@ export const getInventory = async () => {
   return data;
 };
 
-// 4. Generate bill from items (missing function that's causing errors)
+// 4. Generate bill from items
 export const generateBill = (items: { name: string; price: number }[]) => {
   const billItems = items.map(item => ({
     name: item.name,

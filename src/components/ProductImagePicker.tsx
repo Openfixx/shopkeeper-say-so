@@ -1,14 +1,17 @@
+
 import { useState } from 'react';
 import { cacheProductImage } from '../lib/imageCache';
 
 export default function ProductImagePicker({ 
   productName,
   initialImage,
-  onImageConfirmed 
+  onImageConfirmed,
+  onCancel
 }: {
   productName: string;
   initialImage: string;
   onImageConfirmed: (url: string) => void;
+  onCancel?: () => void;
 }) {
   const [image, setImage] = useState(initialImage);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +29,11 @@ export default function ProductImagePicker({
       <button onClick={handleConfirm} disabled={isLoading}>
         {isLoading ? 'Saving...' : 'Confirm Image'}
       </button>
+      {onCancel && (
+        <button onClick={onCancel} disabled={isLoading}>
+          Cancel
+        </button>
+      )}
     </div>
   );
 }
