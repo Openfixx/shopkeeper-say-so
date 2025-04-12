@@ -21,12 +21,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   
-  // Force Vite to completely ignore tsconfig.json and use inline settings instead
+  // Completely bypass tsconfig.json
   optimizeDeps: {
     esbuildOptions: {
-      // Set to 'none' to completely bypass tsconfig.json
-      tsconfig: 'none',
-      // Define all TS options inline as a string
+      tsconfig: false,
       tsconfigRaw: JSON.stringify({
         compilerOptions: {
           jsx: "react-jsx",
@@ -57,9 +55,7 @@ export default defineConfig(({ mode }) => ({
   
   // Apply the same configuration to the main build process
   esbuild: {
-    // Set to 'none' to completely bypass tsconfig.json
-    tsconfig: 'none',
-    // Define all TS options inline as a string
+    tsconfig: false,
     tsconfigRaw: JSON.stringify({
       compilerOptions: {
         jsx: "react-jsx",
