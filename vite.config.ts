@@ -22,14 +22,6 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     exclude: [], // Adjust if needed for specific packages
-  },
-  build: {
-    commonjsOptions: {
-      transformMixedEsModules: true,
-    },
-  },
-  // Make Vite completely ignore tsconfig.json issues
-  optimizeDeps: {
     esbuildOptions: {
       logOverride: {
         'tsconfig-invalid': 'silent',
@@ -53,6 +45,11 @@ export default defineConfig(({ mode }) => ({
         include: ["src"]
       }
     }
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
   },
   // Additional override for esbuild
   esbuild: {
