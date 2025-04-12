@@ -1,10 +1,122 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Product terms and their entity types
+const PRODUCT_TERMS: Record<string, string> = {
+  // English products
+  "sugar": "PRODUCT",
+  "rice": "PRODUCT",
+  "oil": "PRODUCT",
+  "milk": "PRODUCT",
+  "flour": "PRODUCT",
+  "salt": "PRODUCT",
+  "coffee": "PRODUCT",
+  "tea": "PRODUCT",
+  "spices": "PRODUCT",
+  "onion": "PRODUCT",
+  "potato": "PRODUCT",
+  "tomato": "PRODUCT",
+  "garlic": "PRODUCT",
+  "bread": "PRODUCT",
+  
+  // Hindi products
+  "चीनी": "PRODUCT", // sugar in Hindi
+  "दूध": "PRODUCT",  // milk in Hindi
+  "चावल": "PRODUCT", // rice in Hindi
+  "तेल": "PRODUCT",  // oil in Hindi
+  "आटा": "PRODUCT",  // flour in Hindi
+  "नमक": "PRODUCT",  // salt in Hindi
+  "चाय": "PRODUCT",  // tea in Hindi
+  "प्याज": "PRODUCT", // onion in Hindi
+  "आलू": "PRODUCT",  // potato in Hindi
+  "टमाटर": "PRODUCT", // tomato in Hindi
+  "लहसुन": "PRODUCT", // garlic in Hindi
+  "रोटी": "PRODUCT",  // bread in Hindi
+};
+
+// Named Entity Recognition function
+function processEntities(text: string) {
+  const entities = [];
+  const lowerText = text.toLowerCase();
+  
+  // Extract products
+  for (const [term, label] of Object.entries(PRODUCT_TERMS)) {
+    let index = 0;
+    const termLower = term.toLowerCase();
+    
+    while ((index = lowerText.indexOf(termLower, index)) !== -1) {
+      entities.push({
+        text: text.substring(index, index + term.length),
+        label,
+        start: index,
+        end: index + term.length,
+        description: "Product name"
+      });
+      index += term.length;
+    }
+  }
+  
+  // Extract quantities
+  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|किलो|किग्रा|कि\.ग्रा|kilogram|kilograms|gram|gm|g|गम|गाम|लीटर|लि|ml|मि\.ली|liter|liters|l|पैकेट|packet|packets|pcs|pieces|box|boxes)/gi;
+  let match;
+  
+  while ((match = quantityRegex.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      label: "QUANTITY",
+      start: match.index,
+      end: match.index + match[0].length,
+      description: "Product quantity"
+    });
+  }
+  
+  // Extract locations
+  const locationRegex = /(rack|रैक|शेल्फ|shelf)\s*(\d+|[a-zA-Z]+)|(\d+|[a-zA-Z]+)\s*(rack|रैक|शेल्फ|shelf)|में रख|में रखें|(on|at|in)\s+storage|बॉक्स\s*(\d+)|ड्रॉवर\s*(\d+)/gi;
+  
+  while ((match = locationRegex.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      label: "POSITION",
+      start: match.index,
+      end: match.index + match[0].length,
+      description: "Storage position"
+    });
+  }
+  
+  // Extract prices
+  const priceRegex = /₹(\d+(?:\.\d+)?)|rs\.?\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*rupees|(\d+(?:\.\d+)?)\s*rs\.?|price\s*(\d+(?:\.\d+)?)|cost\s*(\d+(?:\.\d+)?)|दाम\s*₹?\s*(\d+(?:\.\d+)?)|कीमत\s*₹?\s*(\d+(?:\.\d+)?)|मूल्य\s*₹?\s*(\d+(?:\.\d+)?)/gi;
+  
+  while ((match = priceRegex.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      label: "MONEY",
+      start: match.index,
+      end: match.index + match[0].length,
+      description: "Price information"
+    });
+  }
+  
+  // Extract dates
+  const dateRegex = /(expiry|expires|expiration|exp|एक्सपायरी)\s*(date|on)?\s*((?:\d{1,2}[-\/\s](?:\d{1,2}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\/\s]\d{2,4})|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})/gi;
+  
+  while ((match = dateRegex.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      label: "DATE",
+      start: match.index,
+      end: match.index + match[0].length,
+      description: "Expiry date"
+    });
+  }
+  
+  // Sort entities by position
+  return entities.sort((a, b) => a.start - b.start);
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -13,108 +125,48 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, lang = "en" } = await req.json();
     
     if (!text) {
       return new Response(
         JSON.stringify({ 
-          error: "Missing required field: text is required" 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
+          success: false, 
+          error: "Text is required" 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
     
-    console.log("Processing text with spaCy-like NLP:", text);
+    console.log(`Processing text with spaCy NLP simulation (lang: ${lang}): ${text}`);
     
-    // This is a mock implementation similar to what a real spaCy API would return
-    // In a production environment, you would call an actual NLP service
-    const mockEntities = mockProcessText(text);
+    // Simulate spaCy processing
+    const entities = processEntities(text);
     
-    console.log("Identified entities:", mockEntities);
+    console.log(`Found ${entities.length} entities`);
     
-    return new Response(
-      JSON.stringify({
-        success: true,
-        text: text,
-        entities: mockEntities
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
-  } catch (error) {
-    console.error("Error in spaCy NLP function:", error);
     return new Response(
       JSON.stringify({ 
-        success: false,
-        error: error.message || "An error occurred while processing the text"
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        success: true,
+        text,
+        entities
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in spaCy NLP processing:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || "An error occurred during NLP processing"
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
 });
-
-// Mock function to process text and extract entities
-function mockProcessText(text: string) {
-  const entities = [];
-  
-  // Pattern matching for product quantities
-  const quantityRegex = /(\d+)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets)/gi;
-  let match;
-  
-  while ((match = quantityRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'QUANTITY',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Measurements, as of weight or distance'
-    });
-  }
-  
-  // Pattern matching for money
-  const moneyRegex = /\$\d+(\.\d{1,2})?|\d+(\.\d{1,2})?\s*(dollars|rupees|rs\.)/gi;
-  while ((match = moneyRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'MONEY',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Monetary values, including unit'
-    });
-  }
-  
-  // Pattern matching for dates
-  const dateRegex = /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}-\d{1,2}-\d{2,4}|jan(\.|uary)?|feb(\.|ruary)?|mar(\.|ch)?|apr(\.|il)?|may|jun(\.|e)?|jul(\.|y)?|aug(\.|ust)?|sep(\.|tember)?|oct(\.|ober)?|nov(\.|ember)?|dec(\.|ember)?\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{2,4}/gi;
-  while ((match = dateRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'DATE',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Absolute or relative dates or periods'
-    });
-  }
-  
-  // Pattern matching for product names (simplified)
-  const productNames = ['sugar', 'rice', 'salt', 'flour', 'oil', 'milk', 'bread', 'butter', 'cheese', 'vegetables', 'fruits'];
-  productNames.forEach(product => {
-    const productRegex = new RegExp(`\\b${product}\\b`, 'gi');
-    while ((match = productRegex.exec(text)) !== null) {
-      entities.push({
-        text: match[0],
-        label: 'PRODUCT',
-        start: match.index,
-        end: match.index + match[0].length,
-        description: 'Objects, vehicles, foods, etc.'
-      });
-    }
-  });
-  
-  // Sort entities by their position in the text
-  return entities.sort((a, b) => a.start - b.start);
-}

@@ -1,15 +1,18 @@
 
 /**
- * SpaCy Types
- * Type definitions for SpaCy NLP API
+ * Type definitions for spaCy NLP integration
  */
 
-export interface SpacyOptions {
-  model?: string;
-  includeTokens?: boolean;
-  includeSentences?: boolean;
+// Basic entity from spaCy
+export interface SpacyEntity {
+  text: string;
+  label: string;
+  start: number;
+  end: number;
+  ent_id?: string;
 }
 
+// Enhanced entity with description
 export interface Entity {
   text: string;
   label: string;
@@ -18,8 +21,7 @@ export interface Entity {
   description?: string;
 }
 
-export type SpacyEntity = Entity;
-
+// Result from processing text with spaCy
 export interface SpacyProcessResult {
   success: boolean;
   text: string;
@@ -27,28 +29,53 @@ export interface SpacyProcessResult {
   error?: string;
 }
 
-// Entity descriptions for better user understanding
-export const ENTITY_DESCRIPTIONS: Record<string, string> = {
-  'PERSON': 'Person name',
-  'ORG': 'Organization name',
-  'GPE': 'Geopolitical entity (country, city, state)',
-  'LOC': 'Non-GPE location (mountain, water body)',
-  'PRODUCT': 'Product name or object',
-  'EVENT': 'Named event (hurricane, battle, war, etc.)',
-  'WORK_OF_ART': 'Title of book, song, etc.',
-  'LAW': 'Named law or legal document',
-  'LANGUAGE': 'Named language',
-  'DATE': 'Absolute or relative date',
-  'TIME': 'Time of day',
-  'PERCENT': 'Percentage',
-  'MONEY': 'Monetary value',
-  'QUANTITY': 'Measurement (weight, length, etc.)',
-  'ORDINAL': 'Ordinal number (first, second, etc.)',
-  'CARDINAL': 'Cardinal number',
-  'COMMAND': 'Voice command',
-  'POSITION': 'Product position or rack',
-  'UNIT': 'Unit of measurement',
-  'EXPIRY': 'Expiry date',
-  'NORP': 'Nationalities, religious or political groups',
-  'FAC': 'Facility (buildings, airports, etc.)',
-};
+// Mock entity for testing
+export interface MockEntityDefinition {
+  patterns: RegExp[];
+  label: string;
+  description: string;
+}
+
+// Result from parsing with Duckling
+export interface DucklingParseResult {
+  success: boolean;
+  text: string;
+  locale: string;
+  entities: DucklingEntity[];
+  error?: string;
+}
+
+export interface DucklingEntity {
+  body: string;
+  start: number;
+  end: number;
+  dim: string;
+  value: any;
+}
+
+// Processed data from voice commands
+export interface ProcessedVoiceData {
+  product?: string;
+  quantity?: {
+    value: number;
+    unit: string;
+  };
+  position?: string;
+  price?: number;
+  expiryDate?: string;
+  command?: string;
+}
+
+// Entity type categories
+export enum EntityType {
+  PRODUCT = 'PRODUCT',
+  QUANTITY = 'QUANTITY',
+  POSITION = 'POSITION',
+  MONEY = 'MONEY',
+  DATE = 'DATE',
+  COMMAND = 'COMMAND',
+  PERSON = 'PERSON',
+  ORG = 'ORG',
+  LOC = 'LOC',
+  MISC = 'MISC',
+}

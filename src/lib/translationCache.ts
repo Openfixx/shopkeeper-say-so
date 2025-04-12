@@ -1,4 +1,5 @@
-// Enhanced version with type safety and cache expiration
+
+// Enhanced version with type safety, cache expiration, and DuckDuckGo integration
 type TranslationCache = Record<string, {
   translation: string;
   timestamp: number; // Unix epoch in ms
@@ -44,13 +45,40 @@ export const translateHindi = async (text: string): Promise<string> => {
 
   // API fallback to DuckDuckGo
   try {
-    const response = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(`${text} meaning in english`)}&format=json`
-    );
+    const encodedQuery = encodeURIComponent(`${text} meaning in english`);
+    const response = await fetch(`https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1`);
+    
+    if (!response.ok) {
+      throw new Error(`DuckDuckGo API error: ${response.status}`);
+    }
+    
     const data = await response.json();
-    const translation = data.AbstractText?.split(/[,;.\s]/)[0] || text;
+    
+    // Try to extract a concise translation from the API response
+    let translation = '';
+    
+    if (data.AbstractText) {
+      // First try to get from AbstractText (usually the definition)
+      const cleanText = data.AbstractText.split(/[,;.\n]/)[0].trim();
+      if (cleanText) translation = cleanText;
+    } 
+    else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+      // Then try RelatedTopics
+      const firstTopic = data.RelatedTopics[0].Text;
+      if (firstTopic) {
+        const match = firstTopic.match(/means\s+(\w+)/i);
+        if (match) translation = match[1];
+      }
+    }
+    
+    // If we couldn't extract a good translation, fall back to the original text
+    if (!translation) {
+      console.warn(`Couldn't extract translation for "${text}" from DuckDuckGo`);
+      translation = text;
+    }
     
     saveTranslation(text, translation);
+    console.log(`Translated "${text}" to "${translation}" using DuckDuckGo API`);
     return translation;
   } catch (error) {
     console.error("Translation API failed:", error);

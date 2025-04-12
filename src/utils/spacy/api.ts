@@ -1,94 +1,68 @@
 
-/**
- * SpaCy API Integration
- * Functions for making requests to the spaCy NLP service via Supabase Edge Function
- */
-
-import { supabase } from '@/lib/supabase';
-import type { SpacyProcessResult, SpacyOptions, Entity } from './types';
+import { supabase } from '@/integrations/supabase/client';
+import { SpacyProcessResult } from './types';
 import { mockProcessText } from './mockApi';
 
 /**
- * Process text with spaCy NLP to extract entities
+ * Process text with the spaCy NLP service via Supabase edge function
  */
-export const processText = async (text: string, options: SpacyOptions = {}): Promise<SpacyProcessResult> => {
+export const processText = async (text: string): Promise<SpacyProcessResult> => {
   try {
-    console.log('Processing text with spaCy:', text);
-
-    // Try to use the Supabase Edge Function
+    // First try using the enhanced AI voice processing edge function
+    const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
+      body: { 
+        type: 'text', 
+        data: text 
+      }
+    });
+    
+    if (error) {
+      throw new Error(`Error calling AI voice processing: ${error.message}`);
+    }
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Error processing text');
+    }
+    
+    return {
+      success: true,
+      text,
+      entities: data.entities || []
+    };
+  } catch (error: any) {
+    console.error('Error with Supabase edge function:', error);
+    
+    // Try the spacy-nlp edge function as a fallback
     try {
-      const { data, error } = await supabase.functions.invoke('spacy-nlp', {
+      const { data, error: fallbackError } = await supabase.functions.invoke('spacy-nlp', {
         body: { text }
       });
       
-      if (error) {
-        console.error('Supabase Edge Function error:', error);
-        throw new Error(error.message);
+      if (fallbackError) {
+        throw new Error(`Error calling spaCy NLP: ${fallbackError.message}`);
       }
       
-      return data as SpacyProcessResult;
-    } catch (edgeFuncError) {
-      console.warn('Failed to use Supabase Edge Function, falling back to mock implementation:', edgeFuncError);
-      
-      // Fallback to mock implementation
-      const entities = mockProcessText(text);
+      if (!data.success) {
+        throw new Error(data.error || 'Error processing text with spaCy NLP');
+      }
       
       return {
         success: true,
         text,
-        entities
+        entities: data.entities || []
+      };
+    } catch (fallbackError: any) {
+      console.error('Error with fallback spaCy NLP:', fallbackError);
+      
+      // Final fallback to local mock processing
+      console.warn('Falling back to mock NER processing');
+      const mockEntities = mockProcessText(text);
+      return {
+        success: true,
+        text,
+        entities: mockEntities,
+        error: 'Warning: Using local mock entity extraction as fallback'
       };
     }
-  } catch (error) {
-    console.error('Error processing text with spaCy:', error);
-    return {
-      success: false,
-      text,
-      entities: [],
-      error: error.message || 'An error occurred while processing text'
-    };
   }
-};
-
-/**
- * Extract entity spans from text for highlighting
- */
-export const getEntitySpans = (text: string, entities: Entity[]): { text: string; entity: Entity | null }[] => {
-  if (!entities || entities.length === 0) {
-    return [{ text, entity: null }];
-  }
-
-  // Sort entities by start position
-  const sortedEntities = [...entities].sort((a, b) => a.start - b.start);
-
-  const spans: { text: string; entity: Entity | null }[] = [];
-  let lastIndex = 0;
-
-  for (const entity of sortedEntities) {
-    // Add non-entity text before this entity
-    if (entity.start > lastIndex) {
-      spans.push({
-        text: text.substring(lastIndex, entity.start),
-        entity: null
-      });
-    }
-
-    // Add the entity text
-    spans.push({
-      text: text.substring(entity.start, entity.end),
-      entity
-    });
-
-    lastIndex = entity.end;
-  }
-
-  // Add any remaining text after the last entity
-  if (lastIndex < text.length) {
-    spans.push({
-      text: text.substring(lastIndex),
-      entity: null
-    });
-  }
-
-  return spans;
 };

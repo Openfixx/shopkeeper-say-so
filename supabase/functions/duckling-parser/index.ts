@@ -1,73 +1,18 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { text, locale } = await req.json();
-    
-    if (!text) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Missing required field: text is required" 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      );
-    }
-    
-    const localeToUse = locale || 'en_US';
-    console.log(`Processing text with Duckling-like parser: "${text}" (locale: ${localeToUse})`);
-    
-    // This is a mock implementation similar to what a real Duckling parser would return
-    const entities = extractEntities(text, localeToUse);
-    
-    console.log("Extracted entities:", entities);
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        text: text,
-        locale: localeToUse,
-        entities: entities
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
-  } catch (error) {
-    console.error("Error in Duckling parser function:", error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message || "An error occurred while parsing the text"
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    );
-  }
-});
-
-// Mock function to extract entities similar to Duckling
-function extractEntities(text: string, locale: string) {
+// Extract number values using regular expressions
+function extractNumbers(text: string) {
   const entities = [];
-  
-  // Number extraction
-  const numberRegex = /\b\d+(\.\d+)?\b/g;
+  const numberRegex = /\b(\d+(?:\.\d+)?)\b/g;
   let match;
+  
   while ((match = numberRegex.exec(text)) !== null) {
-    const value = parseFloat(match[0]);
     entities.push({
       body: match[0],
       start: match.index,
@@ -75,16 +20,23 @@ function extractEntities(text: string, locale: string) {
       dim: "number",
       value: {
         type: "value",
-        value
+        value: parseFloat(match[0])
       }
     });
   }
   
-  // Quantity extraction
-  const quantityRegex = /(\d+(\.\d+)?)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets)/gi;
+  return entities;
+}
+
+// Extract quantity values with units
+function extractQuantities(text: string) {
+  const entities = [];
+  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|किलो|kilogram|g|gm|gram|liter|liters|l|ml|packet|packets|pcs|pieces|box|boxes)/gi;
+  let match;
+  
   while ((match = quantityRegex.exec(text)) !== null) {
     const value = parseFloat(match[1]);
-    const unit = match[3].toLowerCase();
+    const unit = match[2].toLowerCase();
     
     entities.push({
       body: match[0],
@@ -99,53 +51,17 @@ function extractEntities(text: string, locale: string) {
     });
   }
   
-  // Time extraction (simplified)
-  const timeRegex = /\b(\d{1,2}):(\d{2})\b/g;
-  while ((match = timeRegex.exec(text)) !== null) {
-    const hour = parseInt(match[1]);
-    const minute = parseInt(match[2]);
-    
-    entities.push({
-      body: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-      dim: "time",
-      value: {
-        type: "value",
-        hour,
-        minute
-      }
-    });
-  }
+  return entities;
+}
+
+// Extract monetary values
+function extractMoney(text: string) {
+  const entities = [];
+  const moneyRegex = /(?:₹|rs\.?|rupees?|price|cost|दाम|कीमत|मूल्य)\s*(\d+(?:\.\d+)?)/gi;
+  let match;
   
-  // Date extraction (simplified)
-  const dateRegex = /\b(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\b/g;
-  while ((match = dateRegex.exec(text)) !== null) {
-    const day = parseInt(match[1]);
-    const month = parseInt(match[2]);
-    const year = parseInt(match[3]);
-    const fullYear = match[3].length === 2 ? 2000 + year : year;
-    
-    entities.push({
-      body: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-      dim: "date",
-      value: {
-        type: "value",
-        day,
-        month,
-        year: fullYear
-      }
-    });
-  }
-  
-  // Money extraction
-  const moneyRegex = /\$(\d+(\.\d{1,2})?)|\b(\d+(\.\d{1,2})?)\s*(dollars|rupees|rs\.)\b/gi;
   while ((match = moneyRegex.exec(text)) !== null) {
-    const amount = parseFloat(match[1] || match[3]);
-    const currency = match[0].includes('$') ? 'USD' : 
-                    match[0].toLowerCase().includes('rupees') || match[0].toLowerCase().includes('rs') ? 'INR' : 'USD';
+    const value = parseFloat(match[1]);
     
     entities.push({
       body: match[0],
@@ -154,11 +70,93 @@ function extractEntities(text: string, locale: string) {
       dim: "amount-of-money",
       value: {
         type: "value",
-        value: amount,
-        unit: currency
+        value,
+        unit: "INR"
       }
     });
   }
   
   return entities;
 }
+
+// Extract dates
+function extractDates(text: string) {
+  const entities = [];
+  const dateRegex = /((?:\d{1,2}[-\/\s](?:\d{1,2}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\/\s]\d{2,4})|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})/gi;
+  let match;
+  
+  while ((match = dateRegex.exec(text)) !== null) {
+    entities.push({
+      body: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+      dim: "time",
+      value: {
+        type: "value",
+        value: match[0]
+      }
+    });
+  }
+  
+  return entities;
+}
+
+// Parse text with duckling-like functionality
+function parseText(text: string, locale = "en_US") {
+  // Extract various types of structured data
+  const numbers = extractNumbers(text);
+  const quantities = extractQuantities(text);
+  const money = extractMoney(text);
+  const dates = extractDates(text);
+  
+  // Combine all entities
+  const entities = [...numbers, ...quantities, ...money, ...dates];
+  
+  // Sort by position
+  entities.sort((a, b) => a.start - b.start);
+  
+  return {
+    success: true,
+    text,
+    locale,
+    entities
+  };
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { text, locale = "en_US" } = await req.json();
+    
+    if (!text) {
+      throw new Error('Text is required for parsing');
+    }
+    
+    console.log(`Processing text with locale ${locale}: ${text}`);
+    
+    const result = parseText(text, locale);
+    console.log(`Found ${result.entities.length} entities`);
+    
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error parsing text:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'An error occurred during parsing'
+      }),
+      { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});

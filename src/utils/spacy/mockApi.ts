@@ -1,118 +1,162 @@
+import { Entity, MockEntityDefinition } from './types';
 
-import { Entity } from './types';
+// Define patterns for different entity types
+const MOCK_ENTITIES: MockEntityDefinition[] = [
+  {
+    label: 'PRODUCT',
+    patterns: [
+      /sugar|चीनी/i,
+      /rice|चावल/i,
+      /milk|दूध/i,
+      /oil|तेल/i,
+      /flour|आटा/i,
+      /salt|नमक/i,
+      /coffee/i,
+      /tea|चाय/i,
+      /onion|प्याज/i,
+      /potato|आलू/i,
+      /tomato|टमाटर/i
+    ],
+    description: 'Product name'
+  },
+  {
+    label: 'QUANTITY',
+    patterns: [
+      /\d+\s*kg|\d+\s*किलो/i,
+      /\d+\s*g|\d+\s*ग्राम/i,
+      /\d+\s*l|\d+\s*लीटर/i,
+      /\d+\s*ml|\d+\s*मिली/i,
+      /\d+\s*pcs|\d+\s*pieces/i,
+      /\d+\s*box|\d+\s*बॉक्स/i,
+      /\d+\s*packet|\d+\s*पैकेट/i
+    ],
+    description: 'Product quantity'
+  },
+  {
+    label: 'POSITION',
+    patterns: [
+      /rack\s*\d+|रैक\s*\d+/i,
+      /shelf\s*\d+|शेल्फ\s*\d+/i,
+      /drawer\s*\d+|दराज\s*\d+/i,
+      /position\s*\d+/i,
+      /in box\s*\d+/i,
+      /में रख/i
+    ],
+    description: 'Storage position'
+  },
+  {
+    label: 'MONEY',
+    patterns: [
+      /₹\s*\d+/i,
+      /rs\.\s*\d+/i,
+      /rupees\s*\d+/i,
+      /price\s*\d+/i,
+      /cost\s*\d+/i,
+      /दाम\s*₹?\s*\d+/i,
+      /कीमत\s*₹?\s*\d+/i,
+      /मूल्य\s*₹?\s*\d+/i
+    ],
+    description: 'Price information'
+  },
+  {
+    label: 'DATE',
+    patterns: [
+      /expiry\s+(date\s+)?\w+\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{4}/i,
+      /expires\s+on\s+\w+\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{4}/i,
+      /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/i,
+      /\d{1,2}\s+\w+\s+\d{4}/i
+    ],
+    description: 'Expiry date'
+  },
+  {
+    label: 'COMMAND',
+    patterns: [
+      /add|जोड़ें|जोड़ना/i,
+      /create|बनाना/i,
+      /find|खोजना/i,
+      /search|खोज/i,
+      /update|अपडेट/i,
+      /delete|हटाना/i,
+      /remove|निकालना/i,
+      /bill|बिल/i
+    ],
+    description: 'Action command'
+  }
+];
 
 /**
- * Mock implementation of SpaCy NLP processing
- * This simulates what a real SpaCy API would return
- * Enhanced with patterns from the training data examples
+ * Find all occurrences of a pattern in a text
+ */
+function findAllMatches(text: string, pattern: RegExp): Array<{ start: number, end: number, text: string }> {
+  const matches = [];
+  let match;
+  
+  // Make sure the RegExp is global
+  const globalPattern = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+  
+  while ((match = globalPattern.exec(text)) !== null) {
+    matches.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      text: match[0]
+    });
+  }
+  
+  return matches;
+}
+
+/**
+ * Process text with mock NER implementation
+ * This simulates what spaCy would do for named entity recognition
  */
 export const mockProcessText = (text: string): Entity[] => {
   const entities: Entity[] = [];
   
-  // Pattern matching for product quantities with numbers (both digits and words)
-  const quantityRegex = /(\d+(?:\.\d+)?)\s*(kg|g|liter|l|ml|pieces|pcs|box|boxes|packet|packets|किलो|लीटर)/gi;
-  let match;
-  
-  while ((match = quantityRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'QUANTITY',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Measurements, as of weight or distance'
-    });
-  }
-  
-  // Pattern matching for money/price - enhanced with ₹ symbol and Hindi patterns
-  const moneyRegex = /(?:(?:price|cost|at|for|दाम|कीमत)\s+)?(?:₹|\$|rs\.?)?\s*(\d+(?:\.\d+)?)\b(?!\s*(?:kg|g|liter|l|ml|pieces|pcs))/gi;
-  while ((match = moneyRegex.exec(text)) !== null) {
-    // Skip if this looks like it's part of a quantity
-    if (!text.substring(match.index - 10, match.index).match(/rack|position|shelf/i)) {
-      entities.push({
-        text: match[0],
-        label: 'MONEY',
-        start: match.index,
-        end: match.index + match[0].length,
-        description: 'Monetary values, including unit'
-      });
-    }
-  }
-  
-  // Pattern matching for dates including month names
-  const dateRegex = /\b(?:expiry|expires|expiration|exp)(?:\s+(?:date|on))?\s+([a-zA-Z]+\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}-\d{1,2}-\d{2,4})\b|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/gi;
-  while ((match = dateRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'DATE',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Absolute or relative dates or periods'
-    });
-  }
-  
-  // Pattern matching for rack/position with numbers - enhanced with Hindi terms
-  const rackRegex = /\b(?:rack|position|shelf|loc|location|रैक)\s*(\d+|[a-zA-Z]+)\b|में/gi;
-  while ((match = rackRegex.exec(text)) !== null) {
-    entities.push({
-      text: match[0],
-      label: 'POSITION',
-      start: match.index,
-      end: match.index + match[0].length,
-      description: 'Storage position or location'
-    });
-  }
-  
-  // Extract product names (after we've identified other entities)
-  // Common grocery items - enhanced with Hindi terms
-  const productNames = [
-    'sugar', 'rice', 'salt', 'flour', 'oil', 'milk', 'bread', 'butter', 'cheese', 
-    'vegetables', 'fruits', 'coffee', 'tea', 'chocolate', 'cereal', 'pasta', 'sauce',
-    'juice', 'water', 'soda', 'chips', 'biscuits', 'cookies', 'candy', 'spices',
-    'honey', 'jam', 'peanut butter', 'nuts', 'beans', 'lentils', 'meat', 'chicken',
-    'fish', 'shrimp', 'eggs', 'yogurt', 'cream', 'ice cream',
-    'चीनी', 'दूध', 'चावल', 'तेल' // Hindi terms for sugar, milk, rice, oil
-  ];
-  
-  // Look for product terms after "add" or similar words
-  const addProductRegex = /\b(?:add|create|make)\s+(?:a\s+)?(?:new\s+)?(?:product\s+)?([a-zA-Z\s]+?)(?=\s+(?:in|on|at|with|of|for|to|rack|\d|₹|\$|price|expiry|expiration)|$)/i;
-  const addMatch = text.match(addProductRegex);
-  if (addMatch && addMatch[1]) {
-    const potentialProduct = addMatch[1].trim().toLowerCase();
-    if (productNames.some(product => potentialProduct.includes(product))) {
-      entities.push({
-        text: addMatch[1].trim(),
-        label: 'PRODUCT',
-        start: text.indexOf(addMatch[1]),
-        end: text.indexOf(addMatch[1]) + addMatch[1].length,
-        description: 'Product name'
-      });
-    }
-  }
-  
-  // If no product found with the above pattern, try another approach
-  if (!entities.some(e => e.label === 'PRODUCT')) {
-    productNames.forEach(product => {
-      const productRegex = new RegExp(`\\b${product}\\b`, 'gi');
-      while ((match = productRegex.exec(text)) !== null) {
-        // Check if this product is not already part of another entity
-        const overlapping = entities.some(e => 
-          (match.index >= e.start && match.index < e.end) || 
-          (match.index + match[0].length > e.start && match.index + match[0].length <= e.end)
-        );
-        
-        if (!overlapping) {
-          entities.push({
-            text: match[0],
-            label: 'PRODUCT',
-            start: match.index,
-            end: match.index + match[0].length,
-            description: 'Product name'
-          });
-        }
+  for (const entityType of MOCK_ENTITIES) {
+    for (const pattern of entityType.patterns) {
+      const matches = findAllMatches(text, pattern);
+      
+      for (const match of matches) {
+        entities.push({
+          text: match.text,
+          label: entityType.label,
+          start: match.start,
+          end: match.end,
+          description: entityType.description
+        });
       }
-    });
+    }
   }
   
-  // Sort entities by their position in the text
-  return entities.sort((a, b) => a.start - b.start);
+  // Sort by start position and remove overlaps
+  return removeOverlappingEntities(
+    entities.sort((a, b) => a.start - b.start)
+  );
 };
+
+/**
+ * Remove overlapping entities, preferring longer entities
+ */
+function removeOverlappingEntities(entities: Entity[]): Entity[] {
+  if (entities.length <= 1) return entities;
+  
+  const result: Entity[] = [entities[0]];
+  
+  for (let i = 1; i < entities.length; i++) {
+    const current = entities[i];
+    const previous = result[result.length - 1];
+    
+    // Check for overlap
+    if (current.start < previous.end) {
+      // If current entity is longer, replace previous one
+      if ((current.end - current.start) > (previous.end - previous.start)) {
+        result[result.length - 1] = current;
+      }
+      // Otherwise, keep the previous entity and skip the current one
+    } else {
+      result.push(current);
+    }
+  }
+  
+  return result;
+}

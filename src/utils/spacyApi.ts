@@ -4,12 +4,34 @@
  * This file re-exports all SpaCy-related functionality from the spacy/ directory
  */
 
-import { Entity, SpacyProcessResult, SpacyEntity } from './spacy/types';
+// Define the types here to fix the TypeScript errors
+export interface SpacyEntity {
+  text: string;
+  label: string;
+  start: number;
+  end: number;
+  ent_id?: string;
+}
 
-export * from './spacy/api';
-export * from './spacy/types';
-export * from './spacy/entityColors';
-export * from './spacy/mockApi';
+export interface Entity {
+  text: string;
+  label: string;
+  start: number;
+  end: number;
+  description?: string;
+}
+
+export interface SpacyProcessResult {
+  success: boolean;
+  text: string;
+  entities: Entity[];
+  error?: string;
+}
+
+// Import the actual implementations
+import { getEntityColor } from './spacy/entityColors';
+
+export { getEntityColor };
 
 /**
  * Process text with SpaCy NLP
