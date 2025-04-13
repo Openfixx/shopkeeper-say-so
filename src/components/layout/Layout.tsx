@@ -6,6 +6,7 @@ import Navbar from './Navbar';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/components/ui/theme-provider';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -15,20 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || 
-      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  });
-  
-  useEffect(() => {
-    if (isDarkTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkTheme]);
+  const { theme, setTheme } = useTheme();
   
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !location.pathname.includes('/login') && !location.pathname.includes('/register')) {
@@ -37,7 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isAuthenticated, isLoading, navigate, location.pathname]);
   
   const toggleTheme = () => {
-    setIsDarkTheme(prev => !prev);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
   
   // Don't show layout for auth pages
@@ -50,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Navbar 
         className="md:ml-64" 
         onToggleTheme={toggleTheme} 
-        isDarkTheme={isDarkTheme} 
+        isDarkTheme={theme === 'dark'} 
       />
       <div className="hidden md:block fixed inset-y-0 left-0 z-50 w-64 border-r">
         <Sidebar className="flex flex-col h-full" />

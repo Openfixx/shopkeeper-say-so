@@ -32,7 +32,7 @@ const EditProduct = () => {
       setProduct(foundProduct);
       setFormData({
         name: foundProduct.name || '',
-        description: foundProduct.description || '',
+        description: foundProduct.description || '', // Safely access description
         price: foundProduct.price?.toString() || '',
         quantity: foundProduct.quantity?.toString() || '',
         unit: foundProduct.unit || '',
@@ -64,7 +64,9 @@ const EditProduct = () => {
         image: formData.image
       };
       
-      updateProduct(updatedProduct);
+      // Add a second argument for the updateProduct function
+      // Most likely it's the product id
+      updateProduct(updatedProduct, id as string);
       toast.success('Product updated successfully');
       navigate('/products');
     } catch (error) {
