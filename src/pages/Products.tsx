@@ -8,7 +8,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
-import { Product } from '@/types';
+import { Product as TypesProduct } from '@/types';
 import ProductCard from '@/components/ui-custom/ProductCard';
 import SearchBar from '@/components/ui-custom/SearchBar';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
@@ -233,11 +233,11 @@ const Products: React.FC = () => {
     setEditingProductId(null);
   };
   
-  const convertProduct = (product: any): Product => {
+  const convertProduct = (product: any): TypesProduct => {
     return {
       ...product,
       image_url: product.image || '',
-      user_id: product.userId || '',
+      user_id: product.userId || ''
     };
   };
   
@@ -471,14 +471,17 @@ const Products: React.FC = () => {
             </div>
           ))
         ) : filteredProducts.length > 0 ? (
-          filteredProducts.map((product, index) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))
+          filteredProducts.map((product, index) => {
+            const convertedProduct = convertProduct(product);
+            return (
+              <ProductCard
+                key={product.id}
+                product={convertedProduct}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            );
+          })
         ) : (
           <div className="col-span-full flex flex-col items-center justify-center text-center py-12 space-y-3">
             <Package2 className="h-12 w-12 text-muted-foreground opacity-20" />

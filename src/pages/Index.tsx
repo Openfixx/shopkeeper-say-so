@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInventory } from '@/context/InventoryContext';
@@ -28,6 +27,7 @@ import { BarChart } from '@/components/ui-custom/BarChart';
 import DashboardVoiceCommands from '@/components/ui-custom/DashboardVoiceCommands';
 import BillingDialog from '@/components/ui-custom/BillingDialog';
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { Product as TypesProduct } from '@/types';
 
 interface StatCardProps {
   title: string;
@@ -99,7 +99,6 @@ const Dashboard: React.FC = () => {
   const lowStockProducts = products.filter(product => (product.quantity || 0) < 5).length;
   const totalSales = bills.reduce((acc, bill) => acc + bill.total, 0);
   
-  // Mock sales data for charts with different periods
   const salesData = {
     daily: [
       { name: 'Mon', total: 1200 },
@@ -142,7 +141,14 @@ const Dashboard: React.FC = () => {
     minimumFractionDigits: 0,
   });
   
-  // Voice command handlers
+  const convertProduct = (product: any): TypesProduct => {
+    return {
+      ...product,
+      image_url: product.image || '',
+      user_id: product.userId || ''
+    };
+  };
+  
   const handleAddProductCommand = () => {
     navigate('/products/add');
   };
@@ -155,7 +161,6 @@ const Dashboard: React.FC = () => {
     navigate(`/inventory?search=${encodeURIComponent(searchTerm)}`);
   };
 
-  // Card animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -456,32 +461,35 @@ const Dashboard: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  products.slice(0, 3).map((product, index) => (
-                    <div key={product.id} className="flex items-center">
-                      <div className="w-10 h-10 rounded-md overflow-hidden bg-muted mr-3">
-                        {product.image_url ? (
-                          <img 
-                            src={product.image_url} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                            <Package2 className="h-5 w-5 text-primary" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Stock: {product.quantity} {product.unit}
+                  products.slice(0, 3).map((product, index) => {
+                    const convertedProduct = convertProduct(product);
+                    return (
+                      <div key={product.id} className="flex items-center">
+                        <div className="w-10 h-10 rounded-md overflow-hidden bg-muted mr-3">
+                          {convertedProduct.image_url ? (
+                            <img 
+                              src={convertedProduct.image_url} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                              <Package2 className="h-5 w-5 text-primary" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Stock: {product.quantity} {product.unit}
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium">
+                          {formatter.format(product.price)}
                         </p>
                       </div>
-                      <p className="text-sm font-medium">
-                        {formatter.format(product.price)}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 
                 {!isLoading && products.length > 0 && (
@@ -640,14 +648,12 @@ const Dashboard: React.FC = () => {
         </motion.div>
       </motion.div>
       
-      {/* Dashboard Voice Commands */}
       <DashboardVoiceCommands 
         onAddProduct={handleAddProductCommand}
         onCreateBill={handleCreateBillCommand}
         onSearchProduct={handleSearchProductCommand}
       />
       
-      {/* Quick Billing Dialog */}
       <BillingDialog
         open={isBillingDialogOpen}
         onOpenChange={setIsBillingDialogOpen}
