@@ -26,30 +26,22 @@ export default function VoiceInput({
     reset
   } = useVoiceRecognition();
 
-  const [productImage, setProductImage] = useState('');
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
 
-  // Process voice command results
   useEffect(() => {
     if (!commandResult) return;
 
-    // Structure the command data
-    const processedData = {
-      product: commandResult.productName,
-      quantity: commandResult.quantity,
-      price: commandResult.price,
-      position: commandResult.rackNumber 
-        ? `Rack ${commandResult.rackNumber}` 
-        : undefined,
-      imageUrl: commandResult.imageUrl
-    };
+    onCommand(transcript, {
+      processed: {
+        product: commandResult.productName,
+        quantity: commandResult.quantity,
+        price: commandResult.price,
+        position: commandResult.rackNumber ? `Rack ${commandResult.rackNumber}` : undefined,
+        imageUrl: commandResult.imageUrl
+      }
+    });
 
-    // Update parent component
-    onCommand(transcript, { processed: processedData });
-
-    // Handle product image
     if (commandResult.imageUrl) {
-      setProductImage(commandResult.imageUrl);
       setIsImagePickerOpen(true);
     }
   }, [commandResult, transcript]);
@@ -65,7 +57,6 @@ export default function VoiceInput({
 
   const handleImageConfirm = () => {
     toast.success("Product saved successfully");
-    setProductImage('');
     setIsImagePickerOpen(false);
   };
 
@@ -118,15 +109,12 @@ export default function VoiceInput({
         </Card>
       )}
 
-      {isImagePickerOpen && productImage && (
+      {isImagePickerOpen && commandResult?.imageUrl && (
         <ProductImagePicker
-          productName={commandResult?.productName || ''}
-          initialImage={productImage}
+          productName={commandResult.productName || ''}
+          initialImage={commandResult.imageUrl}
           onConfirm={handleImageConfirm}
-          onCancel={() => {
-            setProductImage('');
-            setIsImagePickerOpen(false);
-          }}
+          onCancel={() => setIsImagePickerOpen(false)}
         />
       )}
     </div>
