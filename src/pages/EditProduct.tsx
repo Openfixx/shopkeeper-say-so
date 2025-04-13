@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -32,7 +31,7 @@ const EditProduct = () => {
       setProduct(foundProduct);
       setFormData({
         name: foundProduct.name || '',
-        description: foundProduct.description || '', // Safely access description
+        description: foundProduct.description || '', 
         price: foundProduct.price?.toString() || '',
         quantity: foundProduct.quantity?.toString() || '',
         unit: foundProduct.unit || '',
@@ -50,7 +49,7 @@ const EditProduct = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!product) return;
+    if (!product || !id) return;
     
     try {
       const updatedProduct = {
@@ -64,9 +63,7 @@ const EditProduct = () => {
         image: formData.image
       };
       
-      // Add a second argument for the updateProduct function
-      // Most likely it's the product id
-      updateProduct(updatedProduct, id as string);
+      updateProduct(id, updatedProduct);
       toast.success('Product updated successfully');
       navigate('/products');
     } catch (error) {
