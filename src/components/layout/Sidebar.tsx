@@ -1,121 +1,164 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useMobile } from '@/hooks/useMobile';
-import {
-  LayoutDashboard,
-  PackageSearch,
-  Package,
-  BarChart3,
-  Receipt,
-  Settings,
-  Store,
-  Navigation,
-} from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { 
+  Home, 
+  Package2, 
+  ShoppingCart, 
+  BarChart3, 
+  Settings, 
+  MapPin,
+  Mic,
+  LogOut,
+  ChevronRight
+} from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+
+const navItems = [
+  { icon: Home, label: 'Dashboard', path: '/' },
+  { icon: Package2, label: 'Products', path: '/products' },
+  { icon: ShoppingCart, label: 'Inventory', path: '/inventory' },
+  { icon: BarChart3, label: 'Reports', path: '/reports' },
+  { icon: ShoppingCart, label: 'Billing', path: '/billing' },
+  { icon: MapPin, label: 'Shop Finder', path: '/shop-finder' },
+  { icon: Mic, label: 'Voice Features', path: '/voice-screen' },
+];
 
 interface SidebarProps {
   className?: string;
 }
 
-export default function Sidebar({ className }: SidebarProps) {
+const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const location = useLocation();
-  const isMobile = useMobile();
+  const { logout } = useAuth();
   
-  const links = [
-    {
-      title: 'Dashboard',
-      href: '/',
-      icon: <LayoutDashboard className="h-5 w-5" />,
-    },
-    {
-      title: 'Inventory',
-      href: '/inventory',
-      icon: <PackageSearch className="h-5 w-5" />,
-    },
-    {
-      title: 'Products',
-      href: '/products',
-      icon: <Package className="h-5 w-5" />,
-    },
-    {
-      title: 'Reports',
-      href: '/reports',
-      icon: <BarChart3 className="h-5 w-5" />,
-    },
-    {
-      title: 'Billing',
-      href: '/billing',
-      icon: <Receipt className="h-5 w-5" />,
-    },
-    {
-      title: 'Shop Finder',
-      href: '/shop-finder',
-      icon: <Navigation className="h-5 w-5" />,
-    },
-    {
-      title: 'Nearby Shops',
-      href: '/nearby-shops',
-      icon: <Store className="h-5 w-5" />,
-    },
-    {
-      title: 'Settings',
-      href: '/settings',
-      icon: <Settings className="h-5 w-5" />,
-    },
-  ];
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
+  };
 
   return (
-    <div className={cn('pb-12 h-full', className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 px-4"
-          >
-            <h2 className="text-xl font-semibold tracking-tight text-gradient">
-              InventoryPro
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Manage your stock effortlessly
-            </p>
-          </motion.div>
-          
-          <ScrollArea className="h-[calc(100vh-10rem)]">
-            <div className="space-y-1">
-              {links.map((link, index) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <Button
-                    variant={location.pathname === link.href ? 'default' : 'ghost'}
-                    className={cn(
-                      'w-full justify-start gap-3 font-medium rounded-xl text-base',
-                      location.pathname === link.href
-                        ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                        : ''
-                    )}
-                    asChild
+    <div 
+      className={cn(
+        "py-4 flex flex-col h-full bg-sidebar-background border-r border-sidebar-border",
+        className
+      )}
+    >
+      <div className="px-4 py-2 mb-6">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-xl">
+            IP
+          </div>
+          <div className="font-bold text-xl tracking-tight">
+            <span className="text-foreground">Inventory</span>
+            <span className="text-primary">Pro</span>
+          </div>
+        </Link>
+      </div>
+      
+      <div className="px-3 mb-6">
+        <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
+          Menu
+        </div>
+        <nav className="space-y-1.5">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path || 
+              (item.path !== '/' && location.pathname.startsWith(item.path));
+              
+            return (
+              <Link 
+                key={item.label} 
+                to={item.path}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+                  isActive 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
+                )}
+              >
+                <item.icon size={18} />
+                <span>{item.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active-tab"
+                    className="ml-auto"
+                    transition={{ type: "spring", duration: 0.6 }}
                   >
-                    <Link to={link.href}>
-                      {link.icon}
-                      {link.title}
-                    </Link>
-                  </Button>
-                </motion.div>
-              ))}
+                    <ChevronRight size={16} />
+                  </motion.div>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+      
+      <div className="px-3 mb-6">
+        <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
+          Admin
+        </div>
+        <Link 
+          to="/settings"
+          className={cn(
+            "flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+            location.pathname === '/settings'
+              ? "bg-primary text-primary-foreground" 
+              : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
+          )}
+        >
+          <Settings size={18} />
+          <span>Settings</span>
+          {location.pathname === '/settings' && (
+            <motion.div
+              layoutId="sidebar-active-tab"
+              className="ml-auto"
+              transition={{ type: "spring", duration: 0.6 }}
+            >
+              <ChevronRight size={16} />
+            </motion.div>
+          )}
+        </Link>
+      </div>
+      
+      <div className="mt-auto px-3">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
+      </div>
+      
+      <div className="mt-6 px-4">
+        <div className="p-4 rounded-xl bg-gradient-to-br from-secondary/50 to-secondary/30 backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <Package2 size={14} className="text-primary" />
             </div>
-          </ScrollArea>
+            <div>
+              <div className="text-xs font-semibold">Need help?</div>
+              <div className="text-xs text-muted-foreground">Support center</div>
+            </div>
+          </div>
+          <Link 
+            to="/settings" 
+            className="text-xs text-primary font-medium flex justify-center items-center w-full py-1.5 bg-background/70 rounded-lg hover:bg-background transition-colors"
+          >
+            Go to support
+          </Link>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default Sidebar;

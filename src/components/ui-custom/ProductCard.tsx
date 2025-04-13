@@ -1,111 +1,267 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { Calendar, Edit, MapPin, Plus, Trash2 } from 'lucide-react';
-import type { Product } from '@/context/InventoryContext';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, CheckCircle2, Edit2, Trash2, Package2, Eye } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Product } from '@/types';
+import { formatDistance } from 'date-fns';
 
 interface ProductCardProps {
   product: Product;
-  onEdit?: (product: Product) => void;
-  onDelete?: (id: string) => void;
-  onAddToBill?: (id: string, quantity: number) => void;
-  className?: string;
+  onEdit: (product: Product) => void;
+  onDelete: (id: string) => void;
 }
 
-export default function ProductCard({
-  product,
-  onEdit,
-  onDelete,
-  onAddToBill,
-  className,
-}: ProductCardProps) {
+const ProductCard: React.FC<ProductCardProps> = ({ 
+  product, 
+  onEdit, 
+  onDelete 
+}) => {
+  const [isHovering, setIsHovering] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(product);
+  };
+  
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDelete = () => {
+    onDelete(product.id);
+    setIsDeleteDialogOpen(false);
+  };
+  
+  const isLowStock = product.quantity < 5;
+  const hasExpiry = product.expiry && new Date(product.expiry) > new Date();
+  const isExpiringSoon = product.expiry && 
+    new Date(product.expiry) > new Date() && 
+    new Date(product.expiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -5 }}
-      className="card-wallet"
+      onClick={() => setIsViewDialogOpen(true)}
     >
-      <Card className={cn("border-none shadow-md overflow-hidden rounded-3xl", className)}>
-        <div className="relative h-48 overflow-hidden">
-          {product.image ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              className="h-full w-full object-cover transition-all duration-500 hover:scale-105"
+      <Card 
+        className="overflow-hidden cursor-pointer transition-all duration-300 group h-[280px]"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <div className="relative h-40 bg-muted overflow-hidden">
+          {product.image_url ? (
+            <img 
+              src={product.image_url} 
+              alt={product.name} 
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
           ) : (
-            <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">
-              No image
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <Package2 className="h-12 w-12 text-muted-foreground opacity-20" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-        </div>
-        
-        <CardHeader className="pb-2 relative z-10 -mt-16 pt-0">
-          <div className="flex flex-col text-white pt-8">
-            <h3 className="font-medium text-xl">{product.name}</h3>
-            <div className="flex items-center text-white/80 text-sm">
-              <MapPin className="mr-1 h-3 w-3" />
-              <p>{product.position}</p>
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Price</span>
-              <span className="font-medium text-lg">
-                ${product.price.toFixed(2)}
-              </span>
-            </div>
-            
-            <div className="flex flex-col">
-              <span className="text-sm text-muted-foreground">Quantity</span>
-              <span className="font-medium">
-                {product.quantity} {product.unit}
-              </span>
-            </div>
-            
-            {product.expiry && (
-              <div className="flex flex-col col-span-2 mt-2 pt-2 border-t">
-                <span className="text-sm text-muted-foreground flex items-center">
-                  <Calendar className="mr-1 h-3 w-3" /> Expiry
-                </span>
-                <span className="font-medium">
-                  {new Date(product.expiry).toLocaleDateString()}
-                </span>
-              </div>
+          
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            {isLowStock && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Low Stock
+              </Badge>
             )}
-          </div>
-        </CardContent>
-        
-        <CardFooter className="flex justify-between pt-2 border-t">
-          <div className="flex space-x-2">
-            {onEdit && (
-              <Button variant="ghost" size="sm" onClick={() => onEdit(product)} className="rounded-xl">
-                <Edit className="h-4 w-4 mr-1" /> Edit
-              </Button>
+            
+            {isExpiringSoon && (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20">
+                Expiring Soon
+              </Badge>
             )}
-            {onDelete && (
-              <Button variant="ghost" size="sm" className="text-destructive rounded-xl" onClick={() => onDelete(product.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            
+            {!isLowStock && !isExpiringSoon && hasExpiry && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                In Stock
+              </Badge>
             )}
           </div>
           
-          {onAddToBill && (
-            <Button size="sm" className="rounded-xl bg-primary hover:bg-primary/90" onClick={() => onAddToBill(product.id, 1)}>
-              <Plus className="h-4 w-4 mr-1" /> Add to Bill
+          <div 
+            className={`absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end justify-between p-3 transition-opacity duration-300 ${isHovering ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <div className="flex gap-1">
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className="h-8 w-8 rounded-full"
+                onClick={handleEdit}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="icon" 
+                className="h-8 w-8 rounded-full"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button 
+              variant="default" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsViewDialogOpen(true);
+              }}
+            >
+              <Eye className="h-4 w-4" />
             </Button>
+          </div>
+        </div>
+        
+        <CardContent className="p-4 space-y-1">
+          <div className="flex justify-between items-start">
+            <h3 className="font-medium line-clamp-1">{product.name}</h3>
+            <p className="text-sm font-semibold">{formatCurrency(product.price)}</p>
+          </div>
+          
+          <div className="flex justify-between">
+            <p className="text-sm text-muted-foreground">
+              Stock: {product.quantity} {product.unit}
+            </p>
+            
+            {product.position && (
+              <p className="text-xs text-muted-foreground">
+                {product.position}
+              </p>
+            )}
+          </div>
+          
+          {product.expiry && (
+            <p className="text-xs text-muted-foreground">
+              Expiry: {new Date(product.expiry).toLocaleDateString()}
+            </p>
           )}
-        </CardFooter>
+        </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the product {product.name} from your inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* View Product Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{product.name}</DialogTitle>
+            <DialogDescription>
+              Product details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="aspect-square rounded-md overflow-hidden bg-muted">
+              {product.image_url ? (
+                <img 
+                  src={product.image_url} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package2 className="h-16 w-16 text-muted-foreground opacity-20" />
+                </div>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Price</p>
+                <p className="font-medium">{formatCurrency(product.price)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Quantity</p>
+                <p className="font-medium">{product.quantity} {product.unit}</p>
+              </div>
+              {product.position && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Location</p>
+                  <p className="font-medium">{product.position}</p>
+                </div>
+              )}
+              {product.expiry && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Expiry</p>
+                  <p className="font-medium">
+                    {new Date(product.expiry).toLocaleDateString()}
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({formatDistance(new Date(product.expiry), new Date(), { addSuffix: true })})
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {product.description && (
+              <div>
+                <p className="text-sm text-muted-foreground">Description</p>
+                <p className="text-sm">{product.description}</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={handleEdit}>
+              Edit Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
-}
+};
+
+export default ProductCard;

@@ -6,10 +6,11 @@ export type Product = {
   image_url: string;
   user_id: string;
   description?: string;
-  quantity?: number;
-  unit?: string;
+  quantity: number;
+  unit: string;
   position?: string;
   expiry?: string;
+  image?: string;
 };
 
 export type InventoryItem = {

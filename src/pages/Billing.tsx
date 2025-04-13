@@ -42,17 +42,21 @@ import {
   Trash2,
   Receipt,
   Share2,
+  QrCode,
+  DollarSign,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import ProductCard from '@/components/ui-custom/ProductCard';
+import { Product } from '@/types';
 import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
 
-const Billing: React.FC = () => {
+const BillingPage: React.FC = () => {
   const { products, currentBill, startNewBill, addToBill, removeFromBill, completeBill, cancelBill, isLoading } = useInventory();
   const [searchQuery, setSearchQuery] = useState('');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [isQuickBillOpen, setIsQuickBillOpen] = useState(false);
   const [quickBillTranscript, setQuickBillTranscript] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'wallet'>('cash');
   
   const filteredProducts = searchQuery
     ? products.filter(product => 
@@ -69,7 +73,6 @@ const Billing: React.FC = () => {
     const recognizedCommand = detectCommandType(command);
     
     if (recognizedCommand.type === VOICE_COMMAND_TYPES.CREATE_BILL) {
-      // For Hindi commands like "bill banao" or any bill creation command
       if (!currentBill) {
         startNewBill();
       }
@@ -92,38 +95,34 @@ const Billing: React.FC = () => {
       }
       
       // Try to parse product quantity and name
-      const addPattern = /add\s+(\d+(?:\.\d+)?)\s*(kg|g|l|ml|packet|box)?\s+(?:of\s+)?(.+)/i;
-      const match = lowerCommand.match(addPattern);
-      
-      if (match) {
-        const quantity = parseFloat(match[1]);
-        const productName = match[3].trim();
+      const match = lowerCommand.match(/add\s+(\d+)\s+(.*)/i);
+      if (match && match[2]) {
+        const quantity = parseInt(match[1]);
+        const productName = match[2].trim();
         
-        // Find product by name (case insensitive)
         const product = products.find(p => 
           p.name.toLowerCase().includes(productName.toLowerCase())
         );
         
         if (product) {
-          addToBill(product.id, quantity);
+          addToBill(product, quantity);
+          toast.success(`Added ${quantity} ${product.name} to bill`);
         } else {
           toast.error(`Product "${productName}" not found`);
         }
       } else {
-        // Open quick bill dialog with the transcript
-        setQuickBillTranscript(command);
-        setIsQuickBillOpen(true);
+        toast.error('Could not understand the product to add');
       }
     }
-    else if (lowerCommand.includes('complete') || lowerCommand.includes('finish')) {
+    else if (lowerCommand.includes('complete bill') || lowerCommand.includes('checkout')) {
       if (currentBill && currentBill.items.length > 0) {
         completeBill();
         toast.success('Bill completed');
       } else {
-        toast.error('No items in the current bill');
+        toast.error('Cannot complete an empty bill');
       }
     }
-    else if (lowerCommand.includes('cancel')) {
+    else if (lowerCommand.includes('cancel bill')) {
       if (currentBill) {
         cancelBill();
         toast.success('Bill cancelled');
@@ -131,334 +130,458 @@ const Billing: React.FC = () => {
         toast.error('No active bill to cancel');
       }
     }
-    else if (lowerCommand.includes('print') || lowerCommand.includes('share')) {
-      if (currentBill && currentBill.items.length > 0) {
-        setIsPrintPreviewOpen(true);
-      } else {
-        toast.error('No items in the current bill');
+    else {
+      toast.info(`Command not recognized: "${command}"`);
+    }
+  };
+  
+  const handleAddToBill = (product: Product) => {
+    if (!currentBill) {
+      startNewBill();
+    }
+    addToBill(product);
+    toast.success(`Added ${product.name} to bill`);
+  };
+  
+  const handleRemoveFromBill = (index: number) => {
+    removeFromBill(index);
+    toast.success('Item removed from bill');
+  };
+  
+  const handleCompleteBill = () => {
+    if (!currentBill || currentBill.items.length === 0) {
+      toast.error('Cannot complete an empty bill');
+      return;
+    }
+    
+    completeBill();
+    toast.success('Bill completed successfully');
+  };
+  
+  const handlePrintBill = () => {
+    setIsPrintPreviewOpen(true);
+    toast.success('Preparing print preview');
+  };
+  
+  const calculateTotal = () => {
+    if (!currentBill) return 0;
+    return currentBill.items.reduce((total, item) => {
+      return total + item.price * item.quantity;
+    }, 0);
+  };
+
+  // Card animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
       }
     }
-    else {
-      // If no specific command recognized, but contains product-related words,
-      // open quick bill dialog
-      const containsProductWords = lowerCommand.split(' ').some(word => 
-        products.some(product => product.name.toLowerCase().includes(word))
-      );
-      
-      if (containsProductWords) {
-        setQuickBillTranscript(command);
-        setIsQuickBillOpen(true);
-      } else {
-        toast.info(`Command not recognized: "${command}"`);
-      }
+  };
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5, ease: "easeOut" }
     }
   };
   
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
   });
   
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Billing</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-gradient-blue">Billing</h2>
           <p className="text-muted-foreground">
-            Create and manage bills
+            Create and manage customer bills
           </p>
         </div>
         <div className="flex space-x-2">
           <VoiceCommandButton 
             onVoiceCommand={handleVoiceCommand}
-            label="Voice Bill"
-            pulseColor="bg-green-500"
-            listenMessage="Try saying 'bill banao' or list items for a bill"
+            showDialog={true}
+            label="Voice Command"
+            variant="outline"
           />
           
-          {!currentBill ? (
-            <Button onClick={startNewBill}>
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              New Bill
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={cancelBill}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Cancel Bill
-            </Button>
-          )}
+          <Button onClick={() => startNewBill()}>
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            New Bill
+          </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <SearchBar
-            placeholder="Search products..."
-            onSearch={handleSearch}
-            className="w-full"
-          />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {isLoading ? (
-              Array(6).fill(0).map((_, i) => (
-                <div key={i} className="rounded-lg overflow-hidden">
-                  <Skeleton className="h-40 w-full" />
-                  <div className="p-4 space-y-3">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <div className="flex justify-between pt-2">
-                      <Skeleton className="h-8 w-20" />
-                    </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Product Selection */}
+        <motion.div 
+          className="lg:col-span-7"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <Card className="border-none shadow-md rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40">
+            <CardHeader className="pb-2">
+              <CardTitle>Products</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SearchBar
+                placeholder="Search products..."
+                onSearch={handleSearch}
+                className="mb-4"
+              />
+              
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+                variants={containerVariants}
+              >
+                {isLoading ? (
+                  Array(9).fill(0).map((_, i) => (
+                    <motion.div key={i} variants={itemVariants}>
+                      <Card className="h-[180px] relative">
+                        <CardContent className="p-0">
+                          <Skeleton className="w-full h-24" />
+                          <div className="p-4">
+                            <Skeleton className="h-4 w-24 mb-2" />
+                            <Skeleton className="h-4 w-16" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                ) : filteredProducts.length > 0 ? (
+                  filteredProducts.map((product) => (
+                    <motion.div key={product.id} variants={itemVariants}>
+                      <Card 
+                        className="h-[180px] relative overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => handleAddToBill(product)}
+                      >
+                        <CardContent className="p-0">
+                          <div className="h-24 bg-muted flex items-center justify-center overflow-hidden">
+                            {product.image_url ? (
+                              <img 
+                                src={product.image_url} 
+                                alt={product.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <ShoppingCart className="h-8 w-8 text-muted-foreground opacity-20" />
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-medium text-sm line-clamp-1">{product.name}</h3>
+                            <div className="flex justify-between items-center mt-1">
+                              <p className="text-muted-foreground text-sm">{product.quantity} {product.unit}</p>
+                              <p className="font-semibold">{formatter.format(product.price)}</p>
+                            </div>
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              className="rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToBill(product);
+                              }}
+                            >
+                              <PlusCircle className="h-4 w-4 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="col-span-full flex flex-col items-center justify-center py-12">
+                    <ShoppingCart className="h-16 w-16 text-muted-foreground opacity-10 mb-4" />
+                    <p className="text-muted-foreground">No products found</p>
+                    {searchQuery && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        Clear search
+                      </Button>
+                    )}
                   </div>
-                </div>
-              ))
-            ) : filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToBill={(id, quantity) => addToBill(id, quantity)}
-                  className="h-full"
-                />
-              ))
-            ) : (
-              <div className="col-span-full flex flex-col items-center justify-center text-center py-12 space-y-3">
-                <CreditCard className="h-12 w-12 text-muted-foreground opacity-20" />
-                <div>
-                  <h3 className="text-lg font-medium">No products found</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {searchQuery
-                      ? `No products matching "${searchQuery}"`
-                      : "Add products to your inventory first"}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                )}
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
         
-        <div>
-          <Card className="sticky top-20">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+        {/* Current Bill */}
+        <motion.div 
+          className="lg:col-span-5"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="billing-card border-none shadow-md h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex justify-between items-center">
                 <span>Current Bill</span>
                 {currentBill && (
                   <span className="text-sm font-normal text-muted-foreground">
-                    #{currentBill.id.slice(-4)}
+                    #{currentBill.id.slice(-5)}
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="h-[500px] overflow-hidden flex flex-col">
               {!currentBill ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-3 text-center">
-                  <ShoppingCart className="h-12 w-12 text-muted-foreground opacity-20" />
-                  <div>
-                    <h3 className="text-lg font-medium">No active bill</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Start a new bill to add products
-                    </p>
-                  </div>
-                  <Button onClick={startNewBill}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Bill
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <Receipt className="h-16 w-16 text-muted-foreground opacity-10 mb-4" />
+                  <p className="text-muted-foreground">No active bill</p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => startNewBill()}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Start a New Bill
                   </Button>
                 </div>
               ) : (
                 <>
-                  {currentBill.items.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 space-y-3 text-center">
-                      <ShoppingCart className="h-10 w-10 text-muted-foreground opacity-20" />
-                      <div>
-                        <h3 className="text-base font-medium">Empty bill</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Add products to this bill
+                  <div className="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                    {currentBill.items.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <ShoppingCart className="h-12 w-12 text-muted-foreground opacity-10 mb-4" />
+                        <p className="text-muted-foreground">No items in bill</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Add products from the left panel
                         </p>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Item</TableHead>
-                              <TableHead className="text-right">Qty</TableHead>
-                              <TableHead className="text-right">Price</TableHead>
-                              <TableHead className="w-[50px]"></TableHead>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Price</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="w-[30px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentBill.items.map((item, index) => (
+                            <TableRow key={index} className="group">
+                              <TableCell className="font-medium">
+                                {item.name}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatter.format(item.price)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatter.format(item.price * item.quantity)}
+                              </TableCell>
+                              <TableCell className="p-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleRemoveFromBill(index)}
+                                >
+                                  <MinusCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {currentBill.items.map((item) => (
-                              <TableRow key={item.productId}>
-                                <TableCell className="font-medium">{item.name}</TableCell>
-                                <TableCell className="text-right">
-                                  {item.quantity} {item.unit}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatter.format(item.price * item.quantity)}
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeFromBill(item.productId)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{formatter.format(calculateTotal())}</span>
                       </div>
-                      
-                      <Separator />
-                      
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-base font-medium">
-                          <span>Total</span>
-                          <span>{formatter.format(currentBill.total)}</span>
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tax (8%)</span>
+                        <span>{formatter.format(calculateTotal() * 0.08)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Total</span>
+                        <span>{formatter.format(calculateTotal() * 1.08)}</span>
                       </div>
                     </div>
-                  )}
+                    
+                    <div className="mt-6 space-y-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button 
+                          variant={paymentMethod === 'cash' ? 'default' : 'outline'} 
+                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'cash' ? 'bg-primary text-primary-foreground' : ''}`}
+                          onClick={() => setPaymentMethod('cash')}
+                        >
+                          <DollarSign className="h-5 w-5" />
+                          <span className="text-xs">Cash</span>
+                        </Button>
+                        <Button 
+                          variant={paymentMethod === 'card' ? 'default' : 'outline'} 
+                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'card' ? 'bg-primary text-primary-foreground' : ''}`}
+                          onClick={() => setPaymentMethod('card')}
+                        >
+                          <CreditCard className="h-5 w-5" />
+                          <span className="text-xs">Card</span>
+                        </Button>
+                        <Button 
+                          variant={paymentMethod === 'wallet' ? 'default' : 'outline'} 
+                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'wallet' ? 'bg-primary text-primary-foreground' : ''}`}
+                          onClick={() => setPaymentMethod('wallet')}
+                        >
+                          <Wallet className="h-5 w-5" />
+                          <span className="text-xs">Wallet</span>
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          className="gap-1"
+                          onClick={handlePrintBill}
+                        >
+                          <PrinterIcon className="h-4 w-4" />
+                          Print
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="gap-1"
+                        >
+                          <QrCode className="h-4 w-4" />
+                          QR Code
+                        </Button>
+                      </div>
+                      
+                      <Button 
+                        className="w-full h-12 rounded-xl gap-1"
+                        onClick={handleCompleteBill}
+                        disabled={currentBill.items.length === 0}
+                      >
+                        Complete Payment
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button 
+                        variant="ghost" 
+                        className="w-full gap-1 text-destructive hover:text-destructive"
+                        onClick={() => cancelBill()}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Cancel Bill
+                      </Button>
+                    </div>
+                  </div>
                 </>
               )}
             </CardContent>
-            {currentBill && (
-              <CardFooter className="flex flex-col space-y-2">
-                <div className="grid grid-cols-2 gap-2 w-full">
-                  <Button 
-                    disabled={!currentBill || currentBill.items.length === 0}
-                    onClick={() => setIsPrintPreviewOpen(true)}
-                  >
-                    <Receipt className="mr-2 h-4 w-4" />
-                    Preview
-                  </Button>
-                  <Button 
-                    disabled={!currentBill || currentBill.items.length === 0}
-                    onClick={completeBill}
-                  >
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    Complete
-                  </Button>
-                </div>
-              </CardFooter>
-            )}
           </Card>
-        </div>
+        </motion.div>
       </div>
       
-      {/* Print/Share Preview Sheet */}
+      {/* Print Preview */}
       <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto custom-scrollbar">
+        <SheetContent side="right" className="w-[400px] sm:w-[540px]">
           <SheetHeader>
-            <SheetTitle>Bill Preview</SheetTitle>
+            <SheetTitle>Print Preview</SheetTitle>
             <SheetDescription>
-              Review and share the bill with customer
+              Review the bill before printing or sharing
             </SheetDescription>
           </SheetHeader>
           
           {currentBill && (
-            <div className="py-6">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold">Inventory Pro Shop</h2>
-                <p className="text-sm text-muted-foreground">
-                  123 Main Street, City, Country
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Phone: +1 (123) 456-7890
+            <div className="mt-6 space-y-6">
+              <div className="text-center">
+                <h3 className="font-bold text-xl">InventoryPro</h3>
+                <p className="text-sm text-muted-foreground">Bill #{currentBill.id.slice(-5)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
                 </p>
               </div>
-              
-              <div className="flex justify-between text-sm mb-4">
-                <div>
-                  <p>Bill #: <span className="font-medium">{currentBill.id.slice(-8)}</span></p>
-                  <p>Date: <span className="font-medium">{new Date().toLocaleDateString()}</span></p>
-                </div>
-                <div>
-                  <p>Time: <span className="font-medium">{new Date().toLocaleTimeString()}</span></p>
-                </div>
-              </div>
-              
-              <Separator className="my-4" />
               
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentBill.items.map((item) => (
-                    <TableRow key={item.productId}>
+                  {currentBill.items.map((item, index) => (
+                    <TableRow key={index}>
                       <TableCell>{item.name}</TableCell>
-                      <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-right">{formatter.format(item.price)}</TableCell>
-                      <TableCell className="text-right">{formatter.format(item.total)}</TableCell>
+                      <TableCell className="text-right">{formatter.format(item.price * item.quantity)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               
-              <div className="mt-6 space-y-2">
+              <Separator />
+              
+              <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="font-medium">Subtotal:</span>
-                  <span>{formatter.format(currentBill.total)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatter.format(calculateTotal())}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Tax (0%):</span>
-                  <span>{formatter.format(0)}</span>
+                  <span className="text-muted-foreground">Tax (8%)</span>
+                  <span>{formatter.format(calculateTotal() * 0.08)}</span>
                 </div>
-                <Separator className="my-2" />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total:</span>
-                  <span>{formatter.format(currentBill.total)}</span>
+                <div className="flex justify-between font-bold">
+                  <span>Total</span>
+                  <span>{formatter.format(calculateTotal() * 1.08)}</span>
                 </div>
               </div>
               
-              <div className="mt-10 text-center text-sm text-muted-foreground">
+              <div className="text-center text-sm text-muted-foreground">
                 <p>Thank you for your business!</p>
-                <p>Please visit again</p>
+                <p>Payment method: {paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'wallet' ? 'Digital Wallet' : 'Cash'}</p>
               </div>
+              
+              <SheetFooter>
+                <Button className="w-full gap-1" onClick={() => setIsPrintPreviewOpen(false)}>
+                  <PrinterIcon className="h-4 w-4" />
+                  Print
+                </Button>
+                <Button variant="outline" className="w-full gap-1">
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
+              </SheetFooter>
             </div>
           )}
-          
-          <SheetFooter className="mt-6 flex-row space-x-2">
-            <Button variant="outline" onClick={() => setIsPrintPreviewOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              toast.success('Bill ready to share');
-              setIsPrintPreviewOpen(false);
-            }}>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-            <Button onClick={() => {
-              toast.success('Bill sent to printer');
-              setIsPrintPreviewOpen(false);
-            }}>
-              <PrinterIcon className="mr-2 h-4 w-4" />
-              Print
-            </Button>
-          </SheetFooter>
         </SheetContent>
       </Sheet>
       
-      {/* Quick Bill Dialog with enhanced voice commands */}
-      <QuickBillDialog 
-        open={isQuickBillOpen} 
-        onOpenChange={setIsQuickBillOpen} 
-        initialTranscript={quickBillTranscript}
+      {/* Quick Bill Dialog */}
+      <QuickBillDialog
+        open={isQuickBillOpen}
+        onOpenChange={setIsQuickBillOpen}
+        transcript={quickBillTranscript}
       />
     </div>
   );
 };
 
-export default Billing;
+export default BillingPage;

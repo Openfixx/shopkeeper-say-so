@@ -1,26 +1,20 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
+import { useTheme } from '@/components/ui/theme-provider';
 import { 
   Bell, 
-  ChevronDown, 
   Menu, 
   Moon, 
-  Sun,
-  Search,
-  User
+  Search, 
+  Settings, 
+  Sun, 
+  User,
+  X,
+  Package2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger 
-} from '@/components/ui/sheet';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,122 +22,247 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger 
+} from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { motion } from 'framer-motion';
+
+const navItems = [
+  { label: 'Dashboard', path: '/' },
+  { label: 'Products', path: '/products' },
+  { label: 'Inventory', path: '/inventory' },
+  { label: 'Reports', path: '/reports' },
+  { label: 'Billing', path: '/billing' },
+];
 
 interface NavbarProps {
   className?: string;
-  onToggleTheme: () => void;
-  isDarkTheme: boolean;
+  onToggleTheme?: () => void;
+  isDarkTheme?: boolean;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ 
-  className, 
+const Navbar: React.FC<NavbarProps> = ({
+  className,
   onToggleTheme,
-  isDarkTheme
+  isDarkTheme,
 }) => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
-  
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Logged out successfully');
-      navigate('/login');
-    } catch (error) {
-      toast.error('Logout failed');
-    }
-  };
+  const { setTheme } = useTheme();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={cn("sticky top-0 z-40 w-full", className)}
+    <header
+      className={cn(
+        "fixed top-0 z-40 w-full h-16 bg-background/80 backdrop-blur-lg border-b border-border",
+        className
+      )}
     >
-      <header className="bg-background/80 backdrop-blur-md border-b">
-        <div className="container flex h-16 items-center px-4">
-          <div className="md:hidden mr-2">
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64 p-0 rounded-r-2xl border-none">
-                <div className="py-6 px-4">
-                  <h2 className="text-lg font-medium text-gradient">Inventory Pro</h2>
-                </div>
-                <nav className="flex flex-col space-y-1">
-                  <Button variant="ghost" className="justify-start px-4 py-6" onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}>Dashboard</Button>
-                  <Button variant="ghost" className="justify-start px-4 py-6" onClick={() => { navigate('/products'); setIsMobileMenuOpen(false); }}>Products</Button>
-                  <Button variant="ghost" className="justify-start px-4 py-6" onClick={() => { navigate('/inventory'); setIsMobileMenuOpen(false); }}>Inventory</Button>
-                  <Button variant="ghost" className="justify-start px-4 py-6" onClick={() => { navigate('/billing'); setIsMobileMenuOpen(false); }}>Billing</Button>
-                  <Button variant="ghost" className="justify-start px-4 py-6" onClick={() => { navigate('/settings'); setIsMobileMenuOpen(false); }}>Settings</Button>
+      <div className="container flex items-center justify-between h-full px-4">
+        {/* Mobile Menu */}
+        <div className="flex md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[240px] p-0">
+              <div className="p-6">
+                <Link to="/" className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-xl">
+                    IP
+                  </div>
+                  <div className="font-bold text-xl tracking-tight">
+                    <span className="text-foreground">Inventory</span>
+                    <span className="text-primary">Pro</span>
+                  </div>
+                </Link>
+              </div>
+              
+              <div className="px-2">
+                <nav className="flex flex-col gap-1">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.path}
+                      className="flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-accent"
+                    >
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
                 </nav>
-              </SheetContent>
-            </Sheet>
+                
+                <div className="border-t border-border my-4"></div>
+                
+                <Link
+                  to="/settings"
+                  className="flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  <Settings size={16} />
+                  <span>Settings</span>
+                </Link>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+        
+        {/* Logo (mobile only) */}
+        <Link to="/" className="flex md:hidden items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-lg">
+            IP
           </div>
-          
-          <div className="flex-1">
-            <div className="ml-14 md:ml-0 font-semibold text-lg">
-              <h1 className="text-gradient font-medium">Inventory Pro</h1>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:block relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input 
-                type="text" 
+        </Link>
+        
+        {/* Search */}
+        <div className="hidden md:flex relative w-full max-w-md mx-4">
+          <div className={cn(
+            "flex items-center w-full transition-all duration-300 relative",
+            isSearchOpen ? "w-full" : "w-56"
+          )}>
+            <div className="relative flex-1">
+              <Search 
+                className={cn(
+                  "absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground",
+                  isSearchOpen ? "opacity-100" : "opacity-70"
+                )} 
+                size={16}
+              />
+              <input
+                type="text"
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 rounded-full bg-muted/50 border-none focus:outline-none focus:ring-2 focus:ring-primary/30 w-[200px]"
+                className={cn(
+                  "h-9 w-full rounded-xl pl-10 pr-4 bg-muted/60 border-none text-sm transition-all focus:ring-1 focus:ring-primary",
+                  isSearchOpen ? "bg-background border-muted" : "bg-muted/60"
+                )}
+                onFocus={() => setIsSearchOpen(true)}
+                onBlur={() => setIsSearchOpen(false)}
               />
             </div>
-            
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={onToggleTheme}>
-              {isDarkTheme ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            
-            <Button variant="ghost" size="icon" className="rounded-full relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
-            </Button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="rounded-full p-1">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://github.com/shadcn.png" alt="User" />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {user?.name?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-xl p-2">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p>{user?.name || 'Guest User'}</p>
-                    <p className="text-xs text-muted-foreground truncate">{user?.email || 'guest@example.com'}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className={cn(
+              "flex gap-1 ml-2 text-xs font-medium text-muted-foreground transition-all duration-300",
+              isSearchOpen ? "opacity-0 w-0" : "opacity-100 w-auto"
+            )}>
+              <kbd className="rounded bg-muted px-2 py-0.5">⌘</kbd>
+              <kbd className="rounded bg-muted px-2 py-0.5">K</kbd>
+            </div>
           </div>
         </div>
-      </header>
-    </motion.div>
+        
+        {/* Right Actions */}
+        <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setTheme(isDarkTheme ? "light" : "dark");
+              onToggleTheme && onToggleTheme();
+            }}
+            className="rounded-full"
+          >
+            {isDarkTheme ? (
+              <Moon size={18} />
+            ) : (
+              <Sun size={18} />
+            )}
+          </Button>
+          
+          {/* Mobile Search */}
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="md:hidden rounded-full"
+          >
+            <Search size={18} />
+          </Button>
+          
+          {/* Notifications */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="rounded-full relative"
+              >
+                <Bell size={18} />
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px]"
+                >
+                  2
+                </Badge>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel className="flex items-center justify-between">
+                <span>Notifications</span>
+                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs font-normal">
+                  Mark all as read
+                </Button>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <div className="max-h-[300px] overflow-y-auto">
+                {[1, 2].map((notif) => (
+                  <DropdownMenuItem key={notif} className="cursor-pointer flex items-start p-3 gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <Package2 size={14} className="text-primary" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <p className="text-sm font-medium leading-none">New product added</p>
+                      <p className="text-xs text-muted-foreground">Sugar stock has been updated</p>
+                      <p className="text-xs text-muted-foreground/70">2 minutes ago</p>
+                    </div>
+                    <Badge className="shrink-0 mt-1" variant="outline">New</Badge>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+              
+              <DropdownMenuSeparator />
+              <Button variant="ghost" className="w-full justify-center text-sm" size="sm">
+                View all notifications
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* User Profile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-9 w-9 overflow-hidden"
+              >
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src="https://github.com/shadcn.png" />
+                  <AvatarFallback>SC</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-destructive">
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </header>
   );
 };
 
