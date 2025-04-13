@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -32,7 +33,7 @@ import AppLogo from '@/components/ui-custom/AppLogo';
 const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
   const { setTheme, theme } = useTheme();
   const { language, setLanguage } = useLanguage();
-  const { currentUser, signOut } = useAuth();
+  const { user: currentUser, logout: signOut } = useAuth();
   const navigate = useNavigate();
   const { switchTab } = useNavigateTabs();
   const { addProduct } = useInventory();

@@ -29,22 +29,18 @@ const EditProduct = () => {
   
   useEffect(() => {
     if (id && products.length > 0) {
-      const product = products.find(p => p.id === id);
-      if (product) {
-        const convertedProduct = convertProduct(product);
+      const foundProduct = products.find(p => p.id === id);
+      if (foundProduct) {
+        const convertedProduct = convertProduct(foundProduct);
         setProduct(convertedProduct);
         setFormData({
-          name: product.name,
-          description: product.description || '',
-          quantity: product.quantity,
-          unit: product.unit,
-          position: product.position || '',
-          image_url: convertedProduct.image_url || '',
-          user_id: convertedProduct.user_id || '',
-          price: product.price,
-          expiry: product.expiry || '',
-          barcode: product.barcode || '',
-          stockAlert: product.stockAlert || 0,
+          name: foundProduct.name || '',
+          description: foundProduct.description || '',
+          price: String(foundProduct.price || 0),
+          quantity: String(foundProduct.quantity || 0),
+          unit: foundProduct.unit || '',
+          position: foundProduct.position || '',
+          image: convertedProduct.image_url || ''
         });
       }
     }

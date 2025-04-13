@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '@/context/InventoryContext';
@@ -32,7 +31,6 @@ import {
 } from '@/utils/voiceCommandUtils';
 import { formatCurrency } from '@/utils/formatters';
 
-// Add unit options
 const UNIT_TYPES = {
   WEIGHT: 'weight',
   VOLUME: 'volume',
@@ -270,6 +268,14 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
     }
   };
   
+  const getBillItemImage = (item: any): string => {
+    return item.image || '';
+  };
+  
+  const hasItemImage = (item: any): boolean => {
+    return Boolean(item.image);
+  }
+  
   const filteredProducts = searchQuery
     ? products.filter(product => 
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -319,9 +325,9 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                       <TableRow key={item.productId}>
                         <TableCell className="font-medium text-base">
                           <div className="flex items-center gap-2">
-                            {item.image ? (
+                            {hasItemImage(item) ? (
                               <img 
-                                src={item.image} 
+                                src={getBillItemImage(item)} 
                                 alt={item.name}
                                 className="w-10 h-10 rounded object-cover"
                               />
