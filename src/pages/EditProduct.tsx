@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -29,15 +30,22 @@ const EditProduct = () => {
   useEffect(() => {
     const foundProduct = products.find(p => p.id === id);
     if (foundProduct) {
-      setProduct({...foundProduct});
+      // Cast foundProduct to Product type
+      const typedProduct: Product = {
+        ...foundProduct,
+        image_url: foundProduct.image_url || '',
+        user_id: foundProduct.user_id || ''
+      };
+      
+      setProduct(typedProduct);
       setFormData({
-        name: foundProduct.name || '',
-        description: foundProduct.description || '', 
-        price: foundProduct.price?.toString() || '',
-        quantity: foundProduct.quantity?.toString() || '',
-        unit: foundProduct.unit || '',
-        position: foundProduct.position || '',
-        image: foundProduct.image_url || ''
+        name: typedProduct.name || '',
+        description: typedProduct.description || '', 
+        price: typedProduct.price?.toString() || '',
+        quantity: typedProduct.quantity?.toString() || '',
+        unit: typedProduct.unit || '',
+        position: typedProduct.position || '',
+        image: typedProduct.image_url || typedProduct.image || ''
       });
     }
   }, [id, products]);

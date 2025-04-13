@@ -98,7 +98,7 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
         );
         
         if (product) {
-          addToBill(product, item.quantity);
+          addToBill(product.id, item.quantity);
         } else {
           toast.warning(`Product "${item.product}" not found`);
         }

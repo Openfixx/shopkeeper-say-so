@@ -7,7 +7,8 @@ import {
   Camera,
   Image as ImageIcon
 } from 'lucide-react';
-import { useInventory, Product } from '@/context/InventoryContext';
+import { useInventory } from '@/context/InventoryContext';
+import { Product } from '@/types';
 import ProductCard from '@/components/ui-custom/ProductCard';
 import SearchBar from '@/components/ui-custom/SearchBar';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
@@ -232,16 +233,25 @@ const Products: React.FC = () => {
     setEditingProductId(null);
   };
   
-  const handleEdit = (product: Product) => {
+  const convertProduct = (product: any): Product => {
+    return {
+      ...product,
+      image_url: product.image || '',
+      user_id: product.userId || '',
+    };
+  };
+  
+  const handleEdit = (productToEdit: any) => {
+    const product = convertProduct(productToEdit);
     setEditingProductId(product.id);
     setFormData({
       name: product.name,
       quantity: product.quantity,
       unit: product.unit,
-      position: product.position,
-      expiry: product.expiry,
+      position: product.position || '',
+      expiry: product.expiry || '',
       price: product.price,
-      image: product.image,
+      image: product.image_url || product.image || '',
     });
     setIsEditDialogOpen(true);
   };

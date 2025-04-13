@@ -11,6 +11,11 @@ export type Product = {
   position?: string;
   expiry?: string;
   image?: string; // For backward compatibility
+  barcode?: string;
+  stockAlert?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  shopId?: string;
 };
 
 export type InventoryItem = {

@@ -104,7 +104,7 @@ const BillingPage: React.FC = () => {
         );
         
         if (product) {
-          addToBill(product, quantity);
+          addToBill(product.id, quantity);
           toast.success(`Added ${quantity} ${product.name} to bill`);
         } else {
           toast.error(`Product "${productName}" not found`);
@@ -138,7 +138,7 @@ const BillingPage: React.FC = () => {
     if (!currentBill) {
       startNewBill();
     }
-    addToBill(product);
+    addToBill(product.id, 1);
     toast.success(`Added ${product.name} to bill`);
   };
   
@@ -169,7 +169,6 @@ const BillingPage: React.FC = () => {
     }, 0);
   };
 
-  // Card animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -220,7 +219,6 @@ const BillingPage: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Product Selection */}
         <motion.div 
           className="lg:col-span-7"
           variants={containerVariants}
@@ -321,7 +319,6 @@ const BillingPage: React.FC = () => {
           </Card>
         </motion.div>
         
-        {/* Current Bill */}
         <motion.div 
           className="lg:col-span-5"
           variants={containerVariants}
@@ -495,7 +492,6 @@ const BillingPage: React.FC = () => {
         </motion.div>
       </div>
       
-      {/* Print Preview */}
       <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
         <SheetContent side="right" className="w-[400px] sm:w-[540px]">
           <SheetHeader>
@@ -573,7 +569,6 @@ const BillingPage: React.FC = () => {
         </SheetContent>
       </Sheet>
       
-      {/* Quick Bill Dialog */}
       <QuickBillDialog
         open={isQuickBillOpen}
         onOpenChange={setIsQuickBillOpen}
