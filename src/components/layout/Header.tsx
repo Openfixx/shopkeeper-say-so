@@ -28,7 +28,6 @@ import { useInventory } from '@/context/InventoryContext';
 import { fetchProductImage } from '@/utils/fetchImage';
 import AppLogo from '@/components/ui-custom/AppLogo';
 
-// Define command types and detection function
 const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
   UPDATE_PRODUCT: 'update_product',
@@ -84,15 +83,12 @@ const detectCommandType = (text: string) => {
   return { type: VOICE_COMMAND_TYPES.UNKNOWN };
 };
 
-// Extract product details from voice command
 const extractProductDetails = async (command: string) => {
-  // Simple extraction logic
   const productMatch = command.match(/add\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|\s+price|\s+₹|$)/i);
   const quantityMatch = command.match(/(\d+)\s*(kg|g|ml|l|pieces?|pcs)/i);
   const positionMatch = command.match(/(rack|shelf)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
   const priceMatch = command.match(/(?:price|cost|₹|Rs|rupees)\s*(\d+)/i);
   
-  // Convert words to numbers if needed
   const numberWords: Record<string, number> = {
     'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
     'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
@@ -113,11 +109,10 @@ const extractProductDetails = async (command: string) => {
     unit: quantityMatch ? quantityMatch[2].toLowerCase() : 'kg',
     position: position || '',
     price: priceMatch ? parseFloat(priceMatch[1]) : 0,
-    image: '' // Add image property to fix type error
+    image: ''
   };
 };
 
-// Product image search function
 const searchProductImage = async (productName: string) => {
   try {
     return await fetchProductImage(productName);
@@ -347,7 +342,7 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
           </Sheet>
           
           <Avatar>
-            <AvatarImage src={user?.image || ''} />
+            <AvatarImage src={user?.photoURL || user?.avatar || ''} />
             <AvatarFallback>{user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
         </div>

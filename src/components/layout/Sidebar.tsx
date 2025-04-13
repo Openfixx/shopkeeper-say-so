@@ -29,9 +29,10 @@ const navItems = [
 
 interface SidebarProps {
   className?: string;
+  open?: boolean; // Add open prop to interface
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ className }) => {
+const Sidebar: React.FC<SidebarProps> = ({ className, open }) => {
   const location = useLocation();
   const { logout } = useAuth();
   
@@ -49,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     <div 
       className={cn(
         "py-4 flex flex-col h-full bg-sidebar-background border-r border-sidebar-border",
+        open === false ? "hidden md:flex" : "flex", // Handle open state
         className
       )}
     >
