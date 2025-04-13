@@ -33,6 +33,7 @@ import {
   detectCommandType, 
   VOICE_COMMAND_TYPES 
 } from '@/utils/voiceCommandUtils';
+import { convertProduct } from '@/utils/productUtils';
 
 interface ProductFormData {
   name: string;
@@ -231,14 +232,6 @@ const Products: React.FC = () => {
     
     setFormData(initialFormData);
     setEditingProductId(null);
-  };
-  
-  const convertProduct = (product: any): TypesProduct => {
-    return {
-      ...product,
-      image_url: product.image || '',
-      user_id: product.userId || ''
-    };
   };
   
   const handleEdit = (productToEdit: any) => {

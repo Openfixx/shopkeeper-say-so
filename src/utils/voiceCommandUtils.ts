@@ -3,7 +3,7 @@
  * Functions for processing and handling voice commands
  */
 
-import { processWithSpacy, extractProductDetailsFromEntities, Entity, SpacyProcessResult } from './spacyApi';
+import { processText } from './spacy/api';
 import { translateHindi } from '@/lib/translationCache';
 
 export const VOICE_COMMAND_TYPES = {
@@ -32,20 +32,109 @@ interface CommandResult {
   data?: any;
 }
 
+// Auto-correct common voice recognition errors
+const autoCorrectText = (text: string): string => {
+  // Define common mistranslations and their corrections
+  const corrections: Record<string, string> = {
+    'red one': 'rack one',
+    'red two': 'rack two',
+    'red three': 'rack three',
+    'red four': 'rack four',
+    'red five': 'rack five',
+    'red six': 'rack six',
+    'red seven': 'rack seven',
+    'red eight': 'rack eight',
+    'red nine': 'rack nine',
+    'red 1': 'rack 1',
+    'red 2': 'rack 2',
+    'red 3': 'rack 3',
+    'red 4': 'rack 4',
+    'red 5': 'rack 5',
+    'red 6': 'rack 6',
+    'red 7': 'rack 7',
+    'red 8': 'rack 8',
+    'red 9': 'rack 9',
+    'read': 'rack',
+    'wrack': 'rack',
+    'rat': 'rack',
+    'rak': 'rack',
+    'raq': 'rack'
+  };
+  
+  let correctedText = text;
+  
+  // Apply corrections
+  Object.entries(corrections).forEach(([error, correction]) => {
+    const regex = new RegExp(`\\b${error}\\b`, 'gi');
+    correctedText = correctedText.replace(regex, correction);
+  });
+  
+  return correctedText;
+};
+
 /**
  * Extract product details from a voice command using SpaCy NLP
  */
 export const extractProductDetails = async (command: string): Promise<ProductDetails> => {
-  // First try to translate if it has Hindi characters
-  const translatedCommand = await translateHindi(command);
+  // First autocorrect the command
+  const correctedCommand = autoCorrectText(command);
+  console.log('Original command:', command);
+  console.log('Corrected command:', correctedCommand);
+  
+  // Try to translate if it has Hindi characters
+  const translatedCommand = await translateHindi(correctedCommand);
   console.log('Translated command:', translatedCommand);
   
   // Process the command with SpaCy NLP
-  const result = await processWithSpacy(translatedCommand);
+  const result = await processText(translatedCommand);
+  console.log('SpaCy NLP result:', result);
   console.log('Extracted entities:', result.entities);
   
-  // Extract structured product details from the entities
-  const details = extractProductDetailsFromEntities(result.entities);
+  // Extract structured product details from the result
+  const details: Partial<ProductDetails> = {
+    name: '',
+  };
+  
+  // Process entities from SpaCy
+  if (result.entities) {
+    for (const entity of result.entities) {
+      switch (entity.label) {
+        case 'PRODUCT':
+          details.name = entity.text;
+          break;
+        case 'QUANTITY':
+          details.quantity = parseFloat(entity.text);
+          break;
+        case 'UNIT':
+          details.unit = entity.text.toLowerCase();
+          break;
+        case 'POSITION':
+        case 'LOCATION':
+          // Extract just the number from position entities like "rack 3"
+          const positionMatch = entity.text.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+          if (positionMatch) {
+            // Convert number words to digits if needed
+            const numberWords: Record<string, string> = {
+              'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+              'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+            };
+            
+            const positionNumber = numberWords[positionMatch[1].toLowerCase()] || positionMatch[1];
+            details.position = positionNumber;
+          } else {
+            details.position = entity.text;
+          }
+          break;
+        case 'PRICE':
+          details.price = parseFloat(entity.text.replace(/[₹$]/g, ''));
+          break;
+        case 'DATE':
+        case 'EXPIRY':
+          details.expiry = entity.text;
+          break;
+      }
+    }
+  }
   
   // Enhanced number extraction - look specifically for quantities and numbers
   const enhancedDetails = await enhanceWithNumberExtraction(translatedCommand, details);
@@ -79,6 +168,17 @@ export const extractProductDetails = async (command: string): Promise<ProductDet
     }
   }
   
+  // If still no product name, try one last method
+  if (!enhancedDetails.name && translatedCommand.toLowerCase().includes('add')) {
+    const words = translatedCommand.toLowerCase().split(/\s+/);
+    const addIndex = words.findIndex(w => w === 'add');
+    
+    if (addIndex >= 0 && addIndex < words.length - 1) {
+      // Take the word right after "add" as the product name
+      enhancedDetails.name = words[addIndex + 1];
+    }
+  }
+  
   // Ensure we always return a valid product name
   if (!enhancedDetails.name) {
     enhancedDetails.name = "Unnamed Product";
@@ -88,9 +188,7 @@ export const extractProductDetails = async (command: string): Promise<ProductDet
   return enhancedDetails as ProductDetails;
 };
 
-/**
- * Enhanced number and quantity extraction
- */
+// Helper function for enhanced extraction
 const enhanceWithNumberExtraction = async (command: string, initialDetails: Partial<ProductDetails>): Promise<Partial<ProductDetails>> => {
   const details = { ...initialDetails };
   const lowerCommand = command.toLowerCase();
@@ -157,7 +255,7 @@ const enhanceWithNumberExtraction = async (command: string, initialDetails: Part
     }
   }
   
-  // IMPROVED: Extract position/rack information - extract ONLY the number, not "rack" or "shelf"
+  // Extract position/rack information - extract ONLY the number
   if (!details.position) {
     // First look for explicit rack/shelf numbers with various patterns
     const numberWordMap: Record<string, string> = {
@@ -509,7 +607,7 @@ export const updateProductDetails = async (
   command: string
 ): Promise<ProductDetails> => {
   // Process the new command to extract entities
-  const result = await processWithSpacy(command);
+  const result = await processText(command);
   const newDetails = extractProductDetailsFromEntities(result.entities);
   
   // Merge the new details with existing details, only updating fields

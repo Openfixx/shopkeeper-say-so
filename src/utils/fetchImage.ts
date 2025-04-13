@@ -1,5 +1,4 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 /**
@@ -9,8 +8,8 @@ export const fetchProductImage = async (productName: string): Promise<string | n
   try {
     toast.loading(`Finding image for ${productName}...`);
     
-    // Use the fetch-image edge function
-    const response = await fetch('/api/fetch-image?q=' + encodeURIComponent(productName), {
+    // Use DuckDuckGo's API through our edge function
+    const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -31,7 +30,7 @@ export const fetchProductImage = async (productName: string): Promise<string | n
       return data.imageUrl;
     } else {
       console.log('No image found from API');
-      // Use a placeholder instead of Unsplash
+      // Use a placeholder instead
       return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
     }
   } catch (error) {

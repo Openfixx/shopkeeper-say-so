@@ -6,130 +6,89 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Improved function to fetch images from DuckDuckGo with better reliability
-async function fetchDuckDuckGoImage(query: string): Promise<string | null> {
-  try {
-    console.log(`Searching DuckDuckGo for images of: ${query}`);
-    
-    // Try different variations of the query to improve results
-    const queryVariations = [
-      query,
-      `${query} product`,
-      `${query} package`,
-      `${query} grocery item`,
-      `${query} food item`
-    ];
-    
-    // Try each query variation
-    for (const currentQuery of queryVariations) {
-      try {
-        console.log(`Trying query variation: ${currentQuery}`);
-        
-        // Use DuckDuckGo API with a unique parameter to avoid caching
-        const timestamp = new Date().getTime();
-        const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(currentQuery)}&format=json&t=lovableshop${timestamp}`;
-        
-        const response = await fetch(apiUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        });
-        
-        if (!response.ok) {
-          console.log(`DuckDuckGo API returned status: ${response.status} for query: ${currentQuery}`);
-          continue;  // Try next variation
-        }
-        
-        const data = await response.json();
-        console.log(`Got DuckDuckGo response for: ${currentQuery}`);
-        
-        // Try to extract image from various parts of the response
-        if (data.Image && data.Image.length > 0) {
-          const imageUrl = `https://duckduckgo.com${data.Image}`;
-          console.log(`Found image in Image field: ${imageUrl}`);
-          return imageUrl;
-        }
-        
-        // Check for related topics with icons
-        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-          for (const topic of data.RelatedTopics) {
-            if (topic.Icon && topic.Icon.URL && topic.Icon.URL.length > 0) {
-              const imageUrl = `https://duckduckgo.com${topic.Icon.URL}`;
-              console.log(`Found image in RelatedTopics: ${imageUrl}`);
-              return imageUrl;
-            }
-          }
-        }
-      } catch (innerError) {
-        console.error(`Error with query variation ${currentQuery}:`, innerError);
-      }
-    }
-    
-    console.log("No images found in DuckDuckGo response after trying all variations");
-    return null;
-  } catch (error) {
-    console.error("Error in fetchDuckDuckGoImage:", error);
-    return null;
-  }
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
+  
   try {
-    // Parse query parameter
     const url = new URL(req.url);
     const query = url.searchParams.get('q');
     
     if (!query) {
-      throw new Error('Missing query parameter');
+      return new Response(
+        JSON.stringify({ error: 'Query parameter q is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
     
-    console.log(`Processing image search for: ${query}`);
+    console.log(`Searching for image of: ${query}`);
     
-    // Try to get image from DuckDuckGo with multiple attempts
-    const imageUrl = await fetchDuckDuckGoImage(query);
+    // Construct DuckDuckGo search URL
+    const searchQuery = encodeURIComponent(`${query} product`);
+    const searchUrl = `https://duckduckgo.com/?q=${searchQuery}&iax=images&ia=images`;
     
-    if (imageUrl) {
-      console.log(`Found image for "${query}": ${imageUrl}`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          query,
-          imageUrl
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      // If no image found, use placeholder
-      console.log(`No image found on DuckDuckGo for: ${query}, using placeholder`);
-      const placeholderUrl = `https://placehold.co/300x300?text=${encodeURIComponent(query)}`;
+    // Fetch the search results page
+    const response = await fetch(searchUrl);
+    if (!response.ok) {
+      throw new Error(`DuckDuckGo API error: ${response.status}`);
+    }
+    
+    const html = await response.text();
+    
+    // Extract image URLs from the response
+    // This regex looks for image URLs in the DuckDuckGo response
+    const imageRegex = /"image":"([^"]+)"/g;
+    const matches = [...html.matchAll(imageRegex)];
+    
+    let imageUrl = null;
+    if (matches.length > 0) {
+      // Get the first image URL that isn't a data URL
+      for (const match of matches) {
+        if (match[1] && !match[1].startsWith('data:')) {
+          imageUrl = match[1];
+          break;
+        }
+      }
+    }
+    
+    if (!imageUrl) {
+      // Fallback to a different regex pattern
+      const fallbackRegex = /"source":"([^"]+\.(?:jpg|png|jpeg))"/g;
+      const fallbackMatches = [...html.matchAll(fallbackRegex)];
       
+      if (fallbackMatches.length > 0) {
+        imageUrl = fallbackMatches[0][1];
+      }
+    }
+    
+    // If still no image, use placeholder
+    if (!imageUrl) {
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          query,
-          imageUrl: placeholderUrl,
-          isPlaceholder: true
+          success: false,
+          message: 'No image found',
+          imageUrl: `https://placehold.co/300x300?text=${encodeURIComponent(query)}`
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-  } catch (error) {
-    console.error("Error in fetch-image function:", error);
     
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        error: error.message || "An unknown error occurred"
+        success: true,
+        imageUrl: imageUrl
       }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in fetch-image function:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'An error occurred while fetching the image'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

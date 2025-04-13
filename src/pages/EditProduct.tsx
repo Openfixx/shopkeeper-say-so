@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Product } from '@/types';
+import { convertProduct } from '@/utils/productUtils';
 
 const EditProduct = () => {
   const { id } = useParams();
@@ -28,25 +28,25 @@ const EditProduct = () => {
   });
   
   useEffect(() => {
-    const foundProduct = products.find(p => p.id === id);
-    if (foundProduct) {
-      // Convert the context Product to our Product type
-      const typedProduct: Product = {
-        ...foundProduct,
-        image_url: foundProduct.image || '',
-        user_id: foundProduct.userId || ''
-      };
-      
-      setProduct(typedProduct);
-      setFormData({
-        name: typedProduct.name || '',
-        description: typedProduct.description || '', 
-        price: typedProduct.price?.toString() || '',
-        quantity: typedProduct.quantity?.toString() || '',
-        unit: typedProduct.unit || '',
-        position: typedProduct.position || '',
-        image: typedProduct.image_url || typedProduct.image || ''
-      });
+    if (id && products.length > 0) {
+      const product = products.find(p => p.id === id);
+      if (product) {
+        const convertedProduct = convertProduct(product);
+        setProduct(convertedProduct);
+        setFormData({
+          name: product.name,
+          description: product.description || '',
+          quantity: product.quantity,
+          unit: product.unit,
+          position: product.position || '',
+          image_url: convertedProduct.image_url || '',
+          user_id: convertedProduct.user_id || '',
+          price: product.price,
+          expiry: product.expiry || '',
+          barcode: product.barcode || '',
+          stockAlert: product.stockAlert || 0,
+        });
+      }
     }
   }, [id, products]);
   

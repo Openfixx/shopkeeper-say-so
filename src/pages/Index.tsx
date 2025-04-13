@@ -28,6 +28,7 @@ import DashboardVoiceCommands from '@/components/ui-custom/DashboardVoiceCommand
 import BillingDialog from '@/components/ui-custom/BillingDialog';
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Product as TypesProduct } from '@/types';
+import { convertProduct } from '@/utils/productUtils';
 
 interface StatCardProps {
   title: string;
@@ -88,6 +89,33 @@ const StatCard: React.FC<StatCardProps> = ({
   </Card>
 );
 
+const renderProductCard = (product: any) => {
+  const convertedProduct = convertProduct(product);
+  return (
+    <div
+      key={product.id}
+      className="flex items-center gap-4 p-4 rounded-lg bg-card border hover:shadow-md transition-shadow"
+    >
+      <div className="w-12 h-12 rounded-md overflow-hidden bg-background flex items-center justify-center">
+        {convertedProduct.image_url ? (
+          <img src={convertedProduct.image_url} alt={product.name} className="w-full h-full object-cover" />
+        ) : (
+          <Package2 className="h-6 w-6 text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-medium">{product.name}</p>
+        <p className="text-xs text-muted-foreground">
+          Stock: {product.quantity} {product.unit}
+        </p>
+      </div>
+      <p className="text-sm font-medium">
+        {formatter.format(product.price)}
+      </p>
+    </div>
+  );
+};
+
 const Dashboard: React.FC = () => {
   const { products, bills, isLoading } = useInventory();
   const navigate = useNavigate();
@@ -140,14 +168,6 @@ const Dashboard: React.FC = () => {
     currency: 'USD',
     minimumFractionDigits: 0,
   });
-  
-  const convertProduct = (product: any): TypesProduct => {
-    return {
-      ...product,
-      image_url: product.image || '',
-      user_id: product.userId || ''
-    };
-  };
   
   const handleAddProductCommand = () => {
     navigate('/products/add');
@@ -462,33 +482,7 @@ const Dashboard: React.FC = () => {
                   ))
                 ) : (
                   products.slice(0, 3).map((product, index) => {
-                    const convertedProduct = convertProduct(product);
-                    return (
-                      <div key={product.id} className="flex items-center">
-                        <div className="w-10 h-10 rounded-md overflow-hidden bg-muted mr-3">
-                          {convertedProduct.image_url ? (
-                            <img 
-                              src={convertedProduct.image_url} 
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                              <Package2 className="h-5 w-5 text-primary" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Stock: {product.quantity} {product.unit}
-                          </p>
-                        </div>
-                        <p className="text-sm font-medium">
-                          {formatter.format(product.price)}
-                        </p>
-                      </div>
-                    );
+                    return renderProductCard(product);
                   })
                 )}
                 

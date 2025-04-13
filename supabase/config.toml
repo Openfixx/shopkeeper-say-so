@@ -1,27 +1,40 @@
 
-project_id = "your_project_id"
+project_id = "dypjflendokbbixxahxp"
+
 [api]
 enabled = true
-[api.serve]
 port = 54321
-hostname = "localhost"
+schemas = ["public", "storage", "graphql_public"]
+
 [db]
 port = 54322
+shadow_port = 54320
+major_version = 15
+
+[realtime]
+enabled = true
+
 [studio]
 enabled = true
 port = 54323
-hostname = "localhost"
+api_url = "http://localhost"
+
 [inbucket]
 enabled = true
 port = 54324
+
 [storage]
 enabled = true
+file_size_limit = "50MiB"
+
 [auth]
 enabled = true
-[realtime]
-enabled = true
-[functions]
-[functions.ai-voice-processing]
-verify_jwt = false
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+
 [functions.fetch-image]
 verify_jwt = false

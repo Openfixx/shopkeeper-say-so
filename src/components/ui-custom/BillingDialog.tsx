@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '@/context/InventoryContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -21,8 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Mic, MicOff, Package2, Plus, Receipt, Trash2, X, ArrowRight, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Mic, MicOff, Package2, Plus, Receipt, Trash2, X, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   extractBillItems, 
@@ -31,7 +31,45 @@ import {
   VOICE_COMMAND_TYPES 
 } from '@/utils/voiceCommandUtils';
 import { formatCurrency } from '@/utils/formatters';
-import { UNIT_TYPES, UNIT_OPTIONS, detectUnitType } from '@/utils/formatters';
+
+// Add unit options
+const UNIT_TYPES = {
+  WEIGHT: 'weight',
+  VOLUME: 'volume',
+  PIECE: 'piece',
+};
+
+const UNIT_OPTIONS = {
+  [UNIT_TYPES.WEIGHT]: [
+    { value: 'kg', label: 'Kilograms (kg)' },
+    { value: 'g', label: 'Grams (g)' },
+    { value: 'mg', label: 'Milligrams (mg)' }
+  ],
+  [UNIT_TYPES.VOLUME]: [
+    { value: 'l', label: 'Liters (l)' },
+    { value: 'ml', label: 'Milliliters (ml)' }
+  ],
+  [UNIT_TYPES.PIECE]: [
+    { value: 'pcs', label: 'Pieces' },
+    { value: 'box', label: 'Box' },
+    { value: 'pack', label: 'Pack' }
+  ]
+};
+
+const detectUnitType = (unit: string): string => {
+  const weightUnits = ['kg', 'g', 'mg', 'kilogram', 'gram', 'किलो'];
+  const volumeUnits = ['l', 'ml', 'liter', 'litre', 'लीटर'];
+  
+  unit = unit.toLowerCase();
+  
+  if (weightUnits.some(wu => unit.includes(wu))) {
+    return UNIT_TYPES.WEIGHT;
+  } else if (volumeUnits.some(vu => unit.includes(vu))) {
+    return UNIT_TYPES.VOLUME;
+  } else {
+    return UNIT_TYPES.PIECE;
+  }
+};
 
 interface BillingDialogProps {
   open: boolean;
@@ -246,7 +284,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -265,7 +303,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{language === 'hi-IN' ? 'आइटम' : 'Item'}</TableHead>
+                    <TableHead className="w-[40%]">{language === 'hi-IN' ? 'आइटम' : 'Item'}</TableHead>
                     <TableHead className="text-right">{language === 'hi-IN' ? 'मात्रा' : 'Qty'}</TableHead>
                     <TableHead className="text-right">{language === 'hi-IN' ? 'मूल्य' : 'Price'}</TableHead>
                     <TableHead className="text-right">{language === 'hi-IN' ? 'कुल' : 'Total'}</TableHead>
@@ -279,26 +317,42 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                     
                     return (
                       <TableRow key={item.productId}>
-                        <TableCell>{item.name}</TableCell>
+                        <TableCell className="font-medium text-base">
+                          <div className="flex items-center gap-2">
+                            {item.image ? (
+                              <img 
+                                src={item.image} 
+                                alt={item.name}
+                                className="w-10 h-10 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                                <Package2 className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            {item.name}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Input 
                               type="number"
                               value={item.quantity}
+                              step="0.01"
                               onChange={(e) => {
                                 const newQuantity = parseFloat(e.target.value);
                                 if (!isNaN(newQuantity) && newQuantity > 0) {
                                   updateBillItemQuantity(item.productId, newQuantity);
                                 }
                               }}
-                              className="w-16 h-8 text-right"
+                              className="w-20 h-9 text-right"
                             />
                             
                             <Select
                               value={item.unit || 'pcs'}
                               onValueChange={(value) => updateBillItemUnit(item.productId, value)}
                             >
-                              <SelectTrigger className="w-20 h-8">
+                              <SelectTrigger className="w-24 h-9">
                                 <SelectValue placeholder="Unit" />
                               </SelectTrigger>
                               <SelectContent>
@@ -311,10 +365,10 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                             </Select>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-base">
                           {formatCurrency(item.price)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right font-medium text-base">
                           {formatCurrency(item.total)}
                         </TableCell>
                         <TableCell>
@@ -330,10 +384,10 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                     );
                   })}
                   <TableRow>
-                    <TableCell colSpan={3} className="text-right font-medium">
+                    <TableCell colSpan={3} className="text-right font-medium text-lg">
                       {language === 'hi-IN' ? 'कुल' : 'Total'}
                     </TableCell>
-                    <TableCell className="text-right font-bold">
+                    <TableCell className="text-right font-bold text-lg">
                       {formatCurrency(currentBill.total)}
                     </TableCell>
                     <TableCell></TableCell>
@@ -427,14 +481,14 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                         <img 
                           src={product.image} 
                           alt={product.name}
-                          className="w-8 h-8 rounded object-cover"
+                          className="w-10 h-10 rounded object-cover"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
-                          <Package2 className="h-4 w-4 text-muted-foreground" />
+                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                          <Package2 className="h-5 w-5 text-muted-foreground" />
                         </div>
                       )}
-                      <span>{product.name}</span>
+                      <span className="font-medium">{product.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">
