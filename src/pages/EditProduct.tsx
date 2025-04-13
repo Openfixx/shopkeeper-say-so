@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -89,10 +88,10 @@ const EditProduct = () => {
         setFormData({
           name: product.name,
           description: product.description || '',
-          quantity: product.quantity.toString(),
+          quantity: String(product.quantity),
           unit: product.unit,
           position: product.position || '',
-          price: product.price.toString(),
+          price: String(product.price),
           image: product.image || product.image_url || ''
         });
       } else {

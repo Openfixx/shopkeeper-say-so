@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -28,7 +27,6 @@ import { updateProductDetails } from '@/utils/voiceCommandUtils';
 import { useInventory } from '@/context/InventoryContext';
 import { fetchProductImage } from '@/utils/fetchImage';
 import AppLogo from '@/components/ui-custom/AppLogo';
-import { useNavigateTabs } from '@/hooks/useNavigateTabs';
 
 // Define command types and detection function
 const VOICE_COMMAND_TYPES = {
@@ -115,7 +113,7 @@ const extractProductDetails = async (command: string) => {
     unit: quantityMatch ? quantityMatch[2].toLowerCase() : 'kg',
     position: position || '',
     price: priceMatch ? parseFloat(priceMatch[1]) : 0,
-    image: '' // Add empty image property to fix type error
+    image: '' // Add image property to fix type error
   };
 };
 
