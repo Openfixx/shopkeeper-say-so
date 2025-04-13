@@ -7,14 +7,14 @@ import { AuthProvider } from '@/context/AuthContext';
 import { InventoryProvider } from '@/context/InventoryContext';
 import Layout from '@/components/layout/Layout';
 import Login from '@/pages/Login';
-import Dashboard from '@/pages/Index'; // Changed from @/pages/Dashboard to @/pages/Index
+import Dashboard from '@/pages/Index'; // Using Index.tsx which contains the Dashboard component
 import Inventory from '@/pages/Inventory';
 import Products from '@/pages/Products';
 import Reports from '@/pages/Reports';
 import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
 import AddProduct from '@/pages/AddProduct';
-import EditProduct from '@/pages/Products'; // Temporarily using Products page until EditProduct is created
+import EditProduct from '@/pages/EditProduct';
 import ShopFinder from '@/pages/ShopFinder';
 import NearbyShops from '@/pages/NearbyShops';
 import NotFound from '@/pages/NotFound';
