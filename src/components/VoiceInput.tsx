@@ -27,15 +27,30 @@ export default function VoiceInput({
   } = useVoiceRecognition();
 
   const [productImage, setProductImage] = useState('');
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
 
-  // Process command results
+  // Process voice command results
   useEffect(() => {
-    if (commandResult) {
-      onCommand(transcript, commandResult);
-      
-      if (commandResult.imageUrl) {
-        setProductImage(commandResult.imageUrl);
-      }
+    if (!commandResult) return;
+
+    // Structure the command data
+    const processedData = {
+      product: commandResult.productName,
+      quantity: commandResult.quantity,
+      price: commandResult.price,
+      position: commandResult.rackNumber 
+        ? `Rack ${commandResult.rackNumber}` 
+        : undefined,
+      imageUrl: commandResult.imageUrl
+    };
+
+    // Update parent component
+    onCommand(transcript, { processed: processedData });
+
+    // Handle product image
+    if (commandResult.imageUrl) {
+      setProductImage(commandResult.imageUrl);
+      setIsImagePickerOpen(true);
     }
   }, [commandResult, transcript]);
 
@@ -46,6 +61,12 @@ export default function VoiceInput({
     } catch (error) {
       toast.error('Voice recognition failed. Please try again.');
     }
+  };
+
+  const handleImageConfirm = () => {
+    toast.success("Product saved successfully");
+    setProductImage('');
+    setIsImagePickerOpen(false);
   };
 
   return (
@@ -97,15 +118,15 @@ export default function VoiceInput({
         </Card>
       )}
 
-      {productImage && (
+      {isImagePickerOpen && productImage && (
         <ProductImagePicker
           productName={commandResult?.productName || ''}
           initialImage={productImage}
-          onConfirm={() => {
-            toast.success("Product saved successfully");
+          onConfirm={handleImageConfirm}
+          onCancel={() => {
             setProductImage('');
+            setIsImagePickerOpen(false);
           }}
-          onCancel={() => setProductImage('')}
         />
       )}
     </div>
