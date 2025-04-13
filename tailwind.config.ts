@@ -20,8 +20,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["SF Pro Display", "Inter", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "sans-serif"],
+        display: ["Plus Jakarta Sans", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -72,6 +72,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "1.25rem",
+        "2xl": "1.5rem",
+        "3xl": "1.75rem",
       },
       keyframes: {
         "accordion-down": {
@@ -108,6 +111,24 @@ export default {
           "60%": { transform: "rotate(0deg)" },
           "100%": { transform: "rotate(0deg)" },
         },
+        float: {
+          "0%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+          "100%": { transform: "translateY(0px)" },
+        },
+        cardSwipe: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-100%)" },
+        },
+        cardAppear: {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        gradient: {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -117,6 +138,10 @@ export default {
         slideDown: "slideDown 0.5s ease-out forwards",
         pulse: "pulse 1.5s ease-in-out infinite",
         wave: "wave 1.5s ease-in-out infinite",
+        float: "float 6s ease-in-out infinite",
+        "card-swipe": "cardSwipe 0.5s ease-out forwards",
+        "card-appear": "cardAppear 0.5s ease-out forwards",
+        gradient: "gradient 15s ease infinite",
       },
       transitionTimingFunction: {
         "in-expo": "cubic-bezier(0.95, 0.05, 0.795, 0.035)",

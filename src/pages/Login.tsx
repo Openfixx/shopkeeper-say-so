@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
-import LanguageSelector from '@/components/ui-custom/LanguageSelector';
+import { motion } from 'framer-motion';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -77,92 +77,142 @@ const Login = () => {
     return <Navigate to="/" />;
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        delayChildren: 0.3,
+        staggerChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="absolute top-4 right-4">
-        <LanguageSelector 
-          currentLanguage={language} 
-          onLanguageChange={setLanguage}
-        />
-      </div>
-      
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">{t('loginTitle')}</CardTitle>
-          <CardDescription>
-            {t('loginSubtitle')}
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary/30 to-background p-4">
+      <motion.div 
+        className="w-full max-w-md"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div
+          className="mb-10 text-center"
+          variants={itemVariants}
+        >
+          <h1 className="text-4xl font-bold text-gradient mb-2">Inventory Pro</h1>
+          <p className="text-muted-foreground">Manage your inventory effortlessly</p>
+        </motion.div>
         
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('email')}</Label>
-              <Input
-                id="email"
-                type="email" 
-                placeholder={t('emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+        <motion.div variants={itemVariants}>
+          <Card className="w-full shadow-lg border-0 bg-card/70 backdrop-blur-sm rounded-3xl">
+            <CardHeader className="space-y-1 text-center">
+              <CardTitle className="text-2xl font-bold">{t('loginTitle')}</CardTitle>
+              <CardDescription>
+                {t('loginSubtitle')}
+              </CardDescription>
+            </CardHeader>
             
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t('password')}</Label>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t('passwordPlaceholder')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          
-          <CardFooter className="flex flex-col gap-4">
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={loading || authLoading}
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                </div>
-              ) : (
-                t('loginButton')
-              )}
-            </Button>
-            
-            <Button 
-              type="button"
-              variant="outline" 
-              className="w-full"
-              onClick={handleDemoLogin}
-              disabled={loading || authLoading}
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                t('demoLogin')
-              )}
-            </Button>
-            
-            <div className="text-center text-sm mt-4">
-              <span>{t('noAccount')} </span>
-              <Link to="/register" className="text-primary hover:underline">
-                {t('registerNow')}
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                <motion.div 
+                  className="space-y-2"
+                  variants={itemVariants}
+                >
+                  <Label htmlFor="email">{t('email')}</Label>
+                  <Input
+                    id="email"
+                    type="email" 
+                    placeholder={t('emailPlaceholder')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="rounded-xl h-11"
+                    required
+                  />
+                </motion.div>
+                
+                <motion.div 
+                  className="space-y-2"
+                  variants={itemVariants}
+                >
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">{t('password')}</Label>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={t('passwordPlaceholder')}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="rounded-xl h-11"
+                    required
+                  />
+                </motion.div>
+              </CardContent>
+              
+              <CardFooter className="flex flex-col gap-4">
+                <motion.div 
+                  className="w-full"
+                  variants={itemVariants}
+                >
+                  <Button 
+                    type="submit" 
+                    className="w-full rounded-xl h-11 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+                    disabled={loading || authLoading}
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                      </div>
+                    ) : (
+                      t('loginButton')
+                    )}
+                  </Button>
+                </motion.div>
+                
+                <motion.div 
+                  className="w-full"
+                  variants={itemVariants}
+                >
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="w-full rounded-xl h-11"
+                    onClick={handleDemoLogin}
+                    disabled={loading || authLoading}
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      t('demoLogin')
+                    )}
+                  </Button>
+                </motion.div>
+                
+                <motion.div 
+                  className="text-center text-sm mt-4"
+                  variants={itemVariants}
+                >
+                  <span>{t('noAccount')} </span>
+                  <Link to="/register" className="text-primary hover:underline font-medium">
+                    {t('registerNow')}
+                  </Link>
+                </motion.div>
+              </CardFooter>
+            </form>
+          </Card>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };
