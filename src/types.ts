@@ -1,4 +1,5 @@
 
+
 export type Product = {
   id: string;
   name: string;
@@ -18,3 +19,4 @@ export type InventoryItem = {
   quantity: number;
   user_id: string;
 };
+

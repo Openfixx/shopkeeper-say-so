@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -54,8 +53,7 @@ const EditProduct = () => {
     if (!product || !id) return;
     
     try {
-      const updatedProduct: Product = {
-        ...product,
+      const updatedProduct: Partial<Product> = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
@@ -65,7 +63,7 @@ const EditProduct = () => {
         image_url: formData.image
       };
       
-      updateProduct(id, updatedProduct);
+      updateProduct(id, updatedProduct as Product);
       toast.success('Product updated successfully');
       navigate('/products');
     } catch (error) {
