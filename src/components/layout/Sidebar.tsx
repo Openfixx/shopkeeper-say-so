@@ -14,8 +14,6 @@ import {
   Settings,
   Store,
   Navigation,
-  Mic,
-  FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -61,11 +59,6 @@ export default function Sidebar({ className }: SidebarProps) {
       title: 'Nearby Shops',
       href: '/nearby-shops',
       icon: <Store className="mr-2 h-4 w-4" />,
-    },
-    {
-      title: 'Voice & NLP',
-      href: '/voice',
-      icon: <Mic className="mr-2 h-4 w-4" />,
     },
     {
       title: 'Settings',

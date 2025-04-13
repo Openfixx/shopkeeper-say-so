@@ -14,6 +14,8 @@ const parseRackNumber = (text: string): number | null => {
     /on\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
     /to\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
     /in\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    /rack\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    /on\s+rack\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
   ];
   
   for (const pattern of rackPatterns) {
@@ -25,6 +27,20 @@ const parseRackNumber = (text: string): number | null => {
       }
       return parseInt(match[1]);
     }
+  }
+  
+  // If no rack pattern is found, look for isolated number words that might refer to rack positions
+  const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  for (const word of numberWords) {
+    if (text.toLowerCase().includes(` ${word} `)) {
+      return numberMap[word];
+    }
+  }
+  
+  // Look for standalone digits that might be rack numbers
+  const digitMatch = text.match(/\b(\d+)\b/);
+  if (digitMatch && digitMatch[1]) {
+    return parseInt(digitMatch[1]);
   }
   
   return null;
@@ -102,7 +118,7 @@ export const useVoiceRecognition = () => {
       console.log("Extracted rack number:", rackNumber);
       
       // Extract product name by removing rack references
-      const productName = transcript
+      let productName = transcript
         .replace(/(?:on|in|at|to)\s+rack\s+(?:number\s+)?\w+/i, '')
         .replace(/rack\s+(?:number\s+)?\w+/i, '')
         .replace(/(add|create|\s+to|\s+in|\s+on)/ig, '')

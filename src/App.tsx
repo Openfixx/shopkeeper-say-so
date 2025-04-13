@@ -5,64 +5,46 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/context/AuthContext';
 import { InventoryProvider } from '@/context/InventoryContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/layout/Layout';
-import Index from '@/pages/Index';
+import Login from '@/pages/Login';
+import Dashboard from '@/pages/Dashboard';
 import Inventory from '@/pages/Inventory';
 import Products from '@/pages/Products';
-import AddProduct from '@/pages/AddProduct';
+import Reports from '@/pages/Reports';
 import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import NotFound from '@/pages/NotFound';
+import AddProduct from '@/pages/AddProduct';
+import EditProduct from '@/pages/EditProduct';
 import ShopFinder from '@/pages/ShopFinder';
-// Import new components
-import Reports from '@/pages/Reports';
 import NearbyShops from '@/pages/NearbyShops';
-import VoiceScreen from '@/pages/VoiceScreen';
-import { LanguageProvider } from '@/context/LanguageContext';
+import NotFound from '@/pages/NotFound';
 
 function App() {
   return (
     <BrowserRouter>
-      <LanguageProvider>
+      <ThemeProvider defaultTheme="dark" storageKey="inventory-pro-theme">
         <AuthProvider>
           <InventoryProvider>
-            <ThemeProvider defaultTheme="light" storageKey="ui-theme">
-              <Toaster position="top-right" expand={false} richColors />
-              <Routes>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  
-                  <Route path="inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-                  
-                  <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                  
-                  <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
-                  
-                  <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                  
-                  <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-                  
-                  <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                  
-                  <Route path="shop-finder" element={<ProtectedRoute><ShopFinder /></ProtectedRoute>} />
-                  
-                  <Route path="nearby-shops" element={<NearbyShops />} />
-                  
-                  {/* Add new voice features route */}
-                  <Route path="voice" element={<ProtectedRoute><VoiceScreen /></ProtectedRoute>} />
-                  
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-              </Routes>
-            </ThemeProvider>
+            <Toaster position="top-right" richColors />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/add" element={<AddProduct />} />
+                <Route path="/products/edit/:id" element={<EditProduct />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/billing" element={<Billing />} />
+                <Route path="/shop-finder" element={<ShopFinder />} />
+                <Route path="/nearby-shops" element={<NearbyShops />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
           </InventoryProvider>
         </AuthProvider>
-      </LanguageProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

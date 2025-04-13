@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -11,12 +12,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInventory } from '@/context/InventoryContext';
-import { Camera, Search, ArrowLeft } from 'lucide-react';
+import { Camera, Search, ArrowLeft, Save, Loader2, Upload, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
-import { extractProductDetails, searchProductImage, updateProductDetails } from '@/utils/voiceCommandUtils';
-import { processWithSpacy } from '@/utils/spacyApi';
+import { extractProductDetails } from '@/utils/voiceCommandUtils';
+import { motion } from 'framer-motion';
 
 interface ProductFormData {
   name: string;
@@ -42,8 +44,10 @@ const AddProduct: React.FC = () => {
   const { addProduct } = useInventory();
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>('');
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,9 +59,17 @@ const AddProduct: React.FC = () => {
     }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsImageLoading(true);
       const reader = new FileReader();
       reader.onload = () => {
         const imageUrl = reader.result as string;
@@ -66,35 +78,16 @@ const AddProduct: React.FC = () => {
           image: imageUrl
         }));
         toast.success('Product image uploaded');
+        setIsImageLoading(false);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const captureImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    
-    input.onchange = (e) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const imageUrl = reader.result as string;
-          setFormData(prev => ({
-            ...prev,
-            image: imageUrl
-          }));
-          toast.success('Product image captured');
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    
-    input.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   // Auto-search for product image when name is set
@@ -105,7 +98,7 @@ const AddProduct: React.FC = () => {
       }
     };
     
-    if (formData.name && !isProcessing) {
+    if (formData.name && !isProcessing && !isImageLoading) {
       autoFindImage();
     }
   }, [formData.name]);
@@ -116,14 +109,28 @@ const AddProduct: React.FC = () => {
       return;
     }
     
+    setIsImageLoading(true);
     toast.loading('Searching for product image...');
     
     try {
-      const imageUrl = await searchProductImage(formData.name);
-      if (imageUrl) {
+      const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(formData.name)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Image search response:", data);
+      
+      if (data?.imageUrl) {
         setFormData(prev => ({
           ...prev,
-          image: imageUrl
+          image: data.imageUrl
         }));
         toast.dismiss();
         toast.success('Product image found');
@@ -135,11 +142,24 @@ const AddProduct: React.FC = () => {
       toast.dismiss();
       toast.error('Failed to find product image');
       console.error('Error finding product image:', error);
+    } finally {
+      setIsImageLoading(false);
     }
   };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name) {
+      toast.error("Product name is required");
+      return;
+    }
+    
+    if (formData.quantity <= 0) {
+      toast.error("Quantity must be greater than zero");
+      return;
+    }
+    
     addProduct(formData);
     setFormData(initialFormData);
     setLastCommand('');
@@ -153,58 +173,25 @@ const AddProduct: React.FC = () => {
       console.log('Processing voice command:', command);
       toast.loading('Processing voice command...');
       
-      // Check if this is a continuation of the previous command
-      // If the form already has data and the new command doesn't have "add" or "create"
-      const isContinuation = formData.name && 
-        !/\b(?:add|create|make)\s+(?:a\s+)?product\b/i.test(command) &&
-        !/\bnew product\b/i.test(command);
+      // Extract product details from voice command
+      const productDetails = await extractProductDetails(command);
       
-      if (isContinuation) {
-        // This is a continuation command, update existing product details
-        const updatedDetails = await updateProductDetails({
-          name: formData.name,
-          quantity: formData.quantity,
-          unit: formData.unit,
-          position: formData.position,
-          price: formData.price,
-          expiry: formData.expiry,
-          image: formData.image
-        }, command);
-        
+      if (productDetails.name) {
         setFormData({
-          name: updatedDetails.name,
-          quantity: updatedDetails.quantity || formData.quantity,
-          unit: updatedDetails.unit || formData.unit,
-          position: updatedDetails.position || formData.position,
-          expiry: updatedDetails.expiry || formData.expiry,
-          price: updatedDetails.price || formData.price,
-          image: formData.image // Keep existing image
+          name: productDetails.name,
+          quantity: productDetails.quantity || 0,
+          unit: productDetails.unit || 'kg',
+          position: productDetails.position || '',
+          expiry: productDetails.expiry || '',
+          price: productDetails.price || 0,
+          image: ''
         });
         
         toast.dismiss();
-        toast.success('Product details updated');
+        toast.success(`Product details extracted: ${productDetails.name}`);
       } else {
-        // This is a new product command
-        const productDetails = await extractProductDetails(command);
-        
-        if (productDetails.name) {
-          // Set the form data with the extracted details
-          setFormData({
-            name: productDetails.name,
-            quantity: productDetails.quantity || 0,
-            unit: productDetails.unit || 'kg',
-            position: productDetails.position || '',
-            expiry: productDetails.expiry || '',
-            price: productDetails.price || 0,
-            image: '' // Will be auto-populated by useEffect
-          });
-          
-          toast.dismiss();
-          toast.success(`Product details extracted: ${productDetails.name}`);
-        } else {
-          toast.dismiss();
-          toast.info('Could not detect product name. Please try again.');
-        }
+        toast.dismiss();
+        toast.info('Could not detect product name. Please try again.');
       }
       
       setLastCommand(command);
@@ -217,103 +204,39 @@ const AddProduct: React.FC = () => {
     }
   };
   
-  // Helper function to determine if required fields are filled
-  const isFormComplete = () => {
-    return formData.name && (formData.quantity > 0);
-  };
-  
   return (
-    <div>
-      <Button variant="ghost" onClick={() => navigate('/products')}>
+    <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <Button variant="ghost" onClick={() => navigate('/products')} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Products
       </Button>
       
-      <Card className="w-full max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>Add New Product</CardTitle>
-          <CardDescription>
+      <Card className="w-full max-w-4xl mx-auto bg-card shadow-lg border-primary/10">
+        <CardHeader className="pb-4 space-y-1">
+          <CardTitle className="text-2xl font-bold">Add New Product</CardTitle>
+          <CardDescription className="text-muted-foreground">
             Fill in the details to add a new product to your inventory.
-            Try saying "Add 5kg sugar in rack 3 price ₹50 expiry July 2026"
           </CardDescription>
         </CardHeader>
+        
         <CardContent>
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Product Name</Label>
+                <Label htmlFor="name" className="text-md font-medium">Product Name</Label>
                 <Input
                   id="name"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Sugar, Rice, etc."
+                  className="h-11"
                   required
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="image">Product Image</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="image"
-                    name="image"
-                    value={formData.image}
-                    onChange={handleInputChange}
-                    placeholder="Image URL"
-                    className="flex-1"
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={findProductImage}
-                    title="Search for product image online"
-                    disabled={!formData.name || isProcessing}
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.quantity}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unit</Label>
-                <Input
-                  id="unit"
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleInputChange}
-                  placeholder="kg, g, l, ml, etc."
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="position">Position</Label>
-                <Input
-                  id="position"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleInputChange}
-                  placeholder="Rack 7"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="price">Price</Label>
+                <Label htmlFor="price" className="text-md font-medium">Price</Label>
                 <Input
                   id="price"
                   name="price"
@@ -322,69 +245,191 @@ const AddProduct: React.FC = () => {
                   step="0.01"
                   value={formData.price}
                   onChange={handleInputChange}
+                  className="h-11"
                   required
                 />
               </div>
               
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="expiry">Expiry Date</Label>
+              <div className="space-y-2">
+                <Label htmlFor="quantity" className="text-md font-medium">Quantity</Label>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  className="h-11"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="unit" className="text-md font-medium">Unit</Label>
+                <Select 
+                  value={formData.unit}
+                  onValueChange={(value) => handleSelectChange("unit", value)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                    <SelectItem value="g">Gram (g)</SelectItem>
+                    <SelectItem value="l">Liter (l)</SelectItem>
+                    <SelectItem value="ml">Milliliter (ml)</SelectItem>
+                    <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                    <SelectItem value="box">Box</SelectItem>
+                    <SelectItem value="packet">Packet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="position" className="text-md font-medium">Position</Label>
+                <Input
+                  id="position"
+                  name="position"
+                  value={formData.position}
+                  onChange={handleInputChange}
+                  placeholder="Rack 7"
+                  className="h-11"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="expiry" className="text-md font-medium">Expiry Date</Label>
                 <Input
                   id="expiry"
                   name="expiry"
                   type="date"
                   value={formData.expiry}
                   onChange={handleInputChange}
+                  className="h-11"
                 />
               </div>
-              
-              {formData.image && (
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-md font-medium">Product Image</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <div className="relative border rounded-md overflow-hidden h-40">
-                    <img 
-                      src={formData.image} 
-                      alt={formData.name || 'Product'} 
-                      className="w-full h-full object-contain"
-                    />
+                  <div className="relative border rounded-md overflow-hidden h-60 bg-muted/30">
+                    {isImageLoading ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+                      </div>
+                    ) : formData.image ? (
+                      <img 
+                        src={formData.image} 
+                        alt={formData.name || 'Product'} 
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <Camera className="h-16 w-16 text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">No image available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-              
-              <div className="space-y-2 md:col-span-2">
-                <div className="flex flex-wrap gap-2">
+                
+                <div className="flex flex-col space-y-3">
+                  <Input
+                    name="image"
+                    value={formData.image}
+                    onChange={handleInputChange}
+                    placeholder="Image URL"
+                    className="h-11"
+                  />
+                  
                   <Button 
                     type="button" 
-                    variant="outline" 
-                    onClick={captureImage}
+                    variant="secondary"
+                    onClick={findProductImage}
+                    className="w-full h-11 font-medium"
+                    disabled={!formData.name || isImageLoading}
                   >
-                    <Camera className="mr-2 h-4 w-4" />
+                    {isImageLoading ? (
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                      <Search className="h-5 w-5 mr-2" />
+                    )}
+                    Find Image
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={captureImage}
+                    className="w-full h-11 font-medium"
+                  >
+                    <Camera className="h-5 w-5 mr-2" />
                     Capture Image
                   </Button>
                   
-                  <Label
-                    htmlFor="product-image-upload"
-                    className="cursor-pointer flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent hover:text-accent-foreground"
+                  <Button
+                    type="button" 
+                    variant="outline"
+                    className="w-full h-11 font-medium"
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.click();
+                      }
+                    }}
                   >
-                    <Search className="mr-2 h-4 w-4" />
-                    Upload from Gallery
-                    <input
-                      id="product-image-upload"
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImageUpload}
-                    />
-                  </Label>
+                    <Upload className="h-5 w-5 mr-2" />
+                    Upload Image
+                  </Button>
+                  
+                  {formData.image && (
+                    <Button 
+                      type="button" 
+                      variant="destructive"
+                      onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                      className="w-full h-11 font-medium"
+                    >
+                      <Trash className="h-5 w-5 mr-2" />
+                      Remove Image
+                    </Button>
+                  )}
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleImageUpload}
+                  />
                 </div>
               </div>
             </div>
             
-            <CardFooter className="px-0 pt-6">
+            <CardFooter className="px-0 pt-4 flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => setFormData(initialFormData)}
+                type="button"
+              >
+                Reset Form
+              </Button>
               <Button 
                 type="submit" 
-                disabled={!isFormComplete() || isProcessing}
-                className="w-full md:w-auto"
+                disabled={!formData.name || formData.quantity <= 0 || isProcessing}
+                className="px-8"
               >
-                Add Product
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-5 w-5" />
+                    Add Product
+                  </>
+                )}
               </Button>
             </CardFooter>
           </form>
@@ -403,10 +448,14 @@ const AddProduct: React.FC = () => {
       </div>
       
       {lastCommand && (
-        <div className="fixed bottom-24 right-8 p-3 bg-background border rounded-lg shadow-lg max-w-sm z-40">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-24 right-8 p-4 bg-card border rounded-lg shadow-lg max-w-sm z-40"
+        >
           <p className="text-xs font-medium mb-1">Last command:</p>
           <p className="text-sm">{lastCommand}</p>
-        </div>
+        </motion.div>
       )}
     </div>
   );

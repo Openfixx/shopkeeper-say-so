@@ -29,7 +29,11 @@ async function fetchDuckDuckGoImage(query: string): Promise<string | null> {
         const timestamp = new Date().getTime();
         const apiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(currentQuery)}&format=json&t=lovableshop${timestamp}`;
         
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
         
         if (!response.ok) {
           console.log(`DuckDuckGo API returned status: ${response.status} for query: ${currentQuery}`);
