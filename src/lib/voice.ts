@@ -1,4 +1,6 @@
 
+import React, { useState } from 'react';
+
 // Helper functions for voice parsing
 const parseRackNumber = (text: string): number | null => {
   const numberMap: Record<string, number> = {
