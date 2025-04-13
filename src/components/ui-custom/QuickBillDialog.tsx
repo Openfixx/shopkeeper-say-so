@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -14,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import { ShoppingCart, Plus, Loader2 } from 'lucide-react';
+import { Product } from '@/types';
 
 export interface QuickBillDialogProps {
   open: boolean;
@@ -75,6 +75,14 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
     const newItems = [...items];
     newItems.splice(index, 1);
     setItems(newItems);
+  };
+  
+  const convertProduct = (product: any): Product => {
+    return {
+      ...product,
+      image_url: product.image || '',
+      user_id: product.userId || ''
+    };
   };
   
   const handleCreateBill = () => {

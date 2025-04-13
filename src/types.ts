@@ -16,6 +16,8 @@ export type Product = {
   createdAt?: string;
   updatedAt?: string;
   shopId?: string;
+  // Add mappings for the other version of Product type
+  userId?: string; // Maps to user_id
 };
 
 export type InventoryItem = {

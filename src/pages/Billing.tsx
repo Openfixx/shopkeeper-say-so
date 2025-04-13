@@ -134,7 +134,15 @@ const BillingPage: React.FC = () => {
     }
   };
   
-  const handleAddToBill = (product: Product) => {
+  const convertProduct = (product: any): Product => {
+    return {
+      ...product,
+      image_url: product.image || '',
+      user_id: product.userId || '',
+    };
+  };
+  
+  const handleAddToBill = (product: any) => {
     if (!currentBill) {
       startNewBill();
     }
@@ -143,7 +151,7 @@ const BillingPage: React.FC = () => {
   };
   
   const handleRemoveFromBill = (index: number) => {
-    removeFromBill(index);
+    removeFromBill(index.toString());
     toast.success('Item removed from bill');
   };
   
@@ -255,49 +263,52 @@ const BillingPage: React.FC = () => {
                     </motion.div>
                   ))
                 ) : filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
-                    <motion.div key={product.id} variants={itemVariants}>
-                      <Card 
-                        className="h-[180px] relative overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow"
-                        onClick={() => handleAddToBill(product)}
-                      >
-                        <CardContent className="p-0">
-                          <div className="h-24 bg-muted flex items-center justify-center overflow-hidden">
-                            {product.image_url ? (
-                              <img 
-                                src={product.image_url} 
-                                alt={product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <ShoppingCart className="h-8 w-8 text-muted-foreground opacity-20" />
-                            )}
-                          </div>
-                          <div className="p-4">
-                            <h3 className="font-medium text-sm line-clamp-1">{product.name}</h3>
-                            <div className="flex justify-between items-center mt-1">
-                              <p className="text-muted-foreground text-sm">{product.quantity} {product.unit}</p>
-                              <p className="font-semibold">{formatter.format(product.price)}</p>
+                  filteredProducts.map((product) => {
+                    const typedProduct = convertProduct(product);
+                    return (
+                      <motion.div key={typedProduct.id} variants={itemVariants}>
+                        <Card 
+                          className="h-[180px] relative overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => handleAddToBill(product)}
+                        >
+                          <CardContent className="p-0">
+                            <div className="h-24 bg-muted flex items-center justify-center overflow-hidden">
+                              {typedProduct.image_url ? (
+                                <img 
+                                  src={typedProduct.image_url} 
+                                  alt={typedProduct.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                              ) : (
+                                <ShoppingCart className="h-8 w-8 text-muted-foreground opacity-20" />
+                              )}
                             </div>
-                          </div>
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="sm" 
-                              variant="secondary"
-                              className="rounded-full"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToBill(product);
-                              }}
-                            >
-                              <PlusCircle className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))
+                            <div className="p-4">
+                              <h3 className="font-medium text-sm line-clamp-1">{typedProduct.name}</h3>
+                              <div className="flex justify-between items-center mt-1">
+                                <p className="text-muted-foreground text-sm">{typedProduct.quantity} {typedProduct.unit}</p>
+                                <p className="font-semibold">{formatter.format(typedProduct.price)}</p>
+                              </div>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button 
+                                size="sm" 
+                                variant="secondary"
+                                className="rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddToBill(typedProduct);
+                                }}
+                              >
+                                <PlusCircle className="h-4 w-4 mr-1" />
+                                Add
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })
                 ) : (
                   <div className="col-span-full flex flex-col items-center justify-center py-12">
                     <ShoppingCart className="h-16 w-16 text-muted-foreground opacity-10 mb-4" />

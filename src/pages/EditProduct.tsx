@@ -30,11 +30,11 @@ const EditProduct = () => {
   useEffect(() => {
     const foundProduct = products.find(p => p.id === id);
     if (foundProduct) {
-      // Cast foundProduct to Product type
+      // Convert the context Product to our Product type
       const typedProduct: Product = {
         ...foundProduct,
-        image_url: foundProduct.image_url || '',
-        user_id: foundProduct.user_id || ''
+        image_url: foundProduct.image || '',
+        user_id: foundProduct.userId || ''
       };
       
       setProduct(typedProduct);
