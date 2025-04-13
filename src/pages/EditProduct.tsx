@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,12 +10,13 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { Product } from '@/types';
 
 const EditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { products, updateProduct } = useInventory();
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -36,7 +38,7 @@ const EditProduct = () => {
         quantity: foundProduct.quantity?.toString() || '',
         unit: foundProduct.unit || '',
         position: foundProduct.position || '',
-        image: foundProduct.image || ''
+        image: foundProduct.image_url || ''
       });
     }
   }, [id, products]);
@@ -52,7 +54,7 @@ const EditProduct = () => {
     if (!product || !id) return;
     
     try {
-      const updatedProduct = {
+      const updatedProduct: Product = {
         ...product,
         name: formData.name,
         description: formData.description,
@@ -60,7 +62,7 @@ const EditProduct = () => {
         quantity: parseInt(formData.quantity),
         unit: formData.unit,
         position: formData.position,
-        image: formData.image
+        image_url: formData.image
       };
       
       updateProduct(id, updatedProduct);
