@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -90,7 +89,6 @@ const AddProduct: React.FC = () => {
     }
   };
 
-  // Auto-search for product image when name is set
   useEffect(() => {
     const autoFindImage = async () => {
       if (formData.name && !formData.image) {
@@ -173,7 +171,6 @@ const AddProduct: React.FC = () => {
       console.log('Processing voice command:', command);
       toast.loading('Processing voice command...');
       
-      // Extract product details from voice command
       const productDetails = await extractProductDetails(command);
       
       if (productDetails.name) {
@@ -440,7 +437,6 @@ const AddProduct: React.FC = () => {
         <VoiceCommandButton 
           onVoiceCommand={handleVoiceCommand} 
           showDialog={true}
-          pulseColor="bg-green-500"
           label="Voice Add Product"
           variant="default"
           size="default"

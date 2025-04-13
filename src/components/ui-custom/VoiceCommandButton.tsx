@@ -1,262 +1,141 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Mic, MicOff, Loader2 } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-interface VoiceCommandButtonProps {
+export interface VoiceCommandButtonProps {
   onVoiceCommand: (command: string) => void;
+  className?: string;
+  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
+  size?: "default" | "sm" | "lg" | "icon";
   showDialog?: boolean;
   label?: string;
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  pulseColor?: string; // Add this prop
 }
 
 const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   onVoiceCommand,
+  className,
+  variant = "default",
+  size = "default",
   showDialog = false,
-  label = '',
-  variant = 'secondary',
-  size = 'icon',
+  label = "Voice",
+  pulseColor = "bg-blue-500" // Default value
 }) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState("");
   
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, []);
-  
-  const startRecording = () => {
-    setIsRecording(true);
-    setTranscript('');
-    setRecordingTime(0);
-    
-    if (showDialog) {
-      setIsOpen(true);
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Speech recognition is not supported in this browser");
+      return;
     }
     
-    // Start timer
-    timerRef.current = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
-    }, 1000);
+    setIsListening(true);
+    if (showDialog) {
+      setIsDialogOpen(true);
+    }
     
-    // Simulate recording with a timeout to get transcript
-    setTimeout(() => {
-      const randomCommands = [
-        'Add 10 kg rice to inventory',
-        'Show me all low stock products',
-        'Create a new bill for customer John',
-        'Search for sugar in inventory',
-        'Add a new supplier called Global Foods',
-        'Show me sales report for this month'
-      ];
+    // Speech recognition setup
+    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setCurrentTranscript(transcript);
       
-      const randomCommand = randomCommands[Math.floor(Math.random() * randomCommands.length)];
-      setTranscript(randomCommand);
-    }, 3000);
-  };
-  
-  const stopRecording = () => {
-    setIsRecording(false);
-    
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
-    if (transcript) {
+      // Process the voice command
       onVoiceCommand(transcript);
-    }
+    };
     
-    // Close dialog after a short delay to allow user to see the transcript
-    if (showDialog) {
-      setTimeout(() => {
-        setIsOpen(false);
-        setTranscript('');
-      }, 1000);
-    }
-  };
-  
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
-  
-  const handleButtonClick = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+    
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+      toast.error("Failed to recognize speech");
+    };
+    
+    recognition.start();
   };
   
   return (
     <>
       <Button
-        variant={isRecording ? 'destructive' : variant}
+        variant={variant}
         size={size}
-        onClick={handleButtonClick}
-        className={size === 'icon' ? 'rounded-full w-9 h-9 relative' : ''}
+        className={cn(
+          "relative",
+          className
+        )}
+        onClick={startListening}
+        disabled={isListening}
       >
-        {isRecording ? (
+        {isListening ? (
           <>
-            <MicOff className={size === 'icon' ? 'h-4 w-4' : 'h-4 w-4 mr-2'} />
-            {size !== 'icon' && (label || 'Stop')}
-            <AnimatePresence>
-              {isRecording && !showDialog && (
-                <motion.span
-                  className="absolute -right-1 -top-1 flex items-center justify-center bg-destructive text-destructive-foreground rounded-full text-[10px] h-5 w-5 font-bold"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                >
-                  {recordingTime}
-                </motion.span>
-              )}
-            </AnimatePresence>
+            <MicOff className="h-4 w-4 mr-2" />
+            Listening...
           </>
         ) : (
           <>
-            <Mic className={size === 'icon' ? 'h-4 w-4' : 'h-4 w-4 mr-2'} />
-            {size !== 'icon' && (label || 'Voice Command')}
+            <Mic className="h-4 w-4 mr-2" />
+            {label}
+            
+            {/* Pulse animation */}
+            <span className={cn(
+              "absolute -top-1 -right-1 flex h-3 w-3",
+              isListening && "animate-ping"
+            )}>
+              <span className={cn(
+                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                pulseColor
+              )}></span>
+              <span className={cn(
+                "relative inline-flex rounded-full h-3 w-3",
+                pulseColor
+              )}></span>
+            </span>
           </>
         )}
       </Button>
       
       {showDialog && (
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open && isRecording) {
-            stopRecording();
-          }
-        }}>
-          <DialogContent className="sm:max-w-md">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Voice Command</DialogTitle>
               <DialogDescription>
-                Speak your command clearly
+                {isListening ? "Listening..." : "Processing your voice command..."}
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="flex flex-col items-center justify-center py-6 space-y-6">
-              {isRecording && (
-                <div className="voice-waveform relative w-full max-w-xs h-16 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center justify-center space-x-1">
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <motion.div
-                        key={i}
-                        className="waveform-line w-1.5 bg-violet-400/60 rounded-full"
-                        style={{
-                          height: '40%',
-                          animationDelay: `${i * 0.05}s`
-                        }}
-                        animate={{
-                          height: ['40%', `${Math.random() * 60 + 20}%`, '40%']
-                        }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: 1,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </div>
+            <div className="p-4 bg-muted rounded-lg">
+              {isListening ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
+              ) : (
+                <>
+                  <p className="text-sm font-medium mb-1">Transcript:</p>
+                  <p className="text-sm">{currentTranscript}</p>
+                </>
               )}
-              
-              <div className="text-center">
-                {isRecording ? (
-                  <div className="flex items-center justify-center mb-4 text-lg font-medium">
-                    Recording <span className="ml-2 font-mono">{formatTime(recordingTime)}</span>
-                  </div>
-                ) : (
-                  transcript && (
-                    <div className="mb-4">
-                      <p className="font-medium mb-1">Transcript:</p>
-                      <p className="text-muted-foreground">{transcript}</p>
-                    </div>
-                  )
-                )}
-              </div>
-              
-              <div className="relative">
-                <Button
-                  variant={isRecording ? "destructive" : "default"}
-                  size="lg"
-                  className={`h-16 w-16 rounded-full ${isRecording ? 'bg-gradient-to-r from-red-500 to-pink-500' : 'bg-gradient-to-r from-violet-500 to-purple-500'}`}
-                  onClick={isRecording ? stopRecording : startRecording}
-                >
-                  {isRecording ? (
-                    <MicOff className="h-6 w-6" />
-                  ) : (
-                    <Mic className="h-6 w-6" />
-                  )}
-                </Button>
-                
-                {isRecording && (
-                  <motion.div 
-                    className="absolute -inset-2 rounded-full border-2 border-red-500/50"
-                    animate={{ scale: [1, 1.1, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ 
-                      repeat: Infinity, 
-                      duration: 2 
-                    }}
-                  />
-                )}
-              </div>
-              
-              <div className="text-center text-sm text-muted-foreground">
-                {isRecording ? 'Tap to stop recording' : transcript ? 'Command recognized' : 'Tap to speak a command'}
-              </div>
             </div>
-            
-            <DialogFooter className="sm:justify-center">
-              {transcript && !isRecording && (
-                <Button 
-                  type="button" 
-                  variant="default" 
-                  onClick={() => {
-                    onVoiceCommand(transcript);
-                    setIsOpen(false);
-                    setTranscript('');
-                  }}
-                >
-                  Process Command
-                </Button>
-              )}
-              {isRecording ? (
-                <Button 
-                  type="button" 
-                  variant="ghost"
-                  onClick={stopRecording}
-                >
-                  Cancel
-                </Button>
-              ) : !transcript && (
-                <Button 
-                  type="button" 
-                  variant="ghost"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Cancel
-                </Button>
-              )}
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

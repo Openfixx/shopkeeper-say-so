@@ -10,7 +10,7 @@ export type Product = {
   unit: string;
   position?: string;
   expiry?: string;
-  image?: string;
+  image?: string; // For backward compatibility
 };
 
 export type InventoryItem = {

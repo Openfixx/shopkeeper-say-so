@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useInventory, BillItem } from '@/context/InventoryContext';
+import { useInventory } from '@/context/InventoryContext';
+import { Product } from '@/types';
 import SearchBar from '@/components/ui-custom/SearchBar';
 import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
 import QuickBillDialog from '@/components/ui-custom/QuickBillDialog';
@@ -47,7 +47,6 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Product } from '@/types';
 import { detectCommandType, VOICE_COMMAND_TYPES } from '@/utils/voiceCommandUtils';
 
 const BillingPage: React.FC = () => {
