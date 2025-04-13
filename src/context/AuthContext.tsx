@@ -11,6 +11,8 @@ type UserProfile = {
   role: 'shopkeeper' | 'worker';
   shopId?: string;
   preferredLanguage?: string;
+  photoURL?: string;
+  avatar?: string;
 };
 
 export type LoginResult = {

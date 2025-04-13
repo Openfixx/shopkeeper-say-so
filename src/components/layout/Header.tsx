@@ -342,7 +342,7 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
           </Sheet>
           
           <Avatar>
-            <AvatarImage src={user?.photoURL || user?.avatar || ''} />
+            <AvatarImage src={user?.photoURL || user?.avatar || user?.email || ''} />
             <AvatarFallback>{user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
         </div>
