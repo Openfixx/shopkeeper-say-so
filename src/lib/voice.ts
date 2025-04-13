@@ -1,80 +1,43 @@
+import { useState } from 'react';
 
-import React, { useState } from 'react';
-
-// Helper functions for voice parsing
+// Helper: Enhanced rack number parser
 const parseRackNumber = (text: string): number | null => {
+  const match = text.match(
+    /(rack|shelf|position|bin|slot)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i
+  );
+  
   const numberMap: Record<string, number> = {
     one: 1, two: 2, three: 3, four: 4, five: 5,
-    six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10
   };
-  
-  // Look for patterns like "rack 3", "rack number 4", "on rack five"
-  const rackPatterns = [
-    /rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-    /on\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-    /to\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-    /in\s+rack\s+(?:number\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-    /rack\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-    /on\s+rack\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-  ];
-  
-  for (const pattern of rackPatterns) {
-    const match = text.match(pattern);
-    if (match && match[1]) {
-      // Convert word to number if needed
-      if (isNaN(parseInt(match[1]))) {
-        return numberMap[match[1].toLowerCase()] || null;
-      }
-      return parseInt(match[1]);
-    }
-  }
-  
-  // If no rack pattern is found, look for isolated number words that might refer to rack positions
-  const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-  for (const word of numberWords) {
-    if (text.toLowerCase().includes(` ${word} `)) {
-      return numberMap[word];
-    }
-  }
-  
-  // Look for standalone digits that might be rack numbers
-  const digitMatch = text.match(/\b(\d+)\b/);
-  if (digitMatch && digitMatch[1]) {
-    return parseInt(digitMatch[1]);
-  }
-  
-  return null;
+
+  return match ? numberMap[match[2].toLowerCase()] || parseInt(match[2]) : null;
 };
 
+// Helper: Robust image fetcher with fallbacks
 const fetchProductImage = async (productName: string): Promise<string> => {
   try {
-    console.log("Fetching image for:", productName);
-    const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log("Image fetch response:", data);
-    
-    if (data?.imageUrl) {
-      return data.imageUrl;
-    }
-    
-    // Fallback to placeholder
-    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
-  } catch (error) {
-    console.error("Error fetching product image:", error);
-    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+    // Try DuckDuckGo first
+    const ddgRes = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json`
+    );
+    const ddgData = await ddgRes.json();
+    if (ddgData.Image) return ddgData.Image;
+
+    // Fallback to Pexels
+    const pexelsRes = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(productName)}&per_page=1`,
+      { headers: { Authorization: process.env.NEXT_PUBLIC_PEXELS_KEY } }
+    );
+    const pexelsData = await pexelsRes.json();
+    return pexelsData.photos?.[0]?.src?.medium || '';
+
+  } catch {
+    return '';
   }
 };
 
+// Main hook
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -82,22 +45,43 @@ export const useVoiceRecognition = () => {
     productName?: string;
     rackNumber?: number | null;
     imageUrl?: string;
+    rawText?: string;
   } | null>(null);
 
   const recognize = async (lang: string, attempts = 3): Promise<string> => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = lang;
+    recognition.continuous = true;  // Enable continuous mode
+    recognition.interimResults = true;
 
     try {
       return await new Promise((resolve, reject) => {
-        recognition.onresult = (e) => resolve(e.results[0][0].transcript);
-        recognition.onerror = () => 
-          attempts > 1 
-            ? resolve(recognize(lang, attempts - 1)) 
-            : reject('Recognition failed');
+        let finalTranscript = '';
+
+        recognition.onresult = (e) => {
+          let interim = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const transcript = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interim += transcript;
+            }
+          }
+          if (finalTranscript) resolve(finalTranscript);
+        };
+
+        recognition.onerror = (e) => {
+          if (attempts > 1) {
+            resolve(recognize(lang, attempts - 1));
+          } else {
+            reject(e.error);
+          }
+        };
+
         recognition.start();
-        setTimeout(() => reject('Timeout'), 5000);
+        setTimeout(() => reject('Timeout'), 10000); // 10s timeout
       });
     } catch (error) {
       throw new Error(`Voice recognition failed: ${error}`);
@@ -110,33 +94,35 @@ export const useVoiceRecognition = () => {
       const transcript = await recognize(lang);
       setText(transcript);
 
-      console.log("Raw transcript:", transcript);
-      
-      // Parse the voice command
-      // Extract rack number directly
       const rackNumber = parseRackNumber(transcript);
-      console.log("Extracted rack number:", rackNumber);
-      
-      // Extract product name by removing rack references
-      let productName = transcript
-        .replace(/(?:on|in|at|to)\s+rack\s+(?:number\s+)?\w+/i, '')
-        .replace(/rack\s+(?:number\s+)?\w+/i, '')
-        .replace(/(add|create|\s+to|\s+in|\s+on)/ig, '')
+      const productName = transcript
+        .replace(/(rack|shelf|position|bin|slot)\s*\w+/i, '')
+        .replace(/(add|to|put|place)/i, '')
         .trim();
-      
-      console.log("Extracted product name:", productName);
-      
-      // Fetch image
-      const imageUrl = await fetchProductImage(productName);
-      console.log("Fetched image URL:", imageUrl);
 
-      setCommandResult({ productName, rackNumber, imageUrl });
-    } catch (error) {
-      console.error("Voice recognition error:", error);
+      const imageUrl = await fetchProductImage(productName);
+
+      setCommandResult({
+        productName: productName || undefined,
+        rackNumber,
+        imageUrl: imageUrl || undefined,
+        rawText: transcript
+      });
+
+      return { productName, rackNumber, imageUrl };
     } finally {
       setIsListening(false);
     }
   };
 
-  return { text, isListening, listen, commandResult };
+  return { 
+    text, 
+    isListening, 
+    listen, 
+    commandResult,
+    reset: () => {
+      setText('');
+      setCommandResult(null);
+    }
+  };
 };
