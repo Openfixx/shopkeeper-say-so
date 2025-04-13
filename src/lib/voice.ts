@@ -11,7 +11,6 @@ const NUMBER_WORDS: Record<string, number> = {
   hundred: 100, thousand: 1000
 };
 
-// Convert words/phrases to numbers (e.g. "two hundred fifty six" → 256)
 const wordsToNumber = (words: string): number => {
   let total = 0;
   let current = 0;
@@ -28,6 +27,19 @@ const wordsToNumber = (words: string): number => {
   });
 
   return total + current;
+};
+
+const parseRackNumber = (text: string): number | null => {
+  const match = text.match(/(rack|shelf|position|bin|slot)\s*(\d+|[\w\s-]+)/i);
+  if (!match) return null;
+  
+  try {
+    const numericValue = parseInt(match[2]);
+    if (!isNaN(numericValue)) return numericValue;
+    return wordsToNumber(match[2]);
+  } catch {
+    return null;
+  }
 };
 
 // Parse any rack/shelf number format
@@ -52,21 +64,14 @@ const parseRackNumber = (text: string): number | null => {
 
 // Enhanced image fetcher
 const fetchProductImage = async (productName: string): Promise<string> => {
+  if (!productName) return '';
+  
   try {
-    // Try DuckDuckGo
-    const ddgRes = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json`
+    const response = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json&no_redirect=1`
     );
-    const ddgData = await ddgRes.json();
-    if (ddgData.Image) return ddgData.Image;
-
-    // Fallback to Pexels
-    const pexelsRes = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(productName)}&per_page=1`,
-      { headers: { Authorization: process.env.NEXT_PUBLIC_PEXELS_KEY } }
-    );
-    const pexelsData = await pexelsRes.json();
-    return pexelsData.photos?.[0]?.src?.medium || '';
+    const data = await response.json();
+    return data.Image || '';
   } catch {
     return '';
   }
