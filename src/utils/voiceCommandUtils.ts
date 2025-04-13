@@ -149,7 +149,15 @@ export const identifyShelves = (text: string) => {
     });
   }
   
-  return shelves;
+  // Return both shelves array and a mock shelfCoordinates array for RackMapping component
+  return {
+    shelves,
+    shelfCoordinates: [
+      { top: 10, left: 10, width: 80, height: 20 },
+      { top: 40, left: 10, width: 80, height: 20 },
+      { top: 70, left: 10, width: 80, height: 20 }
+    ]
+  };
 };
 
 /**
@@ -245,8 +253,8 @@ const processText = async (text: string) => {
   }
 };
 
-// Add this function near the end of the file, before the updateProductDetails function
-const extractProductDetailsFromEntities = (entities: any[]): Partial<ProductDetails> => {
+// Add this function to extract product details from entities
+export const extractProductDetailsFromEntities = (entities: any[]): Partial<ProductDetails> => {
   const details: Partial<ProductDetails> = {
     name: '',
   };

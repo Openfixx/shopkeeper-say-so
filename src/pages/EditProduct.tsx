@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,7 @@ const EditProduct = () => {
           quantity: String(foundProduct.quantity || 0),
           unit: foundProduct.unit || '',
           position: foundProduct.position || '',
-          image: convertedProduct.image_url || ''
+          image: convertedProduct.image_url || convertedProduct.image || ''
         });
       }
     }
@@ -66,7 +67,8 @@ const EditProduct = () => {
         quantity: parseInt(formData.quantity),
         unit: formData.unit,
         position: formData.position,
-        image_url: formData.image
+        image_url: formData.image,
+        image: formData.image
       };
       
       updateProduct(id, updatedProduct);
@@ -86,6 +88,7 @@ const EditProduct = () => {
       if (product) {
         setFormData({
           name: product.name,
+          description: product.description || '',
           quantity: product.quantity.toString(),
           unit: product.unit,
           position: product.position || '',
