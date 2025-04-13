@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -131,7 +132,7 @@ const EditProduct = () => {
       <Card className="border-none shadow-md rounded-2xl overflow-hidden">
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle>{product.name}</CardTitle>
+            <CardTitle>{product?.name}</CardTitle>
             <CardDescription>Update product information</CardDescription>
           </CardHeader>
           
