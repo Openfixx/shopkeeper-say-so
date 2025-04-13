@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { useInventory } from '@/context/InventoryContext';
-import { Package2, Barcode, Plus, Search, Settings, Shop, FileBarGraph, Users } from 'lucide-react';
+import { Package2, Barcode, Plus, Search, Settings, Store, BarChart3, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
@@ -40,7 +41,7 @@ const Index = () => {
           </CardHeader>
           <CardContent className="p-6">
             <p>
-              {t('welcome')} {user?.displayName || user?.email || t('user')}!
+              {t('welcome')} {user?.email || t('user')}!
             </p>
           </CardContent>
         </Card>
@@ -66,7 +67,7 @@ const Index = () => {
           <Card className="bg-white dark:bg-neutral-950 shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('totalValue')}</CardTitle>
-              <FileBarGraph className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              <BarChart3 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -118,7 +119,7 @@ const Index = () => {
               {t('settings')}
             </Button>
             <Button onClick={() => navigate('/shop-finder')} className="w-full">
-              <Shop className="h-4 w-4 mr-2" />
+              <Store className="h-4 w-4 mr-2" />
               {t('shopFinder')}
             </Button>
           </CardContent>

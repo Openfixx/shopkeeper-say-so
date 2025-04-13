@@ -269,11 +269,11 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
   };
   
   const getBillItemImage = (item: any): string => {
-    return item.image || '';
+    return item.image_url || item.image || '';
   };
   
   const hasItemImage = (item: any): boolean => {
-    return Boolean(item.image);
+    return Boolean(item.image_url || item.image);
   }
   
   const filteredProducts = searchQuery

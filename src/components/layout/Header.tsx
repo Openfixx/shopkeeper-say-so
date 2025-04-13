@@ -22,20 +22,117 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { useNavigateTabs } from '@/hooks/useNavigateTabs';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { detectCommandType, VOICE_COMMAND_TYPES, extractProductDetails } from '@/utils/voiceCommandUtils';
+import { updateProductDetails } from '@/utils/voiceCommandUtils';
 import { useInventory } from '@/context/InventoryContext';
-import { searchProductImage } from '@/utils/voiceCommandUtils';
+import { fetchProductImage } from '@/utils/fetchImage';
 import AppLogo from '@/components/ui-custom/AppLogo';
+
+// Define command types and detection function
+const VOICE_COMMAND_TYPES = {
+  ADD_PRODUCT: 'add_product',
+  UPDATE_PRODUCT: 'update_product',
+  DELETE_PRODUCT: 'delete_product',
+  CREATE_BILL: 'create_bill',
+  SEARCH_PRODUCT: 'search_product',
+  FIND_SHOPS: 'find_shops',
+  UNKNOWN: 'unknown'
+};
+
+const detectCommandType = (text: string) => {
+  const lowerText = text.toLowerCase();
+  
+  if (
+    lowerText.includes('create bill') ||
+    lowerText.includes('new bill') ||
+    lowerText.includes('make bill')
+  ) {
+    return { type: VOICE_COMMAND_TYPES.CREATE_BILL };
+  }
+  
+  if (
+    lowerText.includes('add ') && 
+    !lowerText.includes('bill')
+  ) {
+    return { type: VOICE_COMMAND_TYPES.ADD_PRODUCT };
+  }
+  
+  if (
+    lowerText.includes('search') || 
+    lowerText.includes('find ')
+  ) {
+    let searchTerm = null;
+    const searchMatches = lowerText.match(/(?:search|find|look for)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i);
+    
+    if (searchMatches && searchMatches[1]) {
+      searchTerm = searchMatches[1].trim();
+    }
+    
+    if (lowerText.includes('shop') || lowerText.includes('store')) {
+      return {
+        type: VOICE_COMMAND_TYPES.FIND_SHOPS,
+        data: { searchTerm }
+      };
+    }
+    
+    return {
+      type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
+      data: { searchTerm }
+    };
+  }
+  
+  return { type: VOICE_COMMAND_TYPES.UNKNOWN };
+};
+
+// Extract product details from voice command
+const extractProductDetails = async (command: string) => {
+  // Simple extraction logic
+  const productMatch = command.match(/add\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|\s+price|\s+₹|$)/i);
+  const quantityMatch = command.match(/(\d+)\s*(kg|g|ml|l|pieces?|pcs)/i);
+  const positionMatch = command.match(/(rack|shelf)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
+  const priceMatch = command.match(/(?:price|cost|₹|Rs|rupees)\s*(\d+)/i);
+  
+  // Convert words to numbers if needed
+  const numberWords: Record<string, number> = {
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+  };
+  
+  let position;
+  if (positionMatch) {
+    if (positionMatch[2] in numberWords) {
+      position = numberWords[positionMatch[2]].toString();
+    } else {
+      position = positionMatch[2];
+    }
+  }
+  
+  return {
+    name: productMatch ? productMatch[1].trim() : '',
+    quantity: quantityMatch ? parseFloat(quantityMatch[1]) : 1,
+    unit: quantityMatch ? quantityMatch[2].toLowerCase() : 'kg',
+    position: position || '',
+    price: priceMatch ? parseFloat(priceMatch[1]) : 0,
+  };
+};
+
+// Product image search function
+const searchProductImage = async (productName: string) => {
+  try {
+    return await fetchProductImage(productName);
+  } catch (error) {
+    console.error("Error searching for product image:", error);
+    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+  }
+};
 
 const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
   const { setTheme, theme } = useTheme();
   const { language, setLanguage } = useLanguage();
-  const { user: currentUser, logout: signOut } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { switchTab } = useNavigateTabs();
   const { addProduct } = useInventory();
   
   const [isListening, setIsListening] = useState(false);
@@ -150,8 +247,7 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
               unit: productDetails.unit || 'kg',
               position: productDetails.position || '',
               price: productDetails.price || 0,
-              image: productDetails.image || '',
-              expiry: productDetails.expiry
+              image: productDetails.image || ''
             });
             
             toast.success(`Added ${productDetails.name} to inventory`);
@@ -252,8 +348,8 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
           </Sheet>
           
           <Avatar>
-            <AvatarImage src={currentUser?.photoURL || ''} />
-            <AvatarFallback>{currentUser?.displayName?.[0] || currentUser?.email?.[0] || 'U'}</AvatarFallback>
+            <AvatarImage src={user?.image || ''} />
+            <AvatarFallback>{user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
         </div>
       </div>

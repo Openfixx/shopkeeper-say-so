@@ -26,7 +26,8 @@ const EditProduct = () => {
     position: '',
     image: ''
   });
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     if (id && products.length > 0) {
       const foundProduct = products.find(p => p.id === id);
@@ -45,12 +46,12 @@ const EditProduct = () => {
       }
     }
   }, [id, products]);
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -76,7 +77,39 @@ const EditProduct = () => {
       console.error(error);
     }
   };
-  
+
+  const fetchProduct = async () => {
+    setIsLoading(true);
+    try {
+      const product = products.find(p => p.id === id);
+      
+      if (product) {
+        setFormData({
+          name: product.name,
+          quantity: product.quantity.toString(),
+          unit: product.unit,
+          position: product.position || '',
+          price: product.price.toString(),
+          image: product.image || product.image_url || ''
+        });
+      } else {
+        toast.error('Product not found');
+        navigate('/products');
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      toast.error('Failed to load product');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
   if (!product) {
     return (
       <motion.div 
@@ -110,7 +143,7 @@ const EditProduct = () => {
       </motion.div>
     );
   }
-  
+
   return (
     <motion.div 
       className="space-y-4 max-w-3xl mx-auto"
