@@ -18,17 +18,6 @@ export default function VoiceInput({
   className,
   supportedLanguages = ['en-US', 'hi-IN']
 }: VoiceInputProps) {
-  const [session, setSession] = useState({
-    active: false,
-    product: null as null | {
-      name: string;
-      image?: string;
-      rack?: number;
-      price?: number;
-      quantity?: { value: number; unit: string };
-    }
-  });
-
   const { 
     text: transcript,
     isListening,
@@ -37,52 +26,25 @@ export default function VoiceInput({
     reset
   } = useVoiceRecognition();
 
-  // Handle command results
+  const [productImage, setProductImage] = useState('');
+
+  // Process command results
   useEffect(() => {
     if (commandResult) {
-      processCommand(commandResult);
+      onCommand(transcript, commandResult);
+      
+      if (commandResult.imageUrl) {
+        setProductImage(commandResult.imageUrl);
+      }
     }
-  }, [commandResult]);
-
-  const processCommand = (result: any) => {
-    const newContext = { ...session };
-
-    // Extract product info
-    if (result.productName) {
-      newContext.product = {
-        name: result.productName,
-        image: result.imageUrl,
-        rack: result.rackNumber || undefined
-      };
-    }
-
-    // Extract quantity (e.g., "2 kg")
-    const quantityMatch = transcript.match(/(\d+)\s*(kg|g|ml|l|pieces?|pcs)/i);
-    if (quantityMatch && newContext.product) {
-      newContext.product.quantity = {
-        value: parseInt(quantityMatch[1]),
-        unit: quantityMatch[2].toLowerCase()
-      };
-    }
-
-    // Extract price (e.g., "₹120")
-    const priceMatch = transcript.match(/₹?(\d+)/);
-    if (priceMatch && newContext.product) {
-      newContext.product.price = parseInt(priceMatch[1]);
-    }
-
-    setSession(newContext);
-    onCommand(transcript, newContext);
-  };
+  }, [commandResult, transcript]);
 
   const handleListen = async () => {
-    if (isListening) return;
-    
+    reset();
     try {
-      reset();
       await listen(supportedLanguages[0]);
     } catch (error) {
-      toast.error(`Voice error: ${error.message}`);
+      toast.error('Voice recognition failed. Please try again.');
     }
   };
 
@@ -104,26 +66,28 @@ export default function VoiceInput({
             <h3 className="font-medium">Current Command</h3>
             <p className="text-sm bg-muted/40 p-2 rounded-md">{transcript}</p>
             
-            {session.product && (
+            {commandResult && (
               <div className="space-y-2">
                 <div className="text-xs text-muted-foreground">Detected:</div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">
-                    Product: {session.product.name}
-                  </Badge>
-                  {session.product.quantity && (
+                  {commandResult.productName && (
                     <Badge variant="secondary">
-                      Qty: {session.product.quantity.value} {session.product.quantity.unit}
+                      Product: {commandResult.productName}
                     </Badge>
                   )}
-                  {session.product.price && (
+                  {commandResult.quantity && (
                     <Badge variant="secondary">
-                      Price: ₹{session.product.price}
+                      Qty: {commandResult.quantity.value} {commandResult.quantity.unit}
                     </Badge>
                   )}
-                  {session.product.rack && (
+                  {commandResult.price && (
                     <Badge variant="secondary">
-                      Rack: {session.product.rack}
+                      Price: ₹{commandResult.price}
+                    </Badge>
+                  )}
+                  {commandResult.rackNumber && (
+                    <Badge variant="secondary">
+                      Rack: {commandResult.rackNumber}
                     </Badge>
                   )}
                 </div>
@@ -133,12 +97,15 @@ export default function VoiceInput({
         </Card>
       )}
 
-      {session.product?.image && (
+      {productImage && (
         <ProductImagePicker
-          productName={session.product.name}
-          initialImage={session.product.image}
-          onConfirm={() => toast.success("Product saved!")}
-          onCancel={() => setSession({ ...session, product: null })}
+          productName={commandResult?.productName || ''}
+          initialImage={productImage}
+          onConfirm={() => {
+            toast.success("Product saved successfully");
+            setProductImage('');
+          }}
+          onCancel={() => setProductImage('')}
         />
       )}
     </div>
