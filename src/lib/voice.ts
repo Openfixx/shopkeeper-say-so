@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-// Number word to value mapping (supports up to 9999)
 const NUMBER_WORDS: Record<string, number> = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
   six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
@@ -42,36 +41,40 @@ const parseRackNumber = (text: string): number | null => {
   }
 };
 
-// Parse any rack/shelf number format
-const parseRackNumber = (text: string): number | null => {
-  const match = text.match(
-    /(rack|shelf|position|bin|slot)\s*(\d+|[\w\s-]+)/i
-  );
-
-  if (!match) return null;
-
-  try {
-    // Try numeric value first
-    const numericValue = parseInt(match[2]);
-    if (!isNaN(numericValue)) return numericValue;
-
-    // Convert word phrases
-    return wordsToNumber(match[2]);
-  } catch {
-    return null;
-  }
+const extractPureProductName = (text: string): string => {
+  return text
+    .replace(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l)/gi, '')
+    .replace(/(rack|shelf|position|bin|slot)\s*(\d+|[\w\s-]+)/gi, '')
+    .replace(/(add|to|put|place|create)/gi, '')
+    .replace(/₹?\d+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 };
 
-// Enhanced image fetcher
+const extractQuantity = (text: string) => {
+  const match = text.match(/(\d+|[\w\s-]+)\s*(kg|g|ml|l)/i);
+  if (!match) return undefined;
+
+  return {
+    value: match[1] ? wordsToNumber(match[1]) : 1,
+    unit: match[2].toLowerCase()
+  };
+};
+
+const extractPrice = (text: string) => {
+  const match = text.match(/₹?(\d+|[\w\s-]+)/i);
+  return match ? wordsToNumber(match[1]) : undefined;
+};
+
 const fetchProductImage = async (productName: string): Promise<string> => {
   if (!productName) return '';
   
   try {
     const response = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json&no_redirect=1`
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json&no_redirect=1&t=shopkeeper`
     );
     const data = await response.json();
-    return data.Image || '';
+    return data.Image || (data.RelatedTopics?.[0]?.Icon?.URL || '');
   } catch {
     return '';
   }
@@ -119,37 +122,21 @@ export const useVoiceRecognition = () => {
       const transcript = await recognize(lang);
       setText(transcript);
 
-      // Parse all command elements
+      const pureProductName = extractPureProductName(transcript);
       const rackNumber = parseRackNumber(transcript);
-      const productName = transcript
-        .replace(/(rack|shelf|position|bin|slot)\s*[\w\s-]+/i, '')
-        .replace(/(add|to|put|place|create)/i, '')
-        .replace(/\b\d+\s*(kg|g|ml|l)\b/i, '')
-        .replace(/₹?\d+/g, '')
-        .trim();
-
-      // Extract quantity (e.g. "2 kg" or "two kilograms")
-      const quantityMatch = transcript.match(/(\d+|[\w\s-]+)\s*(kg|g|ml|l|litre|liter|kilo|gram)/i);
-      const quantity = quantityMatch ? {
-        value: quantityMatch[1] ? wordsToNumber(quantityMatch[1]) : 1,
-        unit: quantityMatch[2].toLowerCase()
-      } : undefined;
-
-      // Extract price (e.g. "₹250" or "two hundred rupees")
-      const priceMatch = transcript.match(/₹?(\d+|[\w\s-]+)/i);
-      const price = priceMatch ? wordsToNumber(priceMatch[1]) : undefined;
-
-      const imageUrl = productName ? await fetchProductImage(productName) : '';
+      const quantity = extractQuantity(transcript);
+      const price = extractPrice(transcript);
+      const imageUrl = pureProductName ? await fetchProductImage(pureProductName) : '';
 
       setCommandResult({
-        productName: productName || undefined,
+        productName: pureProductName || undefined,
         rackNumber,
         imageUrl,
         quantity,
         price
       });
 
-      return { productName, rackNumber, imageUrl, quantity, price };
+      return { productName: pureProductName, rackNumber, imageUrl, quantity, price };
     } finally {
       setIsListening(false);
     }
