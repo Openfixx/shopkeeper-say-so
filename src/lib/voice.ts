@@ -125,6 +125,31 @@ export const useVoiceRecognition = () => {
     setIsListening(false);
   }
 };
+
+const fetchProductImage = async (productName: string): Promise<string> => {
+  if (!productName) return '';
+
+  // Option 1: Wikipedia (works for common products)
+  try {
+    const wikiRes = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(productName)}&prop=pageimages&format=json&pithumbsize=300&origin=*`
+    );
+    const wikiData = await wikiRes.json();
+    const page = Object.values(wikiData.query?.pages || {})[0] as any;
+    if (page?.thumbnail?.source) return page.thumbnail.source;
+  } catch {}
+
+  // Option 2: Openverse (free image search)
+  try {
+    const openverseRes = await fetch(
+      `https://api.openverse.engineering/v1/images/?q=${encodeURIComponent(productName)}&license_type=commercial,modification`
+    );
+    const openverseData = await openverseRes.json();
+    return openverseData.results?.[0]?.url || '';
+  } catch {}
+
+  return ''; // Return empty if no image found
+};
       
       // Use the improved image fetching utility
       let imageUrl = '';
