@@ -44,12 +44,16 @@ const parseRackNumber = (text: string): number | null => {
 };
 
 const extractPureProductName = (text: string): string => {
+  // First extract the product name pattern
+  const productMatch = text.match(/(?:add|create)\s+(.+?)\s*(?:to|on|in|at|for|₹|\d|kg|g|ml|l|rack|shelf)/i);
+  if (productMatch) return productMatch[1].trim();
+
+  // Fallback: Remove known non-product words
   return text
-    .replace(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l)/gi, '')
-    .replace(/(rack|shelf|position|bin|slot)\s*(\d+|[\w\s-]+)/gi, '')
-    .replace(/(add|to|put|place|create)/gi, '')
-    .replace(/₹?\d+/g, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/\b\d+\s*(kg|g|ml|l)\b/gi, '') // Remove quantities
+    .replace(/\b(rack|shelf|position)\s*\w+\b/gi, '') // Remove locations
+    .replace(/\b(add|create|to|on|in|at|for|₹)\b/gi, '') // Remove commands
+    .replace(/\s{2,}/g, ' ') // Clean spaces
     .trim();
 };
 
@@ -114,6 +118,13 @@ export const useVoiceRecognition = () => {
       const rackNumber = parseRackNumber(transcript);
       const quantity = extractQuantity(transcript);
       const price = extractPrice(transcript);
+        } catch (error) {
+    console.error("Voice Processing Error:", error); // Debug log
+    throw error;
+  } finally {
+    setIsListening(false);
+  }
+};
       
       // Use the improved image fetching utility
       let imageUrl = '';
