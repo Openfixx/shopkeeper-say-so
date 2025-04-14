@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -10,9 +11,9 @@ export interface Product {
   image_url?: string;
   barcode?: string;
   description?: string;
-  stock_alert?: number;
-  created_at?: string;
-  updated_at?: string;
-  shop_id?: string;
+  stockAlert?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  shopId?: string;
   user_id?: string;
 }

@@ -10,7 +10,9 @@ export const convertProduct = (input: any): Product => {
       quantity: 0,
       unit: '',
       price: 0,
-      position: '',
+      description: '',
+      image_url: '',
+      user_id: '',
     };
   }
 
@@ -27,11 +29,11 @@ export const convertProduct = (input: any): Product => {
     expiry: input.expiry || input.expiry_date || '',
     barcode: input.barcode || '',
     description: input.description || '',
-    stock_alert: input.stock_alert || input.stockAlert || 0,
-    created_at: input.created_at || input.createdAt || new Date().toISOString(),
-    updated_at: input.updated_at || input.updatedAt || new Date().toISOString(),
+    stockAlert: input.stockAlert || input.stock_alert || 0,
+    createdAt: input.createdAt || input.created_at || new Date().toISOString(),
+    updatedAt: input.updatedAt || input.updated_at || new Date().toISOString(),
     user_id: input.user_id || input.userId || '',
-    shop_id: input.shop_id || input.shopId || '',
+    shopId: input.shopId || input.shop_id || '',
   };
 };
 

@@ -7,7 +7,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useVoiceRecognition } from '@/lib/voice';
 
-export default function VoiceInput({ className }: { className?: string }) {
+interface VoiceInputProps {
+  className?: string;
+  onCommand?: (command: string) => void;
+}
+
+export default function VoiceInput({ className, onCommand }: VoiceInputProps) {
   const { text, isListening, listen, commandResult } = useVoiceRecognition();
   const [imageUrl, setImageUrl] = useState('');
 
@@ -16,6 +21,9 @@ export default function VoiceInput({ className }: { className?: string }) {
       toast.info("Listening...");
       await listen();
       toast.success("Voice command processed!");
+      if (text && onCommand) {
+        onCommand(text);
+      }
     } catch (error) {
       console.error("Voice recognition error:", error);
       toast.error("Voice recognition failed. Please try again.");
