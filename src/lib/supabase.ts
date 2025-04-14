@@ -17,6 +17,7 @@ export const supabase = (() => {
   try {
     // If we have the official client from the integration, use it
     if (officialClient) {
+      console.log('Using official Supabase client from integration');
       return officialClient;
     }
     
@@ -28,17 +29,21 @@ export const supabase = (() => {
       console.warn('Supabase Anon Key not provided. Using demo mode.');
     }
     
-    // Use demo mode with placeholder URL if credentials are missing
-    const url = supabaseUrl || 'https://dypjflendokbbixxahxp.supabase.co';
-    const key = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5cGpmbGVuZG9rYmJpeHhhaHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4NDIwOTAsImV4cCI6MjA1ODQxODA5MH0.gGtoHAtu9UQ466vo1cirtLls0h_Zp8TlxKhagsSNwLI';
-    
-    return createClient(url, key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storage: localStorage
+    // Use credentials if available, otherwise use the same defaults
+    console.log('Creating Supabase client with URL:', supabaseUrl || 'https://dypjflendokbbixxahxp.supabase.co');
+    const client = createClient(
+      supabaseUrl || 'https://dypjflendokbbixxahxp.supabase.co', 
+      supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5cGpmbGVuZG9rYmJpeHhhaHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4NDIwOTAsImV4cCI6MjA1ODQxODA5MH0.gGtoHAtu9UQ466vo1cirtLls0h_Zp8TlxKhagsSNwLI',
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          storage: localStorage
+        }
       }
-    });
+    );
+    
+    return client;
   } catch (error) {
     console.error('Failed to initialize Supabase client:', error);
     // Return a placeholder client that won't throw errors but won't actually connect

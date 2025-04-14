@@ -348,7 +348,7 @@ const BillingPage: React.FC = () => {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-[500px] overflow-hidden flex flex-col">
+            <CardContent className="h-[580px] overflow-hidden flex flex-col">
               {!currentBill ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                   <Receipt className="h-16 w-16 text-muted-foreground opacity-10 mb-4" />
@@ -373,45 +373,47 @@ const BillingPage: React.FC = () => {
                         </p>
                       </div>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead className="text-right">Qty</TableHead>
-                            <TableHead className="text-right">Price</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
-                            <TableHead className="w-[30px]"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {currentBill.items.map((item, index) => (
-                            <TableRow key={index} className="group">
-                              <TableCell className="font-medium">
-                                {item.name}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {item.quantity}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatter.format(item.price)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatter.format(item.price * item.quantity)}
-                              </TableCell>
-                              <TableCell className="p-0">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => handleRemoveFromBill(index)}
-                                >
-                                  <MinusCircle className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
+                      <div className="p-4 mb-4 rounded-xl bg-card/50 border shadow-sm">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Item</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
+                              <TableHead className="text-right">Price</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
+                              <TableHead className="w-[30px]"></TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {currentBill.items.map((item, index) => (
+                              <TableRow key={index} className="group">
+                                <TableCell className="font-medium">
+                                  {item.name}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {item.quantity}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatter.format(item.price)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatter.format(item.price * item.quantity)}
+                                </TableCell>
+                                <TableCell className="p-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => handleRemoveFromBill(index)}
+                                  >
+                                    <MinusCircle className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     )}
                   </div>
                 

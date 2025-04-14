@@ -26,7 +26,38 @@ serve(async (req) => {
     
     console.log(`Searching for image of: ${query}`);
     
-    // Try using Unsplash API first - more reliable than scraping
+    // Use Pixabay API instead of DuckDuckGo
+    try {
+      // Get Pixabay API key from environment variable
+      const PIXABAY_API_KEY = Deno.env.get('PIXABAY_API_KEY') || '36941293-fbca42b94c62a046e799269fa';
+      
+      const pixabayUrl = `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=3&safesearch=true`;
+      
+      const pixabayResponse = await fetch(pixabayUrl);
+      
+      if (pixabayResponse.ok) {
+        const data = await pixabayResponse.json();
+        
+        if (data.hits && data.hits.length > 0) {
+          // Get the first image result
+          const imageUrl = data.hits[0].webformatURL;
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true,
+              source: 'pixabay',
+              imageUrl: imageUrl 
+            }),
+            { headers: corsHeaders }
+          );
+        }
+      }
+    } catch (pixabayError) {
+      console.error('Pixabay fetch failed:', pixabayError);
+      // Continue to backup method
+    }
+    
+    // Fallback to Unsplash
     try {
       const unsplashUrl = `https://source.unsplash.com/featured/?${encodeURIComponent(query + " product")}`;
       const unsplashResponse = await fetch(unsplashUrl, { 
@@ -48,10 +79,9 @@ serve(async (req) => {
       }
     } catch (unsplashError) {
       console.error('Unsplash fetch failed:', unsplashError);
-      // Continue to backup method
     }
     
-    // Fallback to Pexels or Pixabay or placeholder
+    // Final fallback to placeholder
     const placeholderUrl = `https://placehold.co/300x300?text=${encodeURIComponent(query)}`;
     
     return new Response(

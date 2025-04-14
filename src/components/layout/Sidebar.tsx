@@ -10,7 +10,6 @@ import {
   BarChart3, 
   Settings, 
   MapPin,
-  Mic,
   LogOut,
   ChevronRight
 } from 'lucide-react';
@@ -24,7 +23,7 @@ const navItems = [
   { icon: BarChart3, label: 'Reports', path: '/reports' },
   { icon: ShoppingCart, label: 'Billing', path: '/billing' },
   { icon: MapPin, label: 'Shop Finder', path: '/shop-finder' },
-  { icon: Mic, label: 'Voice Features', path: '/voice-screen' },
+  // Voice Features item removed
 ];
 
 interface SidebarProps {
