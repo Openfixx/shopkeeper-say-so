@@ -10,7 +10,7 @@ import { fetchProductImage } from '../utils/fetchImage';
 export interface ProductImagePickerProps {
   productName: string;
   initialImage: string;
-  onConfirm?: () => void;
+  onConfirm?: (confirmedImageUrl: string) => void;  // Changed from onImageConfirmed to onConfirm
   onCancel?: () => void;
 }
 
@@ -107,7 +107,7 @@ export default function ProductImagePicker({
   const handleConfirm = async () => {
     try {
       toast.success(`Image selected for ${productName}`);
-      if (onConfirm) onConfirm();
+      if (onConfirm) onConfirm(image);  // Pass the selected image URL
     } catch (error) {
       console.error('Error selecting image:', error);
       toast.error('Failed to select image');

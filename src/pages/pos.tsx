@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import VoiceInput from '@/components/VoiceInput';
@@ -145,7 +144,7 @@ export default function PosPage() {
           <ProductImagePicker
             productName={activeProduct.name}
             initialImage={activeProduct.imageUrl || ''}
-            onImageConfirmed={handleImageConfirm}
+            onConfirm={handleImageConfirm}
             onCancel={() => setActiveProduct(null)}
           />
         </div>
