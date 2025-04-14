@@ -16,4 +16,5 @@ export interface Product {
   updatedAt?: string;
   shopId?: string;
   user_id?: string;
+  userId?: string; // Alias for user_id
 }
