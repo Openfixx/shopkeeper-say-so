@@ -19,11 +19,12 @@ import EditProduct from '@/pages/EditProduct';
 import ShopFinder from '@/pages/ShopFinder';
 import NearbyShops from '@/pages/NearbyShops';
 import NotFound from '@/pages/NotFound';
+import PosPage from '@/pages/pos';
 
 function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" storageKey="inventory-pro-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="bolt-inventory-theme">
         <LanguageProvider>
           <AuthProvider>
             <InventoryProvider>
@@ -41,6 +42,7 @@ function App() {
                   <Route path="/shop-finder" element={<ShopFinder />} />
                   <Route path="/nearby-shops" element={<NearbyShops />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/pos" element={<PosPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>

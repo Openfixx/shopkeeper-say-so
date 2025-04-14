@@ -13,8 +13,8 @@ const AppLogo: React.FC<AppLogoProps> = ({ size = 40, className = "" }) => {
       style={{ width: size, height: size }}
     >
       <div className="flex flex-col items-center leading-none">
-        <span style={{ fontSize: size * 0.4 }}>सन्</span>
-        <span style={{ fontSize: size * 0.25 }}>समान</span>
+        <span style={{ fontSize: size * 0.4 }}>B</span>
+        <span style={{ fontSize: size * 0.25 }}>Inv</span>
       </div>
     </div>
   );

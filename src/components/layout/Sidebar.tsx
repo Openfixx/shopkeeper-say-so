@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Link, useLocation } from 'react-router-dom';
@@ -23,7 +22,6 @@ const navItems = [
   { icon: BarChart3, label: 'Reports', path: '/reports' },
   { icon: ShoppingCart, label: 'Billing', path: '/billing' },
   { icon: MapPin, label: 'Shop Finder', path: '/shop-finder' },
-  // Voice Features item removed
 ];
 
 interface SidebarProps {
@@ -56,11 +54,11 @@ const Sidebar: React.FC<SidebarProps> = ({ className, open }) => {
       <div className="px-4 py-2 mb-6">
         <Link to="/" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-xl">
-            IP
+            BI
           </div>
           <div className="font-bold text-xl tracking-tight">
-            <span className="text-foreground">Inventory</span>
-            <span className="text-primary">Pro</span>
+            <span className="text-foreground">Bolt</span>
+            <span className="text-primary">Inventory</span>
           </div>
         </Link>
       </div>

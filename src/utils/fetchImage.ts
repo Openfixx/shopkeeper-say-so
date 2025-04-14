@@ -2,7 +2,7 @@
 import { toast } from 'sonner';
 
 /**
- * Fetch product image from alternative sources
+ * Fetch product image from Pixabay
  */
 export const fetchProductImage = async (productName: string): Promise<string> => {
   try {
@@ -45,7 +45,7 @@ export const fetchProductImage = async (productName: string): Promise<string> =>
 };
 
 /**
- * Primary strategy - use our API endpoint
+ * Primary strategy - use our API endpoint with Pixabay
  */
 async function fetchImageFromAPI(productName: string): Promise<string | null> {
   const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {

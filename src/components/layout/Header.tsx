@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -305,7 +306,7 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
           </Button>
           <div className="ml-4 flex items-center gap-2">
             <AppLogo size={32} />
-            <h1 className="text-xl font-semibold">समान Salman</h1>
+            <h1 className="text-xl font-semibold">Bolt Inventory</h1>
           </div>
         </div>
         
