@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +7,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ProductImagePicker from './ProductImagePicker';
 import { useVoiceRecognition } from '@/lib/voice';
+import { Mic, Loader2 } from 'lucide-react';
 
 export interface VoiceInputProps {
   onCommand: (text: string, data?: any) => void;
@@ -27,6 +29,7 @@ export default function VoiceInput({
   } = useVoiceRecognition();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!commandResult) return;
@@ -41,13 +44,38 @@ export default function VoiceInput({
       }
     });
 
-    if (commandResult.imageUrl) {
+    // Only open image picker if we have a valid image URL
+    if (commandResult.imageUrl && !commandResult.imageUrl.includes('placehold.co')) {
       setIsImagePickerOpen(true);
+    } else if (commandResult.productName && retryCount < 2) {
+      // If we didn't get a valid image and have a product name, try one more time
+      toast.info("Searching for a better product image...");
+      setRetryCount(prev => prev + 1);
+      // Retry image search with a slight delay
+      setTimeout(() => {
+        import('@/utils/fetchImage').then(({ fetchProductImage }) => {
+          fetchProductImage(commandResult.productName || "")
+            .then(newImageUrl => {
+              if (newImageUrl && !newImageUrl.includes('placehold.co')) {
+                onCommand(transcript, {
+                  processed: {
+                    ...commandResult,
+                    imageUrl: newImageUrl
+                  }
+                });
+                setIsImagePickerOpen(true);
+              } else {
+                toast.error("Could not find a suitable product image");
+              }
+            });
+        });
+      }, 1000);
     }
   }, [commandResult, transcript]);
 
   const handleListen = async () => {
     reset();
+    setRetryCount(0);
     try {
       await listen(supportedLanguages[0]);
     } catch (error) {
@@ -69,7 +97,17 @@ export default function VoiceInput({
         size="lg"
         className="w-full"
       >
-        {isListening ? "Listening..." : "Start Voice Command"}
+        {isListening ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Listening...
+          </>
+        ) : (
+          <>
+            <Mic className="mr-2 h-4 w-4" />
+            Start Voice Command
+          </>
+        )}
       </Button>
 
       {transcript && (

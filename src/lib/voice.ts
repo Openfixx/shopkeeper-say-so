@@ -1,4 +1,6 @@
+
 import { useState } from 'react';
+import { fetchProductImage } from '@/utils/fetchImage';
 
 const NUMBER_WORDS: Record<string, number> = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
@@ -66,20 +68,6 @@ const extractPrice = (text: string) => {
   return match ? wordsToNumber(match[1]) : undefined;
 };
 
-const fetchProductImage = async (productName: string): Promise<string> => {
-  if (!productName) return '';
-  
-  try {
-    const response = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}&iax=images&ia=images&format=json&no_redirect=1&t=shopkeeper`
-    );
-    const data = await response.json();
-    return data.Image || (data.RelatedTopics?.[0]?.Icon?.URL || '');
-  } catch {
-    return '';
-  }
-};
-
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -126,7 +114,16 @@ export const useVoiceRecognition = () => {
       const rackNumber = parseRackNumber(transcript);
       const quantity = extractQuantity(transcript);
       const price = extractPrice(transcript);
-      const imageUrl = pureProductName ? await fetchProductImage(pureProductName) : '';
+      
+      // Use the improved image fetching utility
+      let imageUrl = '';
+      if (pureProductName) {
+        try {
+          imageUrl = await fetchProductImage(pureProductName);
+        } catch (error) {
+          console.error('Error fetching product image:', error);
+        }
+      }
 
       setCommandResult({
         productName: pureProductName || undefined,

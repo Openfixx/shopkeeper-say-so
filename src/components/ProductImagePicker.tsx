@@ -5,19 +5,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { cacheProductImage } from '../lib/imageCache';
+import { fetchProductImage } from '../utils/fetchImage';
 
 export interface ProductImagePickerProps {
   productName: string;
   initialImage: string;
-  onImageConfirmed: (url: string) => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
 }
 
 export default function ProductImagePicker({
   productName,
   initialImage,
-  onImageConfirmed,
+  onConfirm,
   onCancel
 }: ProductImagePickerProps) {
   const [image, setImage] = useState(initialImage || '');
@@ -37,26 +37,14 @@ export default function ProductImagePicker({
   const findProductImage = async () => {
     setIsLoading(true);
     try {
-      console.log(`Searching for image of ${productName} via API`);
-      const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const imageUrl = await fetchProductImage(productName);
       
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data?.imageUrl) {
-        console.log(`Found image for ${productName}:`, data.imageUrl);
-        setImage(data.imageUrl);
+      if (imageUrl && !imageUrl.includes('placehold.co')) {
+        console.log(`Found image for ${productName}:`, imageUrl);
+        setImage(imageUrl);
         toast.success('Product image found');
       } else {
-        console.log(`No image found for ${productName}`);
+        console.log(`No real image found for ${productName}, using placeholder`);
         setImage(`https://placehold.co/300x300?text=${encodeURIComponent(productName)}`);
         toast.error('Could not find product image');
       }
@@ -76,25 +64,20 @@ export default function ProductImagePicker({
       const variations = [
         `${productName} product`,
         `${productName} package`,
-        `${productName} grocery`
+        `${productName} grocery item`
       ];
       
       const altImages: string[] = [];
       
       for (const query of variations) {
         try {
-          const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(query)}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+          const imageUrl = await fetchProductImage(query);
           
-          if (response.ok) {
-            const data = await response.json();
-            if (data?.imageUrl && data.imageUrl !== image && !altImages.includes(data.imageUrl)) {
-              altImages.push(data.imageUrl);
-            }
+          if (imageUrl && 
+              !imageUrl.includes('placehold.co') && 
+              imageUrl !== image && 
+              !altImages.includes(imageUrl)) {
+            altImages.push(imageUrl);
           }
         } catch (e) {
           console.error(`Error loading alternative for "${query}":`, e);
@@ -122,16 +105,12 @@ export default function ProductImagePicker({
   }, [productName]);
 
   const handleConfirm = async () => {
-    setIsLoading(true);
     try {
-      const cachedUrl = await cacheProductImage(productName, image);
-      onImageConfirmed(cachedUrl);
-      toast.success(`Image saved for ${productName}`);
+      toast.success(`Image selected for ${productName}`);
+      if (onConfirm) onConfirm();
     } catch (error) {
-      console.error('Error saving image:', error);
-      toast.error('Failed to save image');
-    } finally {
-      setIsLoading(false);
+      console.error('Error selecting image:', error);
+      toast.error('Failed to select image');
     }
   };
 
