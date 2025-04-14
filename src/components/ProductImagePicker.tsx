@@ -5,12 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchProductImage } from '../utils/fetchImage';
+import { fetchProductImage } from '../lib/fetchImage';
 
 export interface ProductImagePickerProps {
   productName: string;
   initialImage: string;
-  onConfirm?: (confirmedImageUrl: string) => void;  // Changed from onImageConfirmed to onConfirm
+  onConfirm?: (confirmedImageUrl: string) => void;
   onCancel?: () => void;
 }
 
@@ -27,7 +27,7 @@ export default function ProductImagePicker({
 
   useEffect(() => {
     // If no initial image is provided, try to fetch one
-    if (!initialImage) {
+    if (!initialImage && productName) {
       findProductImage();
     } else {
       setImage(initialImage);
@@ -35,6 +35,11 @@ export default function ProductImagePicker({
   }, [initialImage, productName]);
 
   const findProductImage = async () => {
+    if (!productName) {
+      toast.error('Please enter a product name first');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const imageUrl = await fetchProductImage(productName);
@@ -58,6 +63,8 @@ export default function ProductImagePicker({
   };
 
   const loadAlternativeImages = async () => {
+    if (!productName) return;
+    
     setIsSearching(true);
     try {
       // Try to get a few alternative images with different queries

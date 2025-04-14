@@ -1,27 +1,18 @@
-// Database types (generated from Supabase)
-declare global {
-  interface Product {
-    id: string;
-    name: string;
-    image_url: string;
-    price: number;
-    user_id: string;
-    created_at: string;
-  }
-
-  interface InventoryItem {
-    id: string;
-    product_name: string;
-    quantity: number;
-    price: number;
-    user_id: string;
-    image_url?: string;
-    created_at: string;
-  }
-}
-
-// Extend Window for voice recognition
-interface Window {
-  SpeechRecognition: typeof SpeechRecognition;
-  webkitSpeechRecognition: typeof SpeechRecognition;
+export interface Product {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  position?: string;
+  expiry?: string;
+  image?: string;
+  image_url?: string;
+  barcode?: string;
+  description?: string;
+  stock_alert?: number;
+  created_at?: string;
+  updated_at?: string;
+  shop_id?: string;
+  user_id?: string;
 }

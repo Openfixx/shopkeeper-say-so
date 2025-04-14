@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,13 +11,14 @@ export default function VoiceInput({ className }: { className?: string }) {
   const { text, isListening, listen, commandResult } = useVoiceRecognition();
   const [imageUrl, setImageUrl] = useState('');
 
-  // ▼▼▼ SIMPLE VOICE HANDLING ▼▼▼
   const handleListen = async () => {
     try {
+      toast.info("Listening...");
       await listen();
       toast.success("Voice command processed!");
-    } catch {
-      toast.error("Please speak again");
+    } catch (error) {
+      console.error("Voice recognition error:", error);
+      toast.error("Voice recognition failed. Please try again.");
     }
   };
 
@@ -25,7 +27,6 @@ export default function VoiceInput({ className }: { className?: string }) {
       setImageUrl(commandResult.imageUrl);
     }
   }, [commandResult]);
-  // ▲▲▲ END OF CHANGES ▲▲▲
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -54,8 +55,12 @@ export default function VoiceInput({ className }: { className?: string }) {
                   <img 
                     src={imageUrl} 
                     alt={commandResult.productName}
-                    className="mt-2 rounded border"
+                    className="mt-2 rounded border w-full max-w-[200px] h-auto"
                     style={{ maxWidth: '200px' }}
+                    onError={() => {
+                      toast.error("Image failed to load");
+                      setImageUrl(`https://placehold.co/300x300?text=${encodeURIComponent(commandResult.productName)}`);
+                    }}
                   />
                 )}
               </div>

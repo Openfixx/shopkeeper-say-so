@@ -27,7 +27,7 @@ serve(async (req) => {
     console.log(`Searching for image of: ${query}`);
     
     // Use Pixabay API
-    const PIXABAY_API_KEY = Deno.env.get('PIXABAY_API_KEY') || '36941293-fbca42b94c62a046e799269fa';
+    const PIXABAY_API_KEY = '36941293-fbca42b94c62a046e799269fa';
     
     const pixabayUrl = `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=3&safesearch=true`;
     
