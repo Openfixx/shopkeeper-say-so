@@ -9,5 +9,6 @@ export const convertProduct = (product: any): Product => {
     user_id: product.user_id || product.userId || '',
     userId: product.userId || product.user_id || '',
     image: product.image || product.image_url || '',
+    description: product.description || '',
   };
 };
