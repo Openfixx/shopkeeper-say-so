@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
 
@@ -42,7 +41,8 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
   const { data, error } = await supabase
     .from('products')
     .upsert({
-      ...product,
+      name: product.name,
+      image_url: product.image_url || '',
       created_at: new Date().toISOString()
     })
     .select();

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import type { DbProduct, DbBill, DbBillItem } from '@/lib/supabase';
+import type { DbProduct } from '@/lib/supabase';
 
 // Define types
 export type Product = {
@@ -150,6 +150,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
+      // DEMO MODE: Since we don't have actual tables in the Supabase project yet,
+      // we'll use demo data instead of attempting to query
+      setProducts(generateDemoProducts());
+
+      /* In a production environment with proper tables, you'd do:
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -163,21 +168,22 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const formattedProducts: Product[] = data.map((item: DbProduct) => ({
           id: item.id,
           name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          position: item.position,
+          quantity: item.quantity || 0,
+          unit: item.unit || '',
+          position: item.position || '',
           expiry: item.expiry,
-          price: item.price,
+          price: item.price || 0,
           image: item.image_url,
           barcode: item.barcode,
           stockAlert: item.stock_alert,
           createdAt: item.created_at,
-          updatedAt: item.updated_at,
+          updatedAt: item.updated_at || '',
           shopId: item.shop_id,
-          userId: item.user_id,
+          userId: item.user_id || '',
         }));
         setProducts(formattedProducts);
       }
+      */
     } catch (error) {
       console.error('Error fetching products:', error);
       // Fallback to demo data
@@ -199,6 +205,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
+      // DEMO MODE: Since we don't have the bills table in Supabase yet,
+      // we'll use demo data instead of attempting to query
+      setBills(generateDemoBills());
+
+      /* In a production environment with proper tables, you'd do:
       // Fetch bills
       const { data: billsData, error: billsError } = await supabase
         .from('bills')
@@ -252,6 +263,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
 
       setBills(billsWithItems);
+      */
     } catch (error) {
       console.error('Error fetching bills:', error);
       // Fallback to demo data

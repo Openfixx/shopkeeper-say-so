@@ -1,3 +1,4 @@
+
 declare module '@/types' {
   export interface Product {
     id: string;
