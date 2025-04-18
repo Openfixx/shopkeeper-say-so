@@ -1,4 +1,3 @@
-
 import { Product } from '@/types';
 
 // Utility function to convert product data from different sources to a consistent Product type
@@ -10,9 +9,9 @@ export const convertProduct = (input: any): Product => {
       quantity: 0,
       unit: '',
       price: 0,
+      position: '',
       description: '',
       image_url: '',
-      user_id: '',
     };
   }
 
@@ -29,11 +28,7 @@ export const convertProduct = (input: any): Product => {
     expiry: input.expiry || input.expiry_date || '',
     barcode: input.barcode || '',
     description: input.description || '',
-    stockAlert: input.stockAlert || input.stock_alert || 0,
     createdAt: input.createdAt || input.created_at || new Date().toISOString(),
-    updatedAt: input.updatedAt || input.updated_at || new Date().toISOString(),
-    user_id: input.user_id || input.userId || '',
-    shopId: input.shopId || input.shop_id || '',
   };
 };
 

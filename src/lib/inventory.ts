@@ -24,7 +24,7 @@ export const addProduct = async (
   imageFile: File
 ): Promise<Product> => {
   // Upload image to storage
-  const fileName = `${name}-${Date.now()}.jpg`;
+  const fileName = `${name}-${Date.now()}.jpg';
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('product-images')
     .upload(fileName, imageFile);
@@ -47,10 +47,12 @@ export const addProduct = async (
     .single();
 
   if (error) throw error;
+  
+  // Return product with parsed id 
   return {
-    id: data.id || '',
-    name: data.name,
-    imageUrl: data.image_url
+    id: data?.id || '',
+    name: data?.name || name,
+    imageUrl: data?.image_url || urlData.publicUrl
   };
 };
 
