@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useVoiceRecognition = () => {
   const [text, setText] = useState('');
@@ -8,40 +9,33 @@ export const useVoiceRecognition = () => {
     quantity?: { value: number; unit: string };
     position?: string;
     imageUrl?: string;
+    price?: number;
   } | null>(null);
 
-  const extractProductData = (transcript: string) => {
-    // 1. Extract product name (exclude quantities/positions)
-    const productName = transcript
-      .replace(/(\d+\s*(kg|g|ml|l)|to\s+rack\s+\d+|add|create)/gi, '')
+  // ▼▼▼ UPDATED PRODUCT NAME EXTRACTION ▼▼▼
+  const extractPureProductName = (transcript: string): string => {
+    // First try to match patterns like "add [product] to rack" 
+    const commandMatch = transcript.match(/(?:add|create)\s+(.+?)(?:\s+to\s+rack|\s+on\s+shelf|\s+for\s+₹|\d|kg|g|ml|l|$)/i);
+    if (commandMatch) return commandMatch[1].trim();
+
+    // Fallback: Remove quantities and locations
+    return transcript
+      .replace(/\b\d+\s*(kg|g|ml|l)\b/gi, '')
+      .replace(/\b(rack|shelf|position)\s*\w+\b/gi, '')
+      .replace(/\b(add|create|to|on|in|at|for|₹)\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
       .trim();
-
-    // 2. Extract quantity
-    const quantityMatch = transcript.match(/(\d+)\s*(kg|g|ml|l)/i);
-    const quantity = quantityMatch ? {
-      value: parseInt(quantityMatch[1]),
-      unit: quantityMatch[2].toLowerCase()
-    } : undefined;
-
-    // 3. Extract position
-    const positionMatch = transcript.match(/(?:rack|shelf)\s*(\d+)/i);
-    const position = positionMatch ? `Rack ${positionMatch[1]}` : undefined;
-
-    return { productName, quantity, position };
   };
+  // ▲▲▲ END OF UPDATE ▲▲▲
 
   const fetchProductImage = async (productName: string): Promise<string> => {
+    if (!productName) return '';
     try {
-      // First try Wikimedia
-      const wikiRes = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&generator=images&titles=${productName}&prop=imageinfo&iiprop=url&format=json&origin=*`
+      const response = await fetch(
+        `https://api.duckduckgo.com/?q=${encodeURIComponent(productName)}+product&iax=images&ia=images&format=json&no_redirect=1`
       );
-      const wikiData = await wikiRes.json();
-      const imageUrl = Object.values(wikiData.query?.pages || {})[0]?.imageinfo?.[0]?.url;
-      if (imageUrl) return imageUrl;
-
-      // Fallback to placeholder
-      return `https://via.placeholder.com/300/EFEFEF/000000?text=${encodeURIComponent(productName)}`;
+      const data = await response.json();
+      return data.Image || '';
     } catch {
       return '';
     }
@@ -66,17 +60,40 @@ export const useVoiceRecognition = () => {
       const transcript = await recognize(lang);
       setText(transcript);
 
-      const { productName, quantity, position } = extractProductData(transcript);
-      const imageUrl = await fetchProductImage(productName);
+      // ▼▼▼ UPDATED PROCESSING ▼▼▼
+      const productName = extractPureProductName(transcript);
+      const quantityMatch = transcript.match(/(\d+)\s*(kg|g|ml|l)/i);
+      const positionMatch = transcript.match(/(rack|shelf)\s*(\d+)/i);
+      const priceMatch = transcript.match(/₹?(\d+)/i);
 
-      const result = { productName, quantity, position, imageUrl };
+      const result = {
+        productName, // Now correctly extracted
+        quantity: quantityMatch ? {
+          value: parseInt(quantityMatch[1]),
+          unit: quantityMatch[2].toLowerCase()
+        } : undefined,
+        position: positionMatch ? `${positionMatch[1]} ${positionMatch[2]}` : undefined,
+        price: priceMatch ? parseInt(priceMatch[1]) : undefined,
+        imageUrl: await fetchProductImage(productName),
+        rawText: transcript
+      };
+      // ▲▲▲ END OF UPDATE ▲▲▲
+
       setCommandResult(result);
-      
       return result;
     } finally {
       setIsListening(false);
     }
   };
 
-  return { text, isListening, listen, commandResult, reset: () => setCommandResult(null) };
+  return { 
+    text, 
+    isListening, 
+    listen, 
+    commandResult,
+    reset: () => {
+      setText('');
+      setCommandResult(null);
+    }
+  };
 };
