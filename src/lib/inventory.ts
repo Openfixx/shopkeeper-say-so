@@ -49,7 +49,7 @@ export const addProduct = async (
 
   if (error) throw error;
   
-  // Return product with parsed id 
+  // Return product with parsed id
   return {
     id: data?.id || '',
     name: data?.name || name,
