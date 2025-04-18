@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { useVoiceRecognition } from '@/lib/voice';
@@ -16,6 +17,7 @@ export default function AddProductForm() {
   const { register, handleSubmit, setValue, watch } = useForm<FormData>();
   const { isListening, listen, commandResult } = useVoiceRecognition();
   const imageUrl = watch('imageUrl');
+  const [isImageLoading, setIsImageLoading] = useState(false);
 
   // Auto-fill form from voice command
   useEffect(() => {
@@ -76,27 +78,22 @@ export default function AddProductForm() {
         </div>
 
         {/* Image Preview */}
-       // Add this image loading state
-const [isImageLoading, setIsImageLoading] = useState(false);
-
-// Modify the image display section
-{commandResult?.imageUrl ? (
-  <div className="relative">
-    {isImageLoading && (
-      <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-    )}
-    <img
-      src={commandResult.imageUrl}
-      alt={commandResult.productName}
-      className="rounded border"
-      onLoad={() => setIsImageLoading(false)}
-      onError={(e) => {
-        e.currentTarget.src = '';
-        setIsImageLoading(false);
-      }}
-    />
-  </div>
-) : null}
+        {commandResult?.imageUrl && (
+          <div className="relative">
+            {isImageLoading && (
+              <div className="absolute inset-0 bg-gray-100 animate-pulse" />
+            )}
+            <img
+              src={commandResult.imageUrl}
+              alt={commandResult.productName}
+              className="rounded border"
+              onLoad={() => setIsImageLoading(false)}
+              onError={(e) => {
+                e.currentTarget.src = '';
+                setIsImageLoading(false);
+              }}
+            />
+          </div>
         )}
       </div>
 
