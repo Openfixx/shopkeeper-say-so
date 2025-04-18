@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 
 // Types
@@ -24,7 +25,7 @@ export const addProduct = async (
   imageFile: File
 ): Promise<Product> => {
   // Upload image to storage
-  const fileName = `${name}-${Date.now()}.jpg';
+  const fileName = `${name}-${Date.now()}.jpg`;
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('product-images')
     .upload(fileName, imageFile);
