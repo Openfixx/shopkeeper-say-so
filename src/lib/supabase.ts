@@ -102,7 +102,7 @@ export const addInventoryFromVoice = async (
 const createMockClient = () => {
   console.warn('Using mock Supabase client');
   return {
-    auth: { getUser: async () => ({ data: { user: null } }) as any,
+    auth: { getUser: async () => ({ data: { user: null } }) } as any,
     from: () => ({
       select: () => ({
         ilike: () => ({ maybeSingle: async () => ({ data: null }) })
