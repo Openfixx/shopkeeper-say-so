@@ -76,14 +76,27 @@ export default function AddProductForm() {
         </div>
 
         {/* Image Preview */}
-        {imageUrl && (
-          <div className="col-span-2">
-            <img 
-              src={imageUrl} 
-              alt="Product preview" 
-              className="h-32 object-contain border rounded"
-            />
-          </div>
+       // Add this image loading state
+const [isImageLoading, setIsImageLoading] = useState(false);
+
+// Modify the image display section
+{commandResult?.imageUrl ? (
+  <div className="relative">
+    {isImageLoading && (
+      <div className="absolute inset-0 bg-gray-100 animate-pulse" />
+    )}
+    <img
+      src={commandResult.imageUrl}
+      alt={commandResult.productName}
+      className="rounded border"
+      onLoad={() => setIsImageLoading(false)}
+      onError={(e) => {
+        e.currentTarget.src = '';
+        setIsImageLoading(false);
+      }}
+    />
+  </div>
+) : null}
         )}
       </div>
 
