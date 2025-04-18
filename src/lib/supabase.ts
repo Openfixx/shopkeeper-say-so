@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
 
@@ -139,4 +140,35 @@ export type DbInventoryItem = {
   expiry_date?: string;
   image_url?: string;
   created_at: string;
+};
+
+// Add missing bill-related types
+export type DbBill = {
+  id: string;
+  total: number;
+  delivery_option: boolean;
+  payment_method: string;
+  partial_payment: boolean;
+  created_at: string;
+  user_id: string;
+};
+
+export type DbBillItem = {
+  id: string;
+  bill_id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  total: number;
+};
+
+// Add type for profile
+export type DbProfile = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  shop_id?: string;
+  preferred_language?: string;
+  avatar?: string;
 };

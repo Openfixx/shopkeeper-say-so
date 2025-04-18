@@ -35,6 +35,12 @@ export default function AddProductForm() {
     // Add your Supabase insert logic here
   };
 
+  // Fix for listen function to handle mouse events properly
+  const handleVoiceButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    listen();
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -48,7 +54,7 @@ export default function AddProductForm() {
         <div className="flex items-end">
           <Button
             type="button"
-            onClick={listen}
+            onClick={handleVoiceButtonClick}
             disabled={isListening}
             variant="secondary"
           >

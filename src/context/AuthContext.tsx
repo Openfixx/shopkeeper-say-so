@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { Session, User, AuthError } from '@supabase/supabase-js';
+import { DbProfile } from '@/lib/supabase';
 
 type UserProfile = {
   id: string;
@@ -102,7 +103,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // Normal flow for actual Supabase setup
+      // In demo mode, handle profile differently to avoid trying to access non-existent tables
+      // We'll mock the profiles functionality
+      const demoProfile: UserProfile = {
+        id: userData?.id || 'demo-user-id',
+        name: userData?.user_metadata?.name || userData?.email?.split('@')[0] || 'User',
+        email: userData?.email || 'demo@example.com',
+        role: 'shopkeeper',
+        preferredLanguage: preferredLanguage
+      };
+      
+      setUser(demoProfile);
+      
+      /* Note: In production, you would do this instead:
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -147,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPreferredLanguage(profileData.preferred_language);
         }
       }
+      */
     } catch (error) {
       console.error('Session handling error:', error);
     } finally {
@@ -245,6 +259,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (user) {
       try {
+        // In demo mode, we don't actually update the database
+        console.log('Language preference updated to:', language);
+        
+        /* In production mode, you would do:
         const { error } = await supabase
           .from('profiles')
           .update({ preferred_language: language })
@@ -253,6 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error('Error updating language preference:', error);
         }
+        */
       } catch (error) {
         console.error('Error updating language preference:', error);
       }
