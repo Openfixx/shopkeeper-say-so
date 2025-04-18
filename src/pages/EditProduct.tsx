@@ -92,7 +92,7 @@ const EditProduct = () => {
           unit: product.unit,
           position: product.position || '',
           price: String(product.price),
-          image: product.image || product.image_url || ''
+          image: product.image_url || product.image || ''
         });
       } else {
         toast.error('Product not found');
