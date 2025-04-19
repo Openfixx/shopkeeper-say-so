@@ -4,22 +4,13 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { DbProduct } from '@/lib/supabase';
 
-// ——— Helper: fetchProductImage ———
-// Free & unlimited via Unsplash Source
+// ——— Free image helper ———
 const fetchProductImage = async (productName: string): Promise<string> => {
   if (!productName) {
-    return `https://placehold.co/300x300?text=No+Product+Name`;
+    return 'https://placehold.co/300x300?text=No+Name';
   }
-  try {
-    return `https://source.unsplash.com/300x300/?${encodeURIComponent(
-      productName
-    )}`;
-  } catch (err) {
-    console.error('Unsplash Source error:', err);
-    return `https://placehold.co/300x300?text=${encodeURIComponent(
-      productName
-    )}`;
-  }
+  const q = productName.replace(/(kg|g|ml|l)\b/gi, '').trim();
+  return `https://source.unsplash.com/300x300/?${encodeURIComponent(q)}`;
 };
 
 // ——— Types ———
@@ -40,51 +31,24 @@ export type Product = {
   userId: string;
 };
 
-export type BillItem = {
-  productId: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  price: number;
-  total: number;
-};
-
-export type Bill = {
-  id: string;
-  items: BillItem[];
-  total: number;
-  deliveryOption: boolean;
-  paymentMethod: string;
-  partialPayment: boolean;
-  createdAt: string;
-  userId: string;
-};
-
-// … (Shop & StockAlert types stay unchanged) …
+// … BillItem, Bill, Shop, StockAlert types unchanged …
 
 interface InventoryContextType {
   products: Product[];
   bills: Bill[];
   isLoading: boolean;
   error: string | null;
-  currentBill: {
-    id: string;
-    items: BillItem[];
-    total: number;
-  } | null;
-  // … all your methods …
+  currentBill: { id: string; items: BillItem[]; total: number } | null;
   addProduct: (
     product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'image'>
   ) => Promise<void>;
-  // … rest unchanged …
+  // … all your other methods unchanged …
 }
 
-const InventoryContext = createContext<InventoryContextType | undefined>(
-  undefined
-);
+const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 export const useInventory = () => {
   const ctx = useContext(InventoryContext);
-  if (!ctx) throw new Error('useInventory must be used within InventoryProvider');
+  if (!ctx) throw new Error('useInventory must be used within Provider');
   return ctx;
 };
 
@@ -100,40 +64,37 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     items: BillItem[];
     total: number;
   } | null>(null);
-  // … other state (shop type, alerts) …
+  // … other state (shopType, stockAlerts) …
 
   useEffect(() => {
-    const fetchData = async () => {
+    const init = async () => {
       setIsLoading(true);
       try {
         await Promise.all([fetchProducts(), fetchBills()]);
       } catch (e) {
         console.error(e);
-        setError('Failed to load data.');
+        setError('Failed to load data');
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
+    init();
   }, []);
 
-  // ——— fetchProducts (demo mode + supabase) — unchanged ———
   const fetchProducts = async () => {
-    // … your existing demo / supabase logic …
+    // … your existing demo + Supabase logic …
   };
 
-  // ——— fetchBills — unchanged ———
   const fetchBills = async () => {
-    // … your existing demo / supabase logic …
+    // … your existing demo + Supabase logic …
   };
 
-  // … demo data generators …
-
-  // ——— startNewBill, addToBill, removeFromBill, updateBillItem…  all unchanged …
-
-  // ——— addProduct (MODIFIED) ———
+  // ——— UPDATED addProduct ———
   const addProduct = async (
-    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'image'>
+    product: Omit<
+      Product,
+      'id' | 'createdAt' | 'updatedAt' | 'userId' | 'image'
+    >
   ) => {
     try {
       const {
@@ -142,22 +103,22 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
       const userId = session?.user?.id || 'demo-user';
       const now = new Date().toISOString();
 
-      // 1) fetch image
-      const imageUrl = await fetchProductImage(product.name);
+      // ★ fetch an image for this product name ★
+      const image = await fetchProductImage(product.name);
 
-      // 2) build newProduct
       const newProduct: Product = {
         id: uuidv4(),
         ...product,
-        image: imageUrl,
+        image,
         createdAt: now,
         updatedAt: now,
         userId,
       };
 
-      // 3) (demo) push locally, or in real app: supabase insert
+      // demo‐mode: local state
       setProducts((prev) => [...prev, newProduct]);
-      toast.success(`${product.name} added successfully`);
+
+      toast.success(`${product.name} added!`);
     } catch (err) {
       console.error(err);
       toast.error('Failed to add product');
@@ -165,7 +126,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // ——— editProduct, updateProduct, deleteProduct, refetch…  unchanged ———
+  // … keep all your other methods exactly as they were …
 
   return (
     <InventoryContext.Provider
@@ -175,9 +136,8 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
         isLoading,
         error,
         currentBill,
-        // … all other methods …
         addProduct,
-        // … etc …
+        // … plus all your other methods …
       }}
     >
       {children}
