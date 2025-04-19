@@ -1,109 +1,144 @@
+// src/components/AddProductForm.tsx
+import React, { useState } from 'react';
+import { useInventory } from '@/context/InventoryContext';
+import { useVoiceRecognition, CommandResult } from '@/lib/voice';
 
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Button } from '@/components/ui/button';
-import { useVoiceRecognition } from '@/lib/voice';
-import { toast } from 'sonner';
+export const AddProductForm: React.FC = () => {
+  const { addProduct } = useInventory();
+  const { listen, commandResult, reset: resetVoice } = useVoiceRecognition();
 
-type FormData = {
-  name: string;
-  quantity: number;
-  unit: string;
-  position: string;
-  imageUrl?: string;
-};
+  // local form state
+  const [name, setName]       = useState('');
+  const [quantity, setQuantity] = useState(0);
+  const [unit, setUnit]       = useState<string>('kg');
+  const [position, setPosition] = useState('');
+  const [price, setPrice]     = useState(0);
+  const [expiry, setExpiry]   = useState('');
+  const [imageUrl, setImageUrl] = useState('');
 
-export default function AddProductForm() {
-  const { register, handleSubmit, setValue, watch } = useForm<FormData>();
-  const { isListening, listen, commandResult } = useVoiceRecognition();
-  const imageUrl = watch('imageUrl');
-  const [isImageLoading, setIsImageLoading] = useState(false);
-
-  // Auto-fill form from voice command
-  useEffect(() => {
-    if (commandResult) {
-      setValue('name', commandResult.productName);
-      setValue('quantity', commandResult.quantity?.value || 0);
-      setValue('unit', commandResult.quantity?.unit || 'kg');
-      setValue('position', commandResult.position || 'Rack 1');
-      setValue('imageUrl', commandResult.imageUrl);
+  // on 🎤 button tap
+  const handleVoice = async () => {
+    try {
+      const result: CommandResult = await listen();
+      // populate form from voice result
+      setName(result.productName);
+      if (result.quantity) {
+        setQuantity(result.quantity.value);
+        setUnit(result.quantity.unit);
+      }
+      if (result.position) setPosition(result.position);
+      if (result.price  !== undefined) setPrice(result.price);
+      if (result.expiry !== undefined) setExpiry(result.expiry);
+      if (result.imageUrl) setImageUrl(result.imageUrl);
+    } catch (err) {
+      console.error('Voice error', err);
     }
-  }, [commandResult, setValue]);
-
-  const onSubmit = (data: FormData) => {
-    console.log('Submitting:', data);
-    // Add your Supabase insert logic here
   };
 
-  // Fix for listen function to handle mouse events properly
-  const handleVoiceButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // on form submit
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    listen();
+    if (!name) return alert('Product name is required');
+    await addProduct({
+      name,
+      quantity,
+      unit,
+      position,
+      price,
+      expiry,
+    });
+    // reset everything
+    setName('');
+    setQuantity(0);
+    setUnit('kg');
+    setPosition('');
+    setPrice(0);
+    setExpiry('');
+    setImageUrl('');
+    resetVoice();
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        {/* Product Name */}
-        <div>
-          <label>Product Name</label>
-          <input {...register('name')} />
-        </div>
+    <form onSubmit={handleSubmit} style={{ maxWidth: 400, margin: '0 auto' }}>
+      <h2>Add New Product</h2>
 
-        {/* Voice Button */}
-        <div className="flex items-end">
-          <Button
-            type="button"
-            onClick={handleVoiceButtonClick}
-            disabled={isListening}
-            variant="secondary"
-          >
-            {isListening ? 'Listening...' : 'Voice Input'}
-          </Button>
-        </div>
-
-        {/* Quantity Fields */}
-        <div>
-          <label>Quantity</label>
-          <input type="number" {...register('quantity')} />
-        </div>
-        <div>
-          <label>Unit</label>
-          <select {...register('unit')}>
-            <option value="kg">Kilograms</option>
-            <option value="g">Grams</option>
-            <option value="l">Liters</option>
-            <option value="ml">Milliliters</option>
-          </select>
-        </div>
-
-        {/* Position */}
-        <div>
-          <label>Storage Position</label>
-          <input {...register('position')} />
-        </div>
-
-        {/* Image Preview */}
-        {commandResult?.imageUrl && (
-          <div className="relative">
-            {isImageLoading && (
-              <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-            )}
-            <img
-              src={commandResult.imageUrl}
-              alt={commandResult.productName}
-              className="rounded border"
-              onLoad={() => setIsImageLoading(false)}
-              onError={(e) => {
-                e.currentTarget.src = '';
-                setIsImageLoading(false);
-              }}
-            />
-          </div>
-        )}
+      <label>Product Name</label>
+      <div style={{ display: 'flex' }}>
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="e.g. rice"
+          style={{ flex: 1 }}
+        />
+        <button type="button" onClick={handleVoice} style={{ marginLeft: 8 }}>
+          🎤
+        </button>
       </div>
 
-      <Button type="submit">Add Product</Button>
+      <label>Quantity</label>
+      <div style={{ display: 'flex' }}>
+        <input
+          type="number"
+          value={quantity}
+          min={0}
+          onChange={e => setQuantity(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <input
+          type="text"
+          value={unit}
+          onChange={e => setUnit(e.target.value)}
+          style={{ width: 60, marginLeft: 8 }}
+        />
+      </div>
+
+      <label>Position</label>
+      <input
+        type="text"
+        value={position}
+        onChange={e => setPosition(e.target.value)}
+        placeholder="e.g. rack 7"
+      />
+
+      <label>Price</label>
+      <input
+        type="number"
+        value={price}
+        min={0}
+        onChange={e => setPrice(Number(e.target.value))}
+        placeholder="₹"
+      />
+
+      <label>Expiry</label>
+      <input
+        type="text"
+        value={expiry}
+        onChange={e => setExpiry(e.target.value)}
+        placeholder="e.g. next year / 2026‑04"
+      />
+
+      <label>Image URL</label>
+      <input
+        type="text"
+        value={imageUrl}
+        onChange={e => setImageUrl(e.target.value)}
+        placeholder="https://..."
+      />
+
+      {imageUrl && (
+        <div style={{ margin: '12px 0' }}>
+          <img
+            src={imageUrl}
+            alt={name}
+            style={{ width: 200, height: 200, objectFit: 'cover' }}
+          />
+        </div>
+      )}
+
+      <button type="submit" style={{ marginTop: 16 }}>
+        Add Product
+      </button>
     </form>
   );
-}
+};
