@@ -1,3 +1,4 @@
+
 import { Product } from '@/types';
 
 // Utility function to convert product data from different sources to a consistent Product type

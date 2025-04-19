@@ -6,6 +6,7 @@ export interface Product {
   id: string;
   name: string;
   imageUrl: string | null;
+  description?: string;
 }
 
 export interface InventoryItem {
@@ -51,9 +52,10 @@ export const addProduct = async (
   
   // Return product with parsed id
   return {
-    id: data?.id || '',
+    id: data?.name || '', // Using name as id since the DB schema doesn't have an id field for products
     name: data?.name || name,
-    imageUrl: data?.image_url || urlData.publicUrl
+    imageUrl: data?.image_url || urlData.publicUrl,
+    description: '' // Add a default empty description
   };
 };
 
