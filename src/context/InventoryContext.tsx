@@ -1,11 +1,10 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { DbProduct } from '@/lib/supabase';
 import { Bill, BillItem, StockAlert, ProductFindResult } from '@/types/inventory';
-// Import Shop directly from types/inventory
+import { fetchProductImage } from '@/lib/fetchImage'; 
 import type { Shop } from '@/types/inventory';
 
 // ——— Types ———
@@ -18,6 +17,7 @@ export type Product = {
   expiry?: string;
   price: number;
   image?: string;
+  image_url?: string;
   barcode?: string;
   stockAlert?: number;
   createdAt: string;
@@ -35,16 +35,14 @@ interface InventoryContextType {
   stockAlerts: StockAlert[];
   currentShopType: string;
   
-  // Product management methods
   addProduct: (
-    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'image'>
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
   ) => Promise<void>;
   updateProduct: (id: string, product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   findProduct: (name: string) => ProductFindResult[];
   scanBarcode: (barcode: string) => Promise<Product | null>;
   
-  // Bill management methods
   startNewBill: () => void;
   addToBill: (productId: string, quantity: number) => void;
   removeFromBill: (productId: string) => void;
@@ -53,17 +51,14 @@ interface InventoryContextType {
   completeBill: () => void;
   cancelBill: () => void;
   
-  // Shop management methods
   setShopType: (type: string) => void;
   findNearbyShops: (query: string, distance: number, type?: string) => Shop[];
   
-  // Stock alerts
   setStockAlert: (productId: string, threshold: number) => void;
   removeStockAlert: (productId: string) => void;
 }
 
-// Re-export the Shop type properly using 'export type'
-export type { Shop };  // Use 'export type' here to re-export the type
+export type { Shop };
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 export const useInventory = () => {
@@ -86,8 +81,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
   } | null>(null);
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [currentShopType, setCurrentShopType] = useState<string>('');
-  // … other state (shopType, stockAlerts) …
-
+  
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -107,7 +101,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Demo mode: seed from localStorage
       if (process.env.NEXT_PUBLIC_DEMO_MODE) {
         const storedProducts = localStorage.getItem('demo-products');
         if (storedProducts) {
@@ -116,14 +109,12 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      // 2. Supabase
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      // Convert from DB format to our local `Product` type
       const typedProducts: Product[] = (data || []).map((p: any) => ({
         id: p.id || uuidv4(),
         name: p.name || p.product_name || '',
@@ -153,13 +144,10 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Demo mode: seed from localStorage
       if (process.env.NEXT_PUBLIC_DEMO_MODE) {
-        return; // no bills in demo mode
+        return;
       }
 
-      // 2. Supabase - we skip this for now as bills table is likely not set up yet
-      // Just use mock data or empty array for now
       setBills([]);
     } catch (e: any) {
       console.error('Failed to load bills from Supabase', e);
@@ -169,11 +157,10 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // ——— UPDATED addProduct ———
   const addProduct = async (
     product: Omit<
       Product,
-      'id' | 'createdAt' | 'updatedAt' | 'userId' | 'image'
+      'id' | 'createdAt' | 'updatedAt' | 'userId'
     >
   ) => {
     try {
@@ -183,7 +170,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
       const userId = session?.user?.id || 'demo-user';
       const now = new Date().toISOString();
 
-      // ★ fetch an image for this product name ★
       const image = await fetchProductImage(product.name);
 
       const newProduct: Product = {
@@ -195,7 +181,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
         userId,
       };
 
-      // demo‐mode: local state
       setProducts((prev) => [...prev, newProduct]);
 
       toast.success(`${product.name} added!`);
@@ -206,9 +191,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Add the missing methods to fix the TypeScript errors
-  
-  // Product management methods
   const updateProduct = async (id: string, updatedProduct: Product) => {
     try {
       setProducts(prev => prev.map(p => p.id === id ? { ...updatedProduct, updatedAt: new Date().toISOString() } : p));
@@ -257,7 +239,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     return null;
   };
 
-  // Bill management methods
   const startNewBill = () => {
     setCurrentBill({
       id: uuidv4(),
@@ -278,17 +259,14 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
       const product = products.find(p => p.id === productId);
       if (!product) return prev;
       
-      // Check if product already in bill
       const existingItemIndex = prev.items.findIndex(item => item.productId === productId);
       
       let updatedItems: BillItem[];
       if (existingItemIndex >= 0) {
-        // Update existing item quantity
         updatedItems = [...prev.items];
         updatedItems[existingItemIndex].quantity += quantity;
         updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].price;
       } else {
-        // Add new item
         const newItem: BillItem = {
           productId,
           name: product.name,
@@ -301,7 +279,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
         updatedItems = [...prev.items, newItem];
       }
       
-      // Calculate new total
       const newTotal = updatedItems.reduce((sum, item) => sum + item.total, 0);
       
       return {
@@ -382,7 +359,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
   const completeBill = () => {
     if (!currentBill || currentBill.items.length === 0) return;
     
-    // Create a new completed bill
     const completedBill: Bill = {
       id: currentBill.id,
       items: [...currentBill.items],
@@ -391,10 +367,8 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'completed'
     };
     
-    // Add to bills history
     setBills(prev => [completedBill, ...prev]);
     
-    // Reset current bill
     setCurrentBill(null);
     
     toast.success('Bill completed successfully');
@@ -403,7 +377,6 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
   const cancelBill = () => {
     if (!currentBill) return;
     
-    // Add to history as cancelled
     if (currentBill.items.length > 0) {
       const cancelledBill: Bill = {
         id: currentBill.id,
@@ -416,19 +389,16 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
       setBills(prev => [cancelledBill, ...prev]);
     }
     
-    // Reset current bill
     setCurrentBill(null);
     
     toast.info('Bill cancelled');
   };
 
-  // Shop management methods
   const setShopType = (type: string) => {
     setCurrentShopType(type);
   };
 
   const findNearbyShops = (query: string, distance: number, type?: string): Shop[] => {
-    // This is a mock implementation - in a real app this would call an API
     const mockShops: Shop[] = [
       { id: '1', name: 'Grocery Store', type: 'Grocery', location: 'Main Street', distance: 1.2 },
       { id: '2', name: 'Electronics Bazaar', type: 'Electronics', location: 'Tech Lane', distance: 2.5 },
@@ -437,20 +407,16 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     ];
     
     return mockShops.filter(shop => {
-      // Filter by type if provided
       if (type && shop.type !== type) return false;
       
-      // Filter by distance
       if (shop.distance > distance) return false;
       
-      // Filter by query if provided
       if (query && !shop.name.toLowerCase().includes(query.toLowerCase())) return false;
       
       return true;
     });
   };
 
-  // Stock alert methods
   const setStockAlert = (productId: string, threshold: number) => {
     setStockAlerts(prev => {
       const existing = prev.find(a => a.productId === productId);
@@ -500,4 +466,3 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     </InventoryContext.Provider>
   );
 };
-

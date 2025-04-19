@@ -42,7 +42,7 @@ interface ProductFormData {
   position: string;
   expiry?: string;
   price: number;
-  image?: string;
+  image_url?: string;
 }
 
 const initialFormData: ProductFormData = {
@@ -52,7 +52,7 @@ const initialFormData: ProductFormData = {
   position: '',
   expiry: '',
   price: 0,
-  image: '',
+  image_url: '',
 };
 
 const Products: React.FC = () => {
@@ -109,7 +109,7 @@ const Products: React.FC = () => {
             position: productDetails.position || '',
             expiry: productDetails.expiry || '',
             price: productDetails.price || 0,
-            image: productDetails.image || '',
+            image_url: productDetails.image || '',
           });
           
           setIsAddDialogOpen(true);
@@ -157,7 +157,7 @@ const Products: React.FC = () => {
         const imageUrl = reader.result as string;
         setFormData(prev => ({
           ...prev,
-          image: imageUrl
+          image_url: imageUrl
         }));
         toast.success('Product image uploaded');
       };
@@ -180,7 +180,7 @@ const Products: React.FC = () => {
           const imageUrl = reader.result as string;
           setFormData(prev => ({
             ...prev,
-            image: imageUrl
+            image_url: imageUrl
           }));
           toast.success('Product image captured');
         };
@@ -204,7 +204,7 @@ const Products: React.FC = () => {
       if (imageUrl) {
         setFormData(prev => ({
           ...prev,
-          image: imageUrl
+          image_url: imageUrl
         }));
         toast.dismiss();
         toast.success('Product image found');
@@ -235,7 +235,7 @@ const Products: React.FC = () => {
         position: formData.position,
         expiry: formData.expiry,
         price: formData.price,
-        image: formData.image,
+        image_url: formData.image_url,
         barcode: undefined,
         stockAlert: undefined,
         shopId: undefined
@@ -257,7 +257,7 @@ const Products: React.FC = () => {
       position: product.position || '',
       expiry: product.expiry || '',
       price: product.price,
-      image: product.image_url || product.image || '',
+      image_url: product.image_url || product.image || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -287,7 +287,7 @@ const Products: React.FC = () => {
             <Input
               id="image"
               name="image"
-              value={formData.image}
+              value={formData.image_url}
               onChange={handleInputChange}
               placeholder="https://example.com/image.jpg"
               className="flex-1"
@@ -395,10 +395,10 @@ const Products: React.FC = () => {
               </Label>
             </div>
             
-            {formData.image && (
+            {formData.image_url && (
               <div className="relative border rounded-md overflow-hidden h-40">
                 <img 
-                  src={formData.image} 
+                  src={formData.image_url} 
                   alt={formData.name || 'Product'} 
                   className="w-full h-full object-contain"
                 />

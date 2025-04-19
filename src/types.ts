@@ -2,13 +2,13 @@
 export type Product = {
   id: string;
   name: string;
-  price: number;
-  image_url: string;
-  user_id?: string;
   description: string;
   quantity: number;
   unit: string;
-  position?: string;
+  price: number;
+  position: string; // This is required in InventoryContext.Product
+  image_url: string;
+  user_id?: string;
   expiry?: string;
   image?: string; // For backward compatibility
   barcode?: string;

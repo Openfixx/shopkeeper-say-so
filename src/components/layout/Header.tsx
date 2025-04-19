@@ -6,7 +6,11 @@ import { Link } from 'react-router-dom';
 import { convertProduct } from '@/utils/productUtils';
 import type { Product } from '@/types';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  toggleSidebar?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
