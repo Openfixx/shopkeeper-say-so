@@ -1,45 +1,56 @@
 
 import { toast } from 'sonner';
 
-/** 
+/**
  * Fetch product image via Unsplash Source API (free & unlimited) 
  */
 export const fetchProductImage = async (productName: string): Promise<string> => {
   if (!productName) {
     return `https://placehold.co/300x300?text=No+Product+Name`;
   }
+  
+  const encodedQuery = encodeURIComponent(productName);
+  
   try {
-    // 300×300px, random photo of “<productName>”
-    const url = `https://source.unsplash.com/300x300/?${encodeURIComponent(productName)}`;
-    return url;
-  } catch (err) {
-    console.error('Unsplash Source error:', err);
-    // last‐ditch placeholder
-    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
-  }
-};
-
-// Keep the cache logic as is below...
+    toast.loading(`Finding image for ${productName}...`);
     
-    // Try with a more general term if specific search fails
-    const genericTerm = productName.split(' ')[0];
-    if (genericTerm !== productName) {
-      const genericResponse = await fetch(
-        `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(genericTerm)}&image_type=photo&per_page=3`
-      );
+    // Primary strategy: Unsplash Source API
+    try {
+      // 300×300px, random photo of "<productName>"
+      const url = `https://source.unsplash.com/300x300/?${encodedQuery}`;
+      toast.dismiss();
+      toast.success('Image found!');
+      return url;
+    } catch (unsplashErr) {
+      console.error('Unsplash Source error:', unsplashErr);
       
-      if (genericResponse.ok) {
-        const genericData = await genericResponse.json();
-        if (genericData.hits && genericData.hits.length > 0) {
-          toast.success('Generic image found');
-          return genericData.hits[0].webformatURL;
+      // Secondary strategy: Try with a more general term if specific search fails
+      const genericTerm = productName.split(' ')[0];
+      if (genericTerm !== productName) {
+        try {
+          const PIXABAY_API_KEY = '36941293-fbca42b94c62a046e799269fa'; // This should ideally be in an env var
+          const genericResponse = await fetch(
+            `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodeURIComponent(genericTerm)}&image_type=photo&per_page=3`
+          );
+          
+          if (genericResponse.ok) {
+            const genericData = await genericResponse.json();
+            if (genericData.hits && genericData.hits.length > 0) {
+              toast.dismiss();
+              toast.success('Generic image found');
+              return genericData.hits[0].webformatURL;
+            }
+          }
+        } catch (genericErr) {
+          console.error('Generic term search error:', genericErr);
         }
       }
+      
+      // Fallback if all else fails
+      toast.dismiss();
+      toast.error('No image found');
+      return `https://placehold.co/300x300?text=${encodedQuery}`;
     }
-    
-    toast.error('No image found');
-    return `https://placehold.co/300x300?text=${encodedQuery}`;
-    
   } catch (error) {
     console.error('Error fetching image:', error);
     toast.dismiss();
