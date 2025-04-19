@@ -1,36 +1,25 @@
 
 import { toast } from 'sonner';
 
-/**
- * Fetch product image from Pixabay API
+/** 
+ * Fetch product image via Unsplash Source API (free & unlimited) 
  */
 export const fetchProductImage = async (productName: string): Promise<string> => {
   if (!productName) {
     return `https://placehold.co/300x300?text=No+Product+Name`;
   }
-
   try {
-    toast.loading(`Finding image for ${productName}...`);
-    
-    const PIXABAY_API_KEY = '36941293-fbca42b94c62a046e799269fa'; // Free API key with limited usage
-    const encodedQuery = encodeURIComponent(productName.trim());
-    
-    const response = await fetch(
-      `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=${encodedQuery}&image_type=photo&per_page=3`
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Pixabay API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    toast.dismiss();
-    
-    if (data.hits && data.hits.length > 0) {
-      toast.success('Image found!');
-      return data.hits[0].webformatURL;
-    }
+    // 300×300px, random photo of “<productName>”
+    const url = `https://source.unsplash.com/300x300/?${encodeURIComponent(productName)}`;
+    return url;
+  } catch (err) {
+    console.error('Unsplash Source error:', err);
+    // last‐ditch placeholder
+    return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+  }
+};
+
+// Keep the cache logic as is below...
     
     // Try with a more general term if specific search fails
     const genericTerm = productName.split(' ')[0];
