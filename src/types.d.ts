@@ -12,5 +12,6 @@ declare module '@/types' {
     image_url?: string;
     created_at?: string;
     expiry?: string;
+    barcode?: string;
   }
 }
