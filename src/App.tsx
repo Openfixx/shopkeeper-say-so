@@ -1,4 +1,4 @@
-
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -9,13 +9,16 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import Layout from '@/components/layout/Layout';
 import EnhancedLogin from '@/pages/EnhancedLogin';
 import ModernRegister from '@/pages/ModernRegister';
-import Dashboard from '@/pages/Index'; // Using Index.tsx which contains the Dashboard component
+import Dashboard from '@/pages/Index';
 import Inventory from '@/pages/Inventory';
 import Products from '@/pages/Products';
 import Reports from '@/pages/Reports';
 import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
-import AddProduct from '@/pages/AddProduct';
+// ← NEW: import your form here
+import { AddProductForm } from '@/components/AddProductForm';
+// ← you can remove this if you’re no longer using the old page
+// import AddProduct from '@/pages/AddProduct';
 import EditProduct from '@/pages/EditProduct';
 import ShopFinder from '@/pages/ShopFinder';
 import NearbyShops from '@/pages/NearbyShops';
@@ -42,7 +45,10 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/products" element={<Products />} />
-                  <Route path="/products/add" element={<AddProduct />} />
+
+                  {/* ← CHANGED: render AddProductForm instead of the old AddProduct page */}
+                  <Route path="/products/add" element={<AddProductForm />} />
+
                   <Route path="/products/edit/:id" element={<EditProduct />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/billing" element={<Billing />} />
