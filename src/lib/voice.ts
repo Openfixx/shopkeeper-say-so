@@ -15,92 +15,115 @@ export const useVoiceRecognition = () => {
   const [isListening, setIsListening] = useState(false);
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
 
-  // 1) Better name‐only extractor:
+  // ——— 1) Regex‑based name extractor ———
   const extractPureProductName = (t: string): string => {
-    // look for optional “add/create”, optional qty+unit, then capture up to any of:
-    //  • “to/on/in rack|shelf”
-    //  • “price” or “₹”
-    //  • numeric (start of quantity/price)
-    //  • “expiry” etc
     const m = t.match(
-      /(?:add|create)?\s*(?:\d+\s*(?:kg|g|ml|l)\s*)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i
+      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l)\s*)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i
     );
     if (m && m[1]) return m[1].trim();
-    // fallback: strip qty, positions, keywords
     return t
-      .replace(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l)\b/gi, '')
+      .replace(/(\d+(?:\.\d+)?|one|two|three|…|ten)\s*(kg|g|ml|l)\b/gi, '')
       .replace(/\b(?:to|on|in)\s+(?:rack|shelf)\s*\d+\b/gi, '')
       .replace(/\b(add|create|price|for|₹|expiry|expire|next)\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
   };
 
-  // 2) Quantity parser
+  // ——— 2) Quantity / position / price / expiry parsers ———
   const parseQuantity = (t: string) => {
-    const m = t.match(/(\d+)\s*(kg|g|ml|l)/i);
-    return m
-      ? { value: parseInt(m[1], 10), unit: m[2].toLowerCase() }
-      : undefined;
+    const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l)/i);
+    return m ? { value: parseFloat(m[1]), unit: m[2].toLowerCase() } : undefined;
   };
-
-  // 3) Position parser
   const parsePosition = (t: string) => {
     const m = t.match(/(?:to|on|in)\s+(rack|shelf)\s*(\d+)/i);
     return m ? `${m[1]} ${m[2]}` : undefined;
   };
-
-  // 4) Price parser
   const parsePrice = (t: string) => {
-    const m = t.match(/₹\s*(\d+)/) || t.match(/(\d+)\s*₹/);
-    return m ? parseInt(m[1], 10) : undefined;
+    const m = t.match(/₹\s*(\d+(?:\.\d+)?)/) || t.match(/(\d+(?:\.\d+)?)\s*₹/);
+    return m ? parseFloat(m[1]) : undefined;
   };
-
-  // 5) Expiry (just grab everything after “expiry”)
   const parseExpiry = (t: string) => {
     const m = t.match(/\b(?:expiry|expire|next)\b\s*(.+)/i);
     return m ? m[1].trim() : undefined;
   };
 
-  // 6) Free & unlimited image via Unsplash Source
-  const fetchProductImage = async (productName: string): Promise<string> => {
-    if (!productName) {
-      return 'https://placehold.co/300x300?text=No+Name';
+  // ——— 3) Tiny autocorrect dictionary + Levenshtein ———
+  const DICTIONARY = ['rice','sugar','flour','oil','salt','soap','shampoo','detergent'];
+  const levenshtein = (a: string, b: string) => {
+    const dp: number[][] = Array(a.length+1).fill(0).map(() => Array(b.length+1).fill(0));
+    for (let i=0;i<=a.length;i++) dp[i][0]=i;
+    for (let j=0;j<=b.length;j++) dp[0][j]=j;
+    for (let i=1;i<=a.length;i++){
+      for (let j=1;j<=b.length;j++){
+        dp[i][j] = Math.min(
+          dp[i-1][j] + 1,
+          dp[i][j-1] + 1,
+          dp[i-1][j-1] + (a[i-1]===b[j-1]?0:1)
+        );
+      }
     }
-    // force lowercase and strip units
-    const q = productName.replace(/(kg|g|ml|l)\b/gi, '').trim();
-    // 300×300 random photo
-    return `https://source.unsplash.com/300x300/?${encodeURIComponent(q)}`;
+    return dp[a.length][b.length];
+  };
+  const autoCorrect = (input: string): string => {
+    let best = input, minDist = Infinity;
+    for (const w of DICTIONARY) {
+      const d = levenshtein(input.toLowerCase(), w.toLowerCase());
+      if (d < minDist) { minDist = d; best = w; }
+    }
+    // only correct if “close enough”
+    return minDist <= 2 ? best : input;
   };
 
-  // 7) Browser speech recognition
-  const recognize = async (lang: string = 'en-IN'): Promise<string> => {
+  // ——— 4) Free Unsplash image fetch ———
+  const fetchProductImage = async (productName: string): Promise<string> => {
+    if (!productName) return 'https://placehold.co/300x300?text=No+Name';
+    const q = productName.replace(/(kg|g|ml|l)\b/gi, '').trim().toLowerCase();
+    const url = `https://source.unsplash.com/300x300/?${encodeURIComponent(q)}`;
+    console.log('Unsplash URL →', url);
+    return url;
+  };
+
+  // ——— 5) Browser SpeechRecognition core ———
+  const recognize = async (lang = 'en-IN'): Promise<string> => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      alert('❌ SpeechRecognition not supported on this device.');
+      throw new Error('SR not supported');
+    }
     const recog = new SR();
     recog.lang = lang;
+    recog.interimResults = false;
     recog.continuous = false;
     return new Promise((resolve, reject) => {
       recog.onresult = (e: any) => resolve(e.results[0][0].transcript);
-      recog.onerror = (e: any) => reject(e.error);
+      recog.onerror  = (e: any) => reject(e.error);
       recog.start();
     });
   };
 
-  // 8) Single‐shot “listen once” API
+  // ——— 6) Single‐shot listen + parse + autocorrect ———
   const listen = async (lang = 'en-IN'): Promise<CommandResult> => {
     setIsListening(true);
     try {
       const transcript = await recognize(lang);
+      console.log('Transcript →', transcript);
       setText(transcript);
 
-      const productName = extractPureProductName(transcript);
+      // raw vs. corrected name
+      const rawName = extractPureProductName(transcript);
+      console.log('Extracted (raw) name →', rawName);
+      const correctedName = autoCorrect(rawName);
+      console.log('Auto‑corrected name →', correctedName);
+
+      // parse the rest
       const quantity = parseQuantity(transcript);
       const position = parsePosition(transcript);
-      const price = parsePrice(transcript);
-      const expiry = parseExpiry(transcript);
-      const imageUrl = await fetchProductImage(productName);
+      const price    = parsePrice(transcript);
+      const expiry   = parseExpiry(transcript);
+      const imageUrl = await fetchProductImage(correctedName);
 
       const result: CommandResult = {
-        productName,
+        productName: correctedName,
         quantity,
         position,
         price,
@@ -109,6 +132,7 @@ export const useVoiceRecognition = () => {
         rawText: transcript,
       };
 
+      console.log('Final CommandResult →', result);
       setCommandResult(result);
       return result;
     } finally {
