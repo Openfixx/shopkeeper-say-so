@@ -1,4 +1,3 @@
-// src/components/AddProductForm.tsx
 import React, { useState } from 'react';
 import { useInventory } from '@/context/InventoryContext';
 import { useVoiceRecognition, CommandResult } from '@/lib/voice';
@@ -20,6 +19,8 @@ export const AddProductForm: React.FC = () => {
   const handleVoice = async () => {
     try {
       const result: CommandResult = await listen();
+      console.log('🗣️ Voice result in form:', result);
+      
       // populate form from voice result
       setName(result.productName);
       if (result.quantity) {
@@ -34,15 +35,7 @@ export const AddProductForm: React.FC = () => {
       console.error('Voice error', err);
     }
   };
-const handleVoice = async () => {
-  try {
-    const result: CommandResult = await listen();
-    console.log('🗣️ Voice result in form:', result);
-    // …populate your fields…
-  } catch (err) {
-    console.error('Voice error', err);
-  }
-};
+
   // on form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
