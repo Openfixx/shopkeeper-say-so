@@ -16,7 +16,7 @@ import { Slider } from '@/components/ui/slider';
 import { Building, Search, MapPin, Phone, Share, ShoppingCart } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
-import { Shop } from '@/context/InventoryContext';
+import { Shop } from '@/types/inventory';
 
 type ShopFinderProps = {
   onSelectShop?: (shop: Shop) => void;

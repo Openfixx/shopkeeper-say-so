@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,8 +9,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-// Import Product from the correct location
-import { Product } from '@/types';
+import { Product } from '@/context/InventoryContext';
 import { convertProduct } from '@/utils/productUtils';
 
 const EditProduct = () => {
@@ -34,16 +32,16 @@ const EditProduct = () => {
     if (id && products.length > 0) {
       const foundProduct = products.find(p => p.id === id);
       if (foundProduct) {
-        const convertedProduct = convertProduct(foundProduct);
+        const convertedProduct = foundProduct;
         setProduct(convertedProduct);
         setFormData({
           name: foundProduct.name || '',
-          description: convertedProduct.description || '',
+          description: '',
           price: String(foundProduct.price || 0),
           quantity: String(foundProduct.quantity || 0),
           unit: foundProduct.unit || '',
           position: foundProduct.position || '',
-          image: convertedProduct.image_url || convertedProduct.image || ''
+          image: foundProduct.image || ''
         });
       }
     }
@@ -63,12 +61,10 @@ const EditProduct = () => {
       const updatedProduct: Product = {
         ...product,
         name: formData.name,
-        description: formData.description,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
         unit: formData.unit,
         position: formData.position,
-        image_url: formData.image,
         image: formData.image
       };
       
@@ -87,16 +83,16 @@ const EditProduct = () => {
       const product = products.find(p => p.id === id);
       
       if (product) {
-        const convertedProduct = convertProduct(product);
         setFormData({
           name: product.name,
-          description: convertedProduct.description || '',
+          description: '',
           quantity: String(product.quantity),
           unit: product.unit,
           position: product.position || '',
           price: String(product.price),
-          image: convertedProduct.image_url || convertedProduct.image || ''
+          image: product.image || ''
         });
+        setProduct(product);
       } else {
         toast.error('Product not found');
         navigate('/products');

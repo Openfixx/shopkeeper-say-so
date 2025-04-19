@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Package2, 
@@ -223,10 +223,22 @@ const Products: React.FC = () => {
     e.preventDefault();
     
     if (editingProductId) {
-      updateProduct(editingProductId, formData);
+      const product = convertProduct(products.find(p => p.id === editingProductId));
+      if (!product) return;
+      updateProduct(editingProductId, product);
       setIsEditDialogOpen(false);
     } else {
-      addProduct(formData);
+      addProduct({
+        name: formData.name,
+        quantity: formData.quantity,
+        unit: formData.unit,
+        position: formData.position,
+        expiry: formData.expiry,
+        price: formData.price,
+        barcode: undefined,
+        stockAlert: undefined,
+        shopId: undefined
+      });
       setIsAddDialogOpen(false);
     }
     

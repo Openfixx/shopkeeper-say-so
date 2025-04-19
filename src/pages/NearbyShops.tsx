@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useInventory, Shop } from '@/context/InventoryContext';
+import { useInventory } from '@/context/InventoryContext';
 import ShopTypeChanger from '@/components/ui-custom/ShopTypeChanger';
+import { Shop } from '@/types/inventory';
 
 const NearbyShops: React.FC = () => {
   const { findNearbyShops } = useInventory();
