@@ -1,5 +1,54 @@
-Looking at the context, I don't see the full content of the `src/components/layout/Header.tsx` file in the provided code snippets. The AI mentioned this file but didn't show its full content, only commenting that it's a "read-only file" with an error on line 245 related to the `image` property in `addProduct`.
 
-Without seeing the original file content, I cannot provide the complete code with the necessary replacements. The AI didn't actually provide the full content of this file in its response, only mentioning that there was an issue with it.
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import { Link } from 'react-router-dom';
+import { convertProduct } from '@/utils/productUtils';
+import type { Product } from '@/types';
 
-If you need the complete code for this file, you would need to provide the original content of `src/components/layout/Header.tsx` first, and then I could help replace the commented sections with the appropriate code.
+const Header: React.FC = () => {
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
+  // This is a placeholder function for adding products that uses the correct type conversion
+  const addProduct = (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
+    // Convert the product data using the utility function to ensure proper type handling
+    const convertedProduct = convertProduct({
+      ...productData,
+      id: '',
+      created_at: '',
+      user_id: user?.id || ''
+    });
+    
+    // Here you would normally make an API call or dispatch an action
+    console.log('Adding product:', convertedProduct);
+  };
+
+  return (
+    <header className="bg-background border-b border-border px-4 py-3 flex justify-between items-center">
+      <Link to="/" className="text-xl font-bold text-primary">Inventory Pro</Link>
+      
+      <div className="flex items-center gap-4">
+        {user ? (
+          <>
+            <span className="text-sm text-muted-foreground hidden md:inline-block">
+              Welcome, {user.name}
+            </span>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
+          </>
+        ) : (
+          <Link to="/login">
+            <Button variant="default" size="sm">Login</Button>
+          </Link>
+        )}
+      </div>
+    </header>
+  );
+};
+
+export default Header;
