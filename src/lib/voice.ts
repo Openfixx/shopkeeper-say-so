@@ -2,75 +2,78 @@ import { useState } from 'react';
 
 export type CommandResult = {
   productName: string;
-  quantity: { value: number; unit: string };
-  position: string;
-  price: number;
-  expiry: string;
-  imageUrl: string;
+  quantity?: { value: number; unit: string };
+  position?: string;
+  price?: number;
+  expiry?: string;
+  imageUrl?: string;
   rawText: string;
 };
 
-type Step =
-  | 'askName'
-  | 'askQuantity'
-  | 'askPosition'
-  | 'askPrice'
-  | 'askExpiry'
-  | 'done';
-
 export const useVoiceRecognition = () => {
-  const [step, setStep] = useState<Step>('askName');
-  const [partial, setPartial] = useState<Partial<CommandResult>>({});
+  const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [commandResult, setCommandResult] = useState<CommandResult | null>(
-    null
-  );
+  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
 
-  // Prompts for each step
-  const prompts: Record<Step, string> = {
-    askName: 'Please say the product name.',
-    askQuantity: 'Please say the quantity and its unit.',
-    askPosition: 'Please say the position—e.g. rack 7.',
-    askPrice: 'Please say the price in rupees.',
-    askExpiry: 'Please say the expiry (date or relative time).',
-    done: '',
-  };
-  const promptText = prompts[step];
-
-  // —— extractPureProductName (same as before) ——
+  // 1) Better name‐only extractor:
   const extractPureProductName = (t: string): string => {
+    // look for optional “add/create”, optional qty+unit, then capture up to any of:
+    //  • “to/on/in rack|shelf”
+    //  • “price” or “₹”
+    //  • numeric (start of quantity/price)
+    //  • “expiry” etc
     const m = t.match(
-      /(?:add|create)?\s*(?:\d+\s*(?:kg|g|ml|l)\s*)?(.+?)(?=\s+(?:to\s+rack|on\s+shelf|for\s+₹|\d|kg|g|ml|l|$))/i
+      /(?:add|create)?\s*(?:\d+\s*(?:kg|g|ml|l)\s*)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i
     );
     if (m && m[1]) return m[1].trim();
+    // fallback: strip qty, positions, keywords
     return t
       .replace(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l)\b/gi, '')
-      .replace(/\b(rack|shelf)\s*\d+\b/gi, '')
-      .replace(/\b(add|create|to|on|in|at|for|₹)\b/gi, '')
+      .replace(/\b(?:to|on|in)\s+(?:rack|shelf)\s*\d+\b/gi, '')
+      .replace(/\b(add|create|price|for|₹|expiry|expire|next)\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
   };
 
-  // —— parseQuantity ——
+  // 2) Quantity parser
   const parseQuantity = (t: string) => {
     const m = t.match(/(\d+)\s*(kg|g|ml|l)/i);
     return m
       ? { value: parseInt(m[1], 10), unit: m[2].toLowerCase() }
-      : { value: 1, unit: 'pcs' };
+      : undefined;
   };
 
-  // —— fetchProductImage (same Unsplash logic) ——
-  const fetchProductImage = async (name: string): Promise<string> => {
-    if (!name) return '';
-    try {
-      return `https://source.unsplash.com/300x300/?${encodeURIComponent(name)}`;
-    } catch {
-      return '';
+  // 3) Position parser
+  const parsePosition = (t: string) => {
+    const m = t.match(/(?:to|on|in)\s+(rack|shelf)\s*(\d+)/i);
+    return m ? `${m[1]} ${m[2]}` : undefined;
+  };
+
+  // 4) Price parser
+  const parsePrice = (t: string) => {
+    const m = t.match(/₹\s*(\d+)/) || t.match(/(\d+)\s*₹/);
+    return m ? parseInt(m[1], 10) : undefined;
+  };
+
+  // 5) Expiry (just grab everything after “expiry”)
+  const parseExpiry = (t: string) => {
+    const m = t.match(/\b(?:expiry|expire|next)\b\s*(.+)/i);
+    return m ? m[1].trim() : undefined;
+  };
+
+  // 6) Free & unlimited image via Unsplash Source
+  const fetchProductImage = async (productName: string): Promise<string> => {
+    if (!productName) {
+      return 'https://placehold.co/300x300?text=No+Name';
     }
+    // force lowercase and strip units
+    const q = productName.replace(/(kg|g|ml|l)\b/gi, '').trim();
+    // 300×300 random photo
+    return `https://source.unsplash.com/300x300/?${encodeURIComponent(q)}`;
   };
 
-  // —— Speech Recognition core ——
-  const recognize = async (lang: string): Promise<string> => {
+  // 7) Browser speech recognition
+  const recognize = async (lang: string = 'en-IN'): Promise<string> => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recog = new SR();
     recog.lang = lang;
@@ -82,86 +85,41 @@ export const useVoiceRecognition = () => {
     });
   };
 
-  // —— Move to next step —— 
-  const next = async (lang = 'en-IN') => {
+  // 8) Single‐shot “listen once” API
+  const listen = async (lang = 'en-IN'): Promise<CommandResult> => {
     setIsListening(true);
     try {
-      const spoken = await recognize(lang);
-      // accumulate rawText
-      setPartial((p) => ({
-        ...p,
-        rawText: p.rawText ? p.rawText + ' ' + spoken : spoken,
-      }));
+      const transcript = await recognize(lang);
+      setText(transcript);
 
-      switch (step) {
-        case 'askName': {
-          const name = extractPureProductName(spoken);
-          setPartial((p) => ({ ...p, productName: name }));
-          setStep('askQuantity');
-          break;
-        }
-        case 'askQuantity': {
-          const qty = parseQuantity(spoken);
-          setPartial((p) => ({ ...p, quantity: qty }));
-          setStep('askPosition');
-          break;
-        }
-        case 'askPosition': {
-          const m = spoken.match(/(rack|shelf)\s*(\d+)/i);
-          const pos = m ? `${m[1]} ${m[2]}` : spoken;
-          setPartial((p) => ({ ...p, position: pos }));
-          setStep('askPrice');
-          break;
-        }
-        case 'askPrice': {
-          const m = spoken.match(/₹?(\d+)/);
-          const price = m ? parseInt(m[1], 10) : 0;
-          setPartial((p) => ({ ...p, price }));
-          setStep('askExpiry');
-          break;
-        }
-        case 'askExpiry': {
-          // store exactly what was spoken for expiry
-          setPartial((p) => ({ ...p, expiry: spoken }));
-          setStep('done');
-          break;
-        }
-        case 'done': {
-          // nothing
-          break;
-        }
-      }
+      const productName = extractPureProductName(transcript);
+      const quantity = parseQuantity(transcript);
+      const position = parsePosition(transcript);
+      const price = parsePrice(transcript);
+      const expiry = parseExpiry(transcript);
+      const imageUrl = await fetchProductImage(productName);
 
-      // once done, assemble final result
-      if (step === 'done' || step === 'askExpiry') {
-        const final: CommandResult = {
-          productName: partial.productName!,
-          quantity: partial.quantity!,
-          position: partial.position!,
-          price: partial.price!,
-          expiry: partial.expiry!,
-          rawText: (partial.rawText || '') + ' ' + spoken,
-          imageUrl: await fetchProductImage(partial.productName!),
-        };
-        setCommandResult(final);
-      }
+      const result: CommandResult = {
+        productName,
+        quantity,
+        position,
+        price,
+        expiry,
+        imageUrl,
+        rawText: transcript,
+      };
+
+      setCommandResult(result);
+      return result;
     } finally {
       setIsListening(false);
     }
   };
 
   const reset = () => {
-    setStep('askName');
-    setPartial({});
+    setText('');
     setCommandResult(null);
   };
 
-  return {
-    step,
-    promptText,
-    isListening,
-    next,
-    commandResult,
-    reset,
-  };
+  return { text, isListening, listen, commandResult, reset };
 };
