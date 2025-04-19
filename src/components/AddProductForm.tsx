@@ -34,7 +34,15 @@ export const AddProductForm: React.FC = () => {
       console.error('Voice error', err);
     }
   };
-
+const handleVoice = async () => {
+  try {
+    const result: CommandResult = await listen();
+    console.log('🗣️ Voice result in form:', result);
+    // …populate your fields…
+  } catch (err) {
+    console.error('Voice error', err);
+  }
+};
   // on form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
