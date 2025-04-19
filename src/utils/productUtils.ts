@@ -14,7 +14,8 @@ export const convertProduct = (input: any): Product => {
       description: '',
       image: '',
       image_url: '',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
   }
 
@@ -29,9 +30,12 @@ export const convertProduct = (input: any): Product => {
     image: input.image || '',
     image_url: input.image_url || input.imageUrl || '',
     created_at: input.created_at || input.createdAt || new Date().toISOString(),
+    createdAt: input.createdAt || input.created_at || new Date().toISOString(),
     expiry: input.expiry || input.expiry_date || '',
     barcode: input.barcode || '',
     description: input.description || '',
+    updatedAt: input.updatedAt || input.updated_at || new Date().toISOString(),
+    userId: input.userId || input.user_id || '',
   };
 };
 

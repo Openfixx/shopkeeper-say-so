@@ -11,7 +11,10 @@ declare module '@/types' {
     image: string;
     image_url: string;
     created_at: string;
+    createdAt?: string; // For backward compatibility
     expiry?: string;
     barcode?: string;
+    updatedAt?: string;
+    userId?: string;
   }
 }

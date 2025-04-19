@@ -46,7 +46,7 @@ export const addProduct = async (
   
   // Return product with parsed id and standard properties
   return {
-    id: data?.id || name, // If no id exists, use name as fallback
+    id: data?.name || name, // Fallback to name if no id exists
     name: data?.name || name,
     description: '',
     quantity: 0,
@@ -55,7 +55,8 @@ export const addProduct = async (
     position: '',
     image: '',
     image_url: data?.image_url || urlData.publicUrl,
-    created_at: data?.created_at || new Date().toISOString()
+    created_at: data?.created_at || new Date().toISOString(),
+    createdAt: data?.created_at || new Date().toISOString(),
   };
 };
 

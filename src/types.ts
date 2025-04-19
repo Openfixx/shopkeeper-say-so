@@ -3,9 +3,9 @@ export type Product = {
   id: string;
   name: string;
   price: number;
-  image_url?: string;
+  image_url: string;
   user_id?: string;
-  description?: string;
+  description: string;
   quantity: number;
   unit: string;
   position?: string;
@@ -13,6 +13,7 @@ export type Product = {
   image?: string; // For backward compatibility
   barcode?: string;
   stockAlert?: number;
+  created_at?: string; // For backward compatibility
   createdAt?: string;
   updatedAt?: string;
   shopId?: string;
