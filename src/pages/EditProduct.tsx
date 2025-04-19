@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+// Import Product from the correct location
 import { Product } from '@/types';
 import { convertProduct } from '@/utils/productUtils';
 
@@ -36,7 +38,7 @@ const EditProduct = () => {
         setProduct(convertedProduct);
         setFormData({
           name: foundProduct.name || '',
-          description: foundProduct.description || '',
+          description: convertedProduct.description || '',
           price: String(foundProduct.price || 0),
           quantity: String(foundProduct.quantity || 0),
           unit: foundProduct.unit || '',
@@ -85,14 +87,15 @@ const EditProduct = () => {
       const product = products.find(p => p.id === id);
       
       if (product) {
+        const convertedProduct = convertProduct(product);
         setFormData({
           name: product.name,
-          description: product.description || '',
+          description: convertedProduct.description || '',
           quantity: String(product.quantity),
           unit: product.unit,
           position: product.position || '',
           price: String(product.price),
-          image: product.image_url || product.image || ''
+          image: convertedProduct.image_url || convertedProduct.image || ''
         });
       } else {
         toast.error('Product not found');
