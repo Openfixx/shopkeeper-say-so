@@ -1,5 +1,4 @@
 
-
 // Define common types used throughout the inventory system
 
 export type BillItem = {
@@ -47,4 +46,3 @@ export type ProductFindResult = {
   image?: string;
   image_url?: string;
 };
-

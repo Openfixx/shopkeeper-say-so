@@ -4,8 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { DbProduct } from '@/lib/supabase';
-import { Bill, BillItem, Shop, StockAlert, ProductFindResult } from '@/types/inventory';
-import { fetchProductImage } from '@/lib/fetchImage';
+import { Bill, BillItem, StockAlert, ProductFindResult } from '@/types/inventory';
+// Import Shop directly from types/inventory
+import type { Shop } from '@/types/inventory';
 
 // ——— Types ———
 export type Product = {
@@ -61,7 +62,8 @@ interface InventoryContextType {
   removeStockAlert: (productId: string) => void;
 }
 
-export { Shop };  // Export the Shop type from here
+// Re-export the Shop type properly using 'export type'
+export type { Shop };  // Use 'export type' here to re-export the type
 
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 export const useInventory = () => {

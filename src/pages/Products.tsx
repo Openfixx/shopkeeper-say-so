@@ -235,6 +235,7 @@ const Products: React.FC = () => {
         position: formData.position,
         expiry: formData.expiry,
         price: formData.price,
+        image: formData.image,
         barcode: undefined,
         stockAlert: undefined,
         shopId: undefined

@@ -50,4 +50,3 @@ export const getExpiryStatus = (expiryDate: string | null | undefined): 'expired
   if (diffDays < 30) return 'expiring';
   return 'valid';
 };
-
