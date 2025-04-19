@@ -1,41 +1,21 @@
-
 import { Product } from '@/types';
 
-// Utility function to convert product data from different sources to a consistent Product type
-export const convertProduct = (input: any): Product => {
-  if (!input) {
-    return {
-      id: '',
-      name: '',
-      quantity: 0,
-      unit: '',
-      price: 0,
-      position: '',
-      description: '',
-      image: '',
-      image_url: '',
-      created_at: new Date().toISOString(),
-      createdAt: new Date().toISOString()
-    };
-  }
-
-  // Create a standardized product object
+/**
+ * Converts between different product object formats in the application
+ */
+export const convertProduct = (product: any): Product => {
   return {
-    id: input.id || '',
-    name: input.name || input.product_name || '',
-    quantity: typeof input.quantity === 'number' ? input.quantity : 0,
-    unit: input.unit || '',
-    position: input.position || '',
-    price: typeof input.price === 'number' ? input.price : 0,
-    image: input.image || '',
-    image_url: input.image_url || input.imageUrl || '',
-    created_at: input.created_at || input.createdAt || new Date().toISOString(),
-    createdAt: input.createdAt || input.created_at || new Date().toISOString(),
-    expiry: input.expiry || input.expiry_date || '',
-    barcode: input.barcode || '',
-    description: input.description || '',
-    updatedAt: input.updatedAt || input.updated_at || new Date().toISOString(),
-    userId: input.userId || input.user_id || '',
+    id: product.id || '',
+    name: product.name || '',
+    description: product.description || '',
+    price: typeof product.price === 'number' ? product.price : 0,
+    quantity: typeof product.quantity === 'number' ? product.quantity : 0,
+    unit: product.unit || '',
+    position: product.position || '',
+    image_url: product.image || product.image_url || '',
+    image: product.image || product.image_url || '',
+    user_id: product.userId || product.user_id || '',
+    created_at: product.createdAt || product.created_at || '',
   };
 };
 
