@@ -67,6 +67,14 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // New color palette based on design
+        neon: {
+          pink: "#ff72b6",
+          purple: "#9b87f5",
+          green: "#72ffbb",
+          yellow: "#fff972",
+          blue: "#72d8ff",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -75,6 +83,7 @@ export default {
         xl: "1.25rem",
         "2xl": "1.5rem",
         "3xl": "1.75rem",
+        "4xl": "2rem",
       },
       keyframes: {
         "accordion-down": {
@@ -129,6 +138,10 @@ export default {
           "50%": { backgroundPosition: "100% 50%" },
           "100%": { backgroundPosition: "0% 50%" },
         },
+        waveform: {
+          "0%, 100%": { transform: "scaleY(0.5)" },
+          "50%": { transform: "scaleY(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -142,10 +155,15 @@ export default {
         "card-swipe": "cardSwipe 0.5s ease-out forwards",
         "card-appear": "cardAppear 0.5s ease-out forwards",
         gradient: "gradient 15s ease infinite",
+        waveform: "waveform 1.5s ease-in-out infinite",
       },
       transitionTimingFunction: {
         "in-expo": "cubic-bezier(0.95, 0.05, 0.795, 0.035)",
         "out-expo": "cubic-bezier(0.19, 1, 0.22, 1)",
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
     },
   },

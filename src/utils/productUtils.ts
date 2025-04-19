@@ -12,7 +12,9 @@ export const convertProduct = (input: any): Product => {
       price: 0,
       position: '',
       description: '',
+      image: '',
       image_url: '',
+      created_at: new Date().toISOString()
     };
   }
 
@@ -26,10 +28,10 @@ export const convertProduct = (input: any): Product => {
     price: typeof input.price === 'number' ? input.price : 0,
     image: input.image || '',
     image_url: input.image_url || input.imageUrl || '',
+    created_at: input.created_at || input.createdAt || new Date().toISOString(),
     expiry: input.expiry || input.expiry_date || '',
     barcode: input.barcode || '',
     description: input.description || '',
-    createdAt: input.createdAt || input.created_at || new Date().toISOString(),
   };
 };
 

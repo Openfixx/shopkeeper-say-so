@@ -7,7 +7,8 @@ import { AuthProvider } from '@/context/AuthContext';
 import { InventoryProvider } from '@/context/InventoryContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import Layout from '@/components/layout/Layout';
-import Login from '@/pages/Login';
+import EnhancedLogin from '@/pages/EnhancedLogin';
+import ModernRegister from '@/pages/ModernRegister';
 import Dashboard from '@/pages/Index'; // Using Index.tsx which contains the Dashboard component
 import Inventory from '@/pages/Inventory';
 import Products from '@/pages/Products';
@@ -20,6 +21,7 @@ import ShopFinder from '@/pages/ShopFinder';
 import NearbyShops from '@/pages/NearbyShops';
 import NotFound from '@/pages/NotFound';
 import PosPage from '@/pages/pos';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 function App() {
   return (
@@ -30,8 +32,13 @@ function App() {
             <InventoryProvider>
               <Toaster position="top-right" richColors />
               <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route element={<Layout />}>
+                <Route path="/login" element={<EnhancedLogin />} />
+                <Route path="/register" element={<ModernRegister />} />
+                <Route element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/products" element={<Products />} />

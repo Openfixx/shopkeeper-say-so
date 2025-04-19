@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 252 87% 65%;
+    --primary: 266 70% 75%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 266 100% 92%;
@@ -48,7 +48,7 @@
   }
 
   .dark {
-    --background: 222 47% 6%;
+    --background: 224 71% 4%;
     --foreground: 210 40% 98%;
 
     --card: 222 47% 8%;
@@ -57,7 +57,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 252 87% 65%;
+    --primary: 266 70% 75%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 266 100% 15%;
@@ -181,81 +181,41 @@
   }
   
   .animated-gradient {
-    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background: linear-gradient(-45deg, #ff72b6, #9b87f5, #72ffbb, #72d8ff);
     background-size: 400% 400%;
     animation: gradient 15s ease infinite;
   }
   
-  @keyframes gradient {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
+  /* New styles for modern UI */
+  .neo-card {
+    @apply bg-black rounded-3xl border border-zinc-800 overflow-hidden shadow-lg;
   }
   
-  .pulse-card {
-    animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite;
+  .neo-input {
+    @apply bg-zinc-900 border-zinc-700 text-white rounded-xl focus:ring-violet-500 focus:border-violet-500;
   }
   
-  @keyframes pulse {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.02);
-    }
+  .neo-button {
+    @apply bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all duration-200;
   }
   
-  .floating-card {
-    animation: float 6s ease-in-out infinite;
+  .waveform-container {
+    @apply flex items-end justify-between h-16 gap-0.5 px-2;
   }
   
-  @keyframes float {
-    0% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-    100% {
-      transform: translateY(0px);
-    }
-  }
-  
-  /* Modern Dashboard Cards */
-  .dashboard-card {
-    @apply bg-gradient-to-br from-white/90 to-white/70 dark:from-slate-800/90 dark:to-slate-900/70 rounded-3xl p-6 shadow-lg border border-white/20 dark:border-slate-700/30;
-  }
-  
-  .stats-card {
-    @apply bg-gradient-to-br from-white/90 via-white/80 to-white/70 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-900 rounded-3xl p-6 shadow-lg border border-white/20 dark:border-slate-700/30 hover:shadow-xl transition-all duration-300;
-  }
-  
-  .billing-card {
-    @apply bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-3xl p-6 shadow-md backdrop-blur-sm;
-  }
-  
-  .voice-card {
-    @apply bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 dark:from-violet-500/20 dark:to-fuchsia-500/10 rounded-3xl p-6 shadow-md backdrop-blur-sm;
+  .waveform-bar {
+    @apply w-1 bg-gradient-to-t from-neon-pink to-neon-purple rounded-full;
   }
 
-  /* Specific pages styling based on reference images */
-  .inventory-grid {
-    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6;
-  }
-
-  .inventory-card {
-    @apply rounded-3xl overflow-hidden bg-white dark:bg-slate-800 shadow-md hover:shadow-xl transition-all duration-300;
-  }
-
-  .voice-waveform {
-    @apply h-16 w-full rounded-xl overflow-hidden bg-gradient-to-r from-violet-400/20 to-fuchsia-400/20;
-  }
+  /* Voice waveform animation classes */
+  .wf-1 { animation-delay: -0.5s; }
+  .wf-2 { animation-delay: -0.4s; }
+  .wf-3 { animation-delay: -0.3s; }
+  .wf-4 { animation-delay: -0.2s; }
+  .wf-5 { animation-delay: -0.1s; }
+  .wf-6 { animation-delay: 0s; }
+  .wf-7 { animation-delay: 0.1s; }
+  .wf-8 { animation-delay: 0.2s; }
 }
 
 @layer utilities {
@@ -264,7 +224,7 @@
   }
   
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-neon-purple to-neon-pink;
   }
   
   .text-gradient-purple {
@@ -301,6 +261,18 @@
   
   .animation-delay-500 {
     animation-delay: 500ms;
+  }
+  
+  .neon-glow {
+    text-shadow: 0 0 5px rgba(255, 114, 182, 0.5), 0 0 10px rgba(155, 135, 245, 0.3);
+  }
+
+  .neon-border {
+    @apply border-2 border-neon-purple shadow-[0_0_10px_rgba(155,135,245,0.5)];
+  }
+  
+  .neon-bg {
+    @apply bg-gradient-to-br from-neon-purple to-neon-pink;
   }
 }
 
@@ -365,12 +337,15 @@
   }
 }
 
-/* Class for columns in different heights for waveform */
-.wf-1 { animation-delay: -0.5s; }
-.wf-2 { animation-delay: -0.4s; }
-.wf-3 { animation-delay: -0.3s; }
-.wf-4 { animation-delay: -0.2s; }
-.wf-5 { animation-delay: -0.1s; }
-.wf-6 { animation-delay: 0s; }
-.wf-7 { animation-delay: 0.1s; }
-.wf-8 { animation-delay: 0.2s; }
+/* Neo brutalist design classes */
+.neo-button-gradient {
+  @apply bg-gradient-to-r from-neon-purple to-neon-pink text-white rounded-full px-6 py-3 font-medium transition-all hover:shadow-lg hover:shadow-neon-pink/20 active:scale-95;
+}
+
+.neo-card {
+  @apply bg-black rounded-3xl border border-zinc-800 shadow-lg overflow-hidden;
+}
+
+.neo-input {
+  @apply bg-zinc-800 border-zinc-700 text-white rounded-xl px-4 py-3 focus:ring-neon-purple focus:border-neon-purple;
+}

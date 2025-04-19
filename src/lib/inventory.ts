@@ -1,14 +1,8 @@
 
 import { supabase } from './supabase';
+import { Product } from '@/types';
 
 // Types
-export interface Product {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  description?: string;
-}
-
 export interface InventoryItem {
   id: string; 
   product_name: string;
@@ -50,12 +44,18 @@ export const addProduct = async (
 
   if (error) throw error;
   
-  // Return product with parsed id
+  // Return product with parsed id and standard properties
   return {
-    id: data?.name || '', // Using name as id since the DB schema doesn't have an id field for products
+    id: data?.id || name, // If no id exists, use name as fallback
     name: data?.name || name,
-    imageUrl: data?.image_url || urlData.publicUrl,
-    description: '' // Add a default empty description
+    description: '',
+    quantity: 0,
+    unit: '',
+    price: 0,
+    position: '',
+    image: '',
+    image_url: data?.image_url || urlData.publicUrl,
+    created_at: data?.created_at || new Date().toISOString()
   };
 };
 
