@@ -14,7 +14,7 @@ export type Product = {
   barcode?: string;
   stockAlert?: number;
   created_at?: string; // For backward compatibility
-  createdAt?: string;
+  createdAt: string; // Now required
   updatedAt?: string;
   shopId?: string;
   // Add mappings for the other version of Product type
