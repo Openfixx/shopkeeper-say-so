@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isAuthenticated: boolean; // Added property
+  isLoading: boolean; // Added property
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -18,6 +20,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  isAuthenticated: false, // Added property
+  isLoading: true, // Added property
   login: async () => {},
   register: async () => {},
   logout: async () => {},
@@ -148,10 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Compute the isAuthenticated value based on session
+  const isAuthenticated = !!user;
+
   const authValues: AuthContextType = {
     user,
     session,
     loading,
+    isAuthenticated, // Added property
+    isLoading: loading, // Added property for consistent naming
     login,
     register,
     logout,

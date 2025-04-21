@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [isCheckingLocalStorage, setIsCheckingLocalStorage] = useState(true);
   const location = useLocation();
   
