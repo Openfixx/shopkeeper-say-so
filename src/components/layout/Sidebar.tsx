@@ -35,36 +35,11 @@ interface SidebarProps {
 
 export const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, shopName } = useAuth();
   const { t } = useLanguage();
   const { pathname } = useLocation();
-  // Only use the switchTab function for navigation, the rest will be implemented in this component
   const { switchTab } = useNavigateTabs();
   
-  // Create a local state for user tabs since useNavigateTabs is incomplete
-  const [userTabs, setUserTabs] = React.useState<Array<{
-    href: string;
-    icon: React.ReactNode;
-    text: string;
-  }>>([]);
-
-  // Default tabs that will be used
-  const allTabs = React.useMemo(() => [
-    {
-      href: '/bulk-inventory',
-      icon: <UploadCloud className="h-4 w-4 mr-3" />,
-      text: 'Bulk Inventory',
-    }
-  ], []);
-
-  useEffect(() => {
-    if (!user) {
-      setUserTabs([]);
-    } else if (user && userTabs.length === 0) {
-      setUserTabs(allTabs);
-    }
-  }, [user, userTabs.length, allTabs]);
-
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -73,16 +48,16 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-72 p-0 border-r">
-          <SheetHeader className="p-6 border-b">
+        <SheetContent side="left" className="w-72 p-0 border-r bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+          <SheetHeader className="p-6 border-b bg-gradient-to-r from-purple-600 to-indigo-700 text-white">
             <SheetTitle className="flex items-center justify-between">
-              <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-                {t('inventoryPro')}
+              <span className="text-white">
+                {shopName || "Apni Dukaan"}
               </span>
-              <Badge variant="outline">{t('beta')}</Badge>
+              <Badge variant="outline" className="border-white/30 text-white">{t('beta')}</Badge>
             </SheetTitle>
-            <SheetDescription>
-              {t('manageInventory')}
+            <SheetDescription className="text-white/80">
+              {user?.name ? `${user.name} ki Apni Dukaan` : "Apni Dukaan"}
             </SheetDescription>
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-10rem)]">
@@ -158,26 +133,6 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   />
                 </ul>
               </div>
-
-              {userTabs.length > 0 && (
-                <div className="space-y-1">
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {t('yourTabs')}
-                  </h3>
-                  <ul className="space-y-1">
-                    {userTabs.map((tab) => (
-                      <NavItem
-                        key={tab.href}
-                        icon={tab.icon}
-                        href={tab.href}
-                        text={tab.text}
-                        isActive={pathname === tab.href}
-                        onClick={() => setOpen(false)}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              )}
 
               {user && (
                 <div className="space-y-1">

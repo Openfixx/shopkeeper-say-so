@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { SheetClose } from "@/components/ui/sheet";
+import { Link } from 'react-router-dom';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -17,14 +18,16 @@ export const NavItem: React.FC<NavItemProps> = ({ icon, href, text, isActive, on
       <SheetClose asChild>
         <Button
           variant="ghost"
-          className={`w-full justify-start ${isActive ? 'font-semibold' : 'text-muted-foreground'}`}
+          className={`w-full justify-start ${isActive 
+            ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 font-semibold text-purple-500 dark:text-indigo-300' 
+            : 'text-muted-foreground hover:bg-purple-500/10'}`}
           onClick={onClick}
           asChild
         >
-          <a href={href} className="flex items-center w-full">
+          <Link to={href} className="flex items-center w-full">
             {icon}
-            {text}
-          </a>
+            <span>{text}</span>
+          </Link>
         </Button>
       </SheetClose>
     </li>

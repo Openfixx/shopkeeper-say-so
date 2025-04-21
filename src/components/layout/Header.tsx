@@ -1,20 +1,21 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { useAuth } from '@/context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { convertProduct } from '@/utils/productUtils';
-import { Mic, Search } from 'lucide-react';
+import { Mic, Search, Menu } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
 import type { Product } from '@/types';
+import { Input } from '@/components/ui/input';
 
 interface HeaderProps {
   toggleSidebar?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, shopName } = useAuth();
   const { products } = useInventory();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,65 +84,68 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   };
 
   return (
-    <header className="bg-background border-b border-border px-4 py-3 flex justify-between items-center">
+    <header className="bg-gradient-to-r from-purple-600 to-indigo-700 shadow-md px-4 py-3 flex justify-between items-center">
       <div className="flex items-center">
         {toggleSidebar && (
           <Button 
             variant="ghost" 
             size="icon" 
-            className="mr-2 md:hidden" 
+            className="mr-2 text-white hover:bg-white/10" 
             onClick={toggleSidebar}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu">
-              <line x1="4" x2="20" y1="12" y2="12"/>
-              <line x1="4" x2="20" y1="6" y2="6"/>
-              <line x1="4" x2="20" y1="18" y2="18"/>
-            </svg>
+            <Menu className="h-5 w-5" />
           </Button>
         )}
-        <Link to="/" className="text-xl font-bold text-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">Inventory Pro</Link>
+        <Link to="/" className="flex flex-col">
+          <span className="text-xl font-bold text-white">
+            {shopName || "Apni Dukaan"}
+          </span>
+          <span className="text-xs text-white/80">
+            {user?.name ? `${user.name} ki Apni Dukaan` : "Apni Dukaan"}
+          </span>
+        </Link>
       </div>
       
-      <form onSubmit={handleSearch} className="max-w-md w-full px-4 hidden md:flex">
+      <form onSubmit={handleSearch} className="flex-1 max-w-md mx-4">
         <div className="relative flex w-full">
-          <input
+          <Input
             type="search"
             placeholder="Search products..."
-            className="w-full rounded-l-md border border-r-0 border-input px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="w-full rounded-l-md border-0 bg-white/10 text-white placeholder:text-white/70 focus:ring-2 focus:ring-white/30 focus:border-0"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
           <Button 
             type="button" 
-            variant="outline" 
+            variant="ghost" 
             size="icon" 
-            className="rounded-none border-y border-input"
+            className="rounded-none bg-white/10 border-0 text-white hover:bg-white/20"
             disabled={isVoiceListening}
             onClick={startVoiceSearch}
           >
             <Mic className="h-4 w-4" />
             <span className="sr-only">Search with voice</span>
           </Button>
-          <Button type="submit" className="rounded-r-md rounded-l-none">
+          <Button type="submit" className="rounded-r-md rounded-l-none bg-white/20 hover:bg-white/30 text-white border-0">
             <Search className="h-4 w-4" />
             <span className="sr-only">Search</span>
           </Button>
         </div>
       </form>
       
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         {user ? (
           <>
-            <span className="text-sm text-muted-foreground hidden md:inline-block">
-              Welcome, {user.name}
+            <span className="text-sm text-white hidden md:inline-block">
+              {user.name}
             </span>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 border border-white/20" onClick={handleLogout}>
               Logout
             </Button>
           </>
         ) : (
           <Link to="/login">
-            <Button variant="default" size="sm">Login</Button>
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 border border-white/20">Login</Button>
           </Link>
         )}
       </div>

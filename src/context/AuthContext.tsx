@@ -31,6 +31,8 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<LoginResult | undefined>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  shopName: string;
+  setShopName: (name: string) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,40 +43,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [preferredLanguage, setPreferredLanguage] = useState<string>(() => {
     return localStorage.getItem('preferredLanguage') || 'en-US';
   });
+  const [shopName, setShopName] = useState<string>(() => {
+    return localStorage.getItem('shopName') || 'Apni Dukaan';
+  });
 
   useEffect(() => {
     localStorage.setItem('preferredLanguage', preferredLanguage);
   }, [preferredLanguage]);
 
   useEffect(() => {
+    localStorage.setItem('shopName', shopName);
+  }, [shopName]);
+
+  // Initialize auth and set up auth state listener
+  useEffect(() => {
     setIsLoading(true);
     
+    // First check for existing session
     const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (session) {
-        await handleSession(session);
-      } else {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+        } else if (session) {
+          await handleSession(session);
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+      } finally {
         setIsLoading(false);
       }
     };
     
     getSession();
     
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        // Creating a local variable to avoid race conditions
+        let isSessionHandled = false;
+        
         if (session) {
+          isSessionHandled = true;
           await handleSession(session);
-        } else {
+        } else if (!isSessionHandled) {
+          // Only reset user if we haven't already handled this event
           setUser(null);
-          setIsLoading(false);
         }
+        
+        setIsLoading(false);
       }
     );
     
@@ -87,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userData = session.user;
       
-      // Check if we're in demo mode
+      // Demo mode handling logic
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
         // Create a demo user profile
         const demoProfile: UserProfile = {
@@ -99,12 +117,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         
         setUser(demoProfile);
-        setIsLoading(false);
         return;
       }
       
-      // In demo mode, handle profile differently to avoid trying to access non-existent tables
-      // We'll mock the profiles functionality
+      // For demo/development, create a profile with user data
       const demoProfile: UserProfile = {
         id: userData?.id || 'demo-user-id',
         name: userData?.user_metadata?.name || userData?.email?.split('@')[0] || 'User',
@@ -115,56 +131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(demoProfile);
       
-      /* Note: In production, you would do this instead:
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userData.id)
-        .single();
-      
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Error fetching user profile:', profileError);
-        throw profileError;
-      }
-      
-      if (!profileData) {
-        const newProfile = {
-          id: userData.id,
-          name: userData.user_metadata.name || userData.email?.split('@')[0] || 'User',
-          email: userData.email || '',
-          role: 'shopkeeper' as const,
-          preferredLanguage: preferredLanguage
-        };
-        
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([newProfile]);
-          
-        if (insertError) {
-          console.error('Error creating user profile:', insertError);
-          throw insertError;
-        }
-        
-        setUser(newProfile);
-      } else {
-        setUser({
-          id: profileData.id,
-          name: profileData.name,
-          email: profileData.email,
-          role: profileData.role,
-          shopId: profileData.shop_id,
-          preferredLanguage: profileData.preferred_language || preferredLanguage
-        });
-        
-        if (profileData.preferred_language) {
-          setPreferredLanguage(profileData.preferred_language);
-        }
-      }
-      */
+      // Persist auth in localStorage to prevent automatic logouts
+      localStorage.setItem('authUser', JSON.stringify({
+        id: demoProfile.id,
+        email: demoProfile.email,
+        name: demoProfile.name
+      }));
     } catch (error) {
       console.error('Session handling error:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -183,7 +157,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         
         setUser(demoProfile);
-        setIsLoading(false);
+        
+        // Store in localStorage to prevent logout
+        localStorage.setItem('authUser', JSON.stringify({
+          id: demoProfile.id,
+          email: demoProfile.email,
+          name: demoProfile.name
+        }));
+        
         return undefined;
       }
       
@@ -246,6 +227,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
+      // Clear local storage auth data
+      localStorage.removeItem('authUser');
+      
       setUser(null);
       toast.success('Logged out successfully');
     } catch (error) {
@@ -261,17 +245,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // In demo mode, we don't actually update the database
         console.log('Language preference updated to:', language);
-        
-        /* In production mode, you would do:
-        const { error } = await supabase
-          .from('profiles')
-          .update({ preferred_language: language })
-          .eq('id', user.id);
-          
-        if (error) {
-          console.error('Error updating language preference:', error);
-        }
-        */
       } catch (error) {
         console.error('Error updating language preference:', error);
       }
@@ -288,7 +261,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPreferredLanguage: handleSetPreferredLanguage,
         login,
         register,
-        logout
+        logout,
+        shopName,
+        setShopName
       }}
     >
       {children}
