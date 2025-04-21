@@ -19,7 +19,7 @@ export interface VoiceCommandButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
   showDialog?: boolean;
   label?: string;
-  pulseColor?: string; // Add this prop
+  pulseColor?: string;
 }
 
 const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
@@ -29,7 +29,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   size = "default",
   showDialog = false,
   label = "Voice",
-  pulseColor = "bg-blue-500" // Default value
+  pulseColor = "bg-blue-500"
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -57,6 +57,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setCurrentTranscript(transcript);
+      console.log("Voice transcript:", transcript);
       
       // Process the voice command
       onVoiceCommand(transcript);

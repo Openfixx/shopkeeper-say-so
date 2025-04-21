@@ -1,3 +1,4 @@
+
 // src/App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -17,14 +18,11 @@ import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
 // ← NEW: import your form here
 import { AddProductForm } from '@/components/AddProductForm';
-// ← you can remove this if you’re no longer using the old page
-// import AddProduct from '@/pages/AddProduct';
 import EditProduct from '@/pages/EditProduct';
-import ShopFinder from '@/pages/ShopFinder';
-import NearbyShops from '@/pages/NearbyShops';
 import NotFound from '@/pages/NotFound';
 import PosPage from '@/pages/pos';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import BulkInventory from '@/pages/BulkInventory';
 
 function App() {
   return (
@@ -45,17 +43,13 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/products" element={<Products />} />
-
-                  {/* ← CHANGED: render AddProductForm instead of the old AddProduct page */}
                   <Route path="/products/add" element={<AddProductForm />} />
-
                   <Route path="/products/edit/:id" element={<EditProduct />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/billing" element={<Billing />} />
-                  <Route path="/shop-finder" element={<ShopFinder />} />
-                  <Route path="/nearby-shops" element={<NearbyShops />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/pos" element={<PosPage />} />
+                  <Route path="/bulk-inventory" element={<BulkInventory />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>

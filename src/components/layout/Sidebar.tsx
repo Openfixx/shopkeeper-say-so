@@ -1,162 +1,220 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
-import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  Home, 
-  Package2, 
-  ShoppingCart, 
-  BarChart3, 
-  Settings, 
-  MapPin,
+import React, { useEffect } from 'react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetClose,
+} from "@/components/ui/sheet"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Settings2,
+  SquareStack,
+  Package,
+  ShoppingBasket,
+  BarChart,
+  Receipt,
+  Tag as TagIcon,
   LogOut,
-  ChevronRight
-} from 'lucide-react';
+  UploadCloud,
+} from "lucide-react"
+import { NavItem } from "@/components/layout/NavItem"
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
-
-const navItems = [
-  { icon: Home, label: 'Dashboard', path: '/' },
-  { icon: Package2, label: 'Products', path: '/products' },
-  { icon: ShoppingCart, label: 'Inventory', path: '/inventory' },
-  { icon: BarChart3, label: 'Reports', path: '/reports' },
-  { icon: ShoppingCart, label: 'Billing', path: '/billing' },
-  { icon: MapPin, label: 'Shop Finder', path: '/shop-finder' },
-];
+import { useLanguage } from '@/context/LanguageContext';
+import { useNavigateTabs } from '@/hooks/useNavigateTabs';
 
 interface SidebarProps {
-  className?: string;
-  open?: boolean; // Add open prop to interface
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ className, open }) => {
-  const location = useLocation();
-  const { logout } = useAuth();
-  
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Logged out successfully');
-    } catch (error) {
-      console.error('Error logging out:', error);
-      toast.error('Failed to log out');
+export const Sidebar = ({ open, setOpen }: SidebarProps) => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { t } = useLanguage();
+  const { pathname } = useLocation();
+  const { userTabs, setUserTabs, allTabs } = useNavigateTabs();
+
+  useEffect(() => {
+    if (!user) {
+      setUserTabs([]);
+    } else if (user && userTabs.length === 0) {
+      setUserTabs(allTabs);
     }
+  }, [user, setUserTabs, userTabs.length, allTabs]);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
-    <div 
-      className={cn(
-        "py-4 flex flex-col h-full bg-sidebar-background border-r border-sidebar-border",
-        open === false ? "hidden md:flex" : "flex", // Handle open state
-        className
-      )}
-    >
-      <div className="px-4 py-2 mb-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold text-xl">
-            BI
-          </div>
-          <div className="font-bold text-xl tracking-tight">
-            <span className="text-foreground">Bolt</span>
-            <span className="text-primary">Inventory</span>
-          </div>
-        </Link>
-      </div>
-      
-      <div className="px-3 mb-6">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
-          Menu
-        </div>
-        <nav className="space-y-1.5">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || 
-              (item.path !== '/' && location.pathname.startsWith(item.path));
+    <>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-72 p-0 border-r">
+          <SheetHeader className="p-6 border-b">
+            <SheetTitle className="flex items-center justify-between">
+              <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                {t('inventoryPro')}
+              </span>
+              <Badge variant="outline">{t('beta')}</Badge>
+            </SheetTitle>
+            <SheetDescription>
+              {t('manageInventory')}
+            </SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-10rem)]">
+            <nav className="p-6 space-y-6 text-sm">
+              <div className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {t('main')}
+                </h3>
+                <ul className="space-y-1">
+                  <NavItem
+                    icon={<SquareStack className="h-4 w-4 mr-3" />}
+                    href="/"
+                    text={t('dashboard')}
+                    isActive={pathname === '/'}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<Package className="h-4 w-4 mr-3" />}
+                    href="/products"
+                    text={t('products')}
+                    isActive={pathname.startsWith('/products')}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<ShoppingBasket className="h-4 w-4 mr-3" />}
+                    href="/inventory"
+                    text={t('inventory')}
+                    isActive={pathname === '/inventory'}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<UploadCloud className="h-4 w-4 mr-3" />}
+                    href="/bulk-inventory"
+                    text="Bulk Inventory"
+                    isActive={pathname === '/bulk-inventory'}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<BarChart className="h-4 w-4 mr-3" />}
+                    href="/reports"
+                    text={t('reports')}
+                    isActive={pathname === '/reports'}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<Receipt className="h-4 w-4 mr-3" />}
+                    href="/billing"
+                    text={t('billing')}
+                    isActive={pathname === '/billing'}
+                    onClick={() => setOpen(false)}
+                  />
+                  <NavItem
+                    icon={<TagIcon className="h-4 w-4 mr-3" />}
+                    href="/pos"
+                    text="POS"
+                    isActive={pathname === '/pos'}
+                    onClick={() => setOpen(false)}
+                  />
+                </ul>
+              </div>
               
-            return (
-              <Link 
-                key={item.label} 
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
-                )}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebar-active-tab"
-                    className="ml-auto"
-                    transition={{ type: "spring", duration: 0.6 }}
-                  >
-                    <ChevronRight size={16} />
-                  </motion.div>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      
-      <div className="px-3 mb-6">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
-          Admin
-        </div>
-        <Link 
-          to="/settings"
-          className={cn(
-            "flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-            location.pathname === '/settings'
-              ? "bg-primary text-primary-foreground" 
-              : "text-sidebar-foreground hover:bg-primary/10 hover:text-primary"
-          )}
+              <div className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {t('settings')}
+                </h3>
+                <ul className="space-y-1">
+                  <NavItem
+                    icon={<Settings2 className="h-4 w-4 mr-3" />}
+                    href="/settings"
+                    text={t('settings')}
+                    isActive={pathname === '/settings'}
+                    onClick={() => setOpen(false)}
+                  />
+                </ul>
+              </div>
+
+              {userTabs.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {t('yourTabs')}
+                  </h3>
+                  <ul className="space-y-1">
+                    {userTabs.map((tab) => (
+                      <NavItem
+                        key={tab.href}
+                        icon={tab.icon}
+                        href={tab.href}
+                        text={tab.text}
+                        isActive={pathname === tab.href}
+                        onClick={() => setOpen(false)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {user && (
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {t('account')}
+                  </h3>
+                  <ul className="space-y-1">
+                    <li>
+                      <SheetClose asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start text-muted-foreground"
+                          onClick={handleLogout}
+                        >
+                          <LogOut className="h-4 w-4 mr-3" />
+                          {t('logout')}
+                        </Button>
+                      </SheetClose>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </nav>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+};
+
+interface NavItemProps {
+  icon: React.ReactNode;
+  href: string;
+  text: string;
+  isActive: boolean;
+  onClick?: () => void;
+}
+
+export const NavItem: React.FC<NavItemProps> = ({ icon, href, text, isActive, onClick }) => {
+  return (
+    <li>
+      <SheetClose asChild>
+        <Button
+          variant="ghost"
+          className={`w-full justify-start ${isActive ? 'font-semibold' : 'text-muted-foreground'}`}
+          onClick={onClick}
+          asChild
         >
-          <Settings size={18} />
-          <span>Settings</span>
-          {location.pathname === '/settings' && (
-            <motion.div
-              layoutId="sidebar-active-tab"
-              className="ml-auto"
-              transition={{ type: "spring", duration: 0.6 }}
-            >
-              <ChevronRight size={16} />
-            </motion.div>
-          )}
-        </Link>
-      </div>
-      
-      <div className="mt-auto px-3">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
-      </div>
-      
-      <div className="mt-6 px-4">
-        <div className="p-4 rounded-xl bg-gradient-to-br from-secondary/50 to-secondary/30 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <Package2 size={14} className="text-primary" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold">Need help?</div>
-              <div className="text-xs text-muted-foreground">Support center</div>
-            </div>
-          </div>
-          <Link 
-            to="/settings" 
-            className="text-xs text-primary font-medium flex justify-center items-center w-full py-1.5 bg-background/70 rounded-lg hover:bg-background transition-colors"
-          >
-            Go to support
-          </Link>
-        </div>
-      </div>
-    </div>
+          <a href={href} className="flex items-center w-full">
+            {icon}
+            {text}
+          </a>
+        </Button>
+      </SheetClose>
+    </li>
   );
 };
 
