@@ -250,7 +250,8 @@ const Products: React.FC = () => {
   const handleEdit = (productToEdit: any) => {
     const product = {
       ...convertProduct(productToEdit),
-      updatedAt: productToEdit.updatedAt || new Date().toISOString()  // Ensure updatedAt is set
+      updatedAt: productToEdit.updatedAt || new Date().toISOString(),
+      userId: productToEdit.userId || productToEdit.user_id || 'demo-user'
     };
     setEditingProductId(product.id);
     setFormData({

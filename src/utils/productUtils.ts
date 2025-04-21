@@ -1,4 +1,5 @@
 
+
 import { Product } from '@/types';
 
 /**
@@ -16,6 +17,7 @@ export const convertProduct = (product: any): Product => {
     image_url: product.image || product.image_url || '',
     image: product.image || product.image_url || '',
     user_id: product.userId || product.user_id || '',
+    userId: product.userId || product.user_id || 'demo-user', // Ensure userId has a default value
     created_at: product.createdAt || product.created_at || '',
     createdAt: product.createdAt || product.created_at || new Date().toISOString(),
     updatedAt: product.updatedAt || product.updated_at || new Date().toISOString(),

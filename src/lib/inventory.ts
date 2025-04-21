@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { Product } from '@/types';
 
@@ -44,6 +43,8 @@ export const addProduct = async (
 
   if (error) throw error;
   
+  const now = new Date().toISOString();
+  
   // Return product with parsed id and standard properties
   return {
     id: data?.name || name, // Fallback to name if no id exists
@@ -55,8 +56,10 @@ export const addProduct = async (
     position: '',
     image: '',
     image_url: data?.image_url || urlData.publicUrl,
-    created_at: data?.created_at || new Date().toISOString(),
-    createdAt: data?.created_at || new Date().toISOString(),
+    created_at: data?.created_at || now,
+    createdAt: data?.created_at || now,
+    updatedAt: data?.updated_at || now,
+    userId: 'demo-user', // Default user ID
   };
 };
 

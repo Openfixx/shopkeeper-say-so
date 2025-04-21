@@ -1,4 +1,5 @@
 
+
 export type Product = {
   id: string;
   name: string;
@@ -18,7 +19,7 @@ export type Product = {
   updatedAt: string; // Now required (making it required instead of optional)
   shopId?: string;
   // Add mappings for the other version of Product type
-  userId?: string; // Maps to user_id
+  userId: string; // Maps to user_id (now required instead of optional)
 };
 
 export type InventoryItem = {
