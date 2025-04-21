@@ -1,4 +1,3 @@
-
 import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
@@ -15,7 +14,7 @@ const AddProduct = React.lazy(() => import('./pages/AddProduct'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Billing = React.lazy(() => import('./pages/Billing'));
-const POS = React.lazy(() => import('./pages/pos'));
+const POS = React.lazy(() => import('./pages/POS'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const ShopFinder = React.lazy(() => import('./pages/ShopFinder'));
 
