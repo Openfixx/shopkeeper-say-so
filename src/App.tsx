@@ -15,7 +15,7 @@ const AddProduct = React.lazy(() => import('./pages/AddProduct'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Billing = React.lazy(() => import('./pages/Billing'));
-const POS = React.lazy(() => import('./pages/POS'));
+const POS = React.lazy(() => import('./pages/pos'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const ShopFinder = React.lazy(() => import('./pages/ShopFinder'));
 

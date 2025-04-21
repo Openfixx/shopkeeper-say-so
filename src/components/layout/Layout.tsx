@@ -15,7 +15,7 @@ const Layout: React.FC = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
-      <Sidebar isOpen={isSidebarOpen} />
+      <Sidebar open={isSidebarOpen} setOpen={setIsSidebarOpen} />
       <div className="flex flex-col flex-1 w-full">
         <Header onMenuToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
         <main

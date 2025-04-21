@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -280,7 +279,7 @@ const BulkInventory = () => {
                     <TableCell>{item.position}</TableCell>
                     <TableCell>
                       {item.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                      {item.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" title={item.message} />}
+                      {item.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" aria-label={item.message} />}
                     </TableCell>
                   </TableRow>
                 ))}
