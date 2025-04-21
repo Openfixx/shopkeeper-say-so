@@ -8,6 +8,7 @@ import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { extractProductDetailsFromEntities } from '@/utils/voiceCommandUtils';
 import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
+import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
 
 interface SiriStyleVoiceUIProps {
   onCommand?: (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => void;
@@ -19,65 +20,91 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
   const [processing, setProcessing] = useState(false);
   const [processedText, setProcessedText] = useState('');
   const [extractedProduct, setExtractedProduct] = useState<{name: string, quantity?: number, unit?: string} | null>(null);
+  const [extractedProducts, setExtractedProducts] = useState<MultiProduct[]>([]);
   const [waveformActive, setWaveformActive] = useState(false);
+  const [isMultiCommand, setIsMultiCommand] = useState(false);
 
   const handleListen = async () => {
     try {
       setWaveformActive(true);
-      toast.info("Listening...", { duration: 2000 });
+      toast.info("Listening... Say commands like 'Add 5kg rice, 2kg sugar'", { duration: 3000 });
       
       await listen();
       setProcessing(true);
       
-      // Process the voice input to extract the product name
       setTimeout(() => {
-        const rawText = text || "";
+        const rawText = text || commandResult?.rawText || "";
+        setProcessedText(rawText);
         
-        // Extract product name from the full sentence
-        let productName = "";
+        // Check if it's a multi-product command
+        const isMulti = rawText.includes(',') || /\band\b/i.test(rawText);
+        setIsMultiCommand(isMulti);
         
-        // Try to extract using regex patterns for common voice commands
-        const addProductMatch = rawText.match(/add\s+(?:a|an|some)?\s*([a-zA-Z0-9\s]+?)(?:\s+to|\s+in|\s+at|\s+with|\s+for|\s+price|\s*$)/i);
-        if (addProductMatch && addProductMatch[1]) {
-          productName = addProductMatch[1].trim();
-        } else {
-          // Fallback to basic entity extraction
-          const entities = commandResult?.productName ? [{ label: 'PRODUCT', text: commandResult.productName }] : [];
-          const extracted = extractProductDetailsFromEntities(entities);
-          productName = extracted.name || rawText;
-        }
-        
-        // Clean up common issues in product names
-        productName = productName
-          .replace(/^\s*(add|create|new|get|find)\s+/i, '')
-          .replace(/\s+(to|in|at|with|for)\s+.*$/i, '')
-          .trim();
-        
-        // Capitalize first letter of each word
-        productName = productName.replace(/\b\w/g, c => c.toUpperCase());
-        
-        // Extract quantity and unit if available
-        let quantity: number | undefined = undefined;
-        let unit: string | undefined = undefined;
-        
-        if (commandResult?.quantity) {
-          quantity = commandResult.quantity.value;
-          unit = commandResult.quantity.unit;
-        } else {
-          // Try to extract quantity and unit with regex
-          const quantityMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pcs|pieces?|units?|boxes?|packs?)/i);
-          if (quantityMatch) {
-            quantity = parseFloat(quantityMatch[1]);
-            unit = quantityMatch[2].toLowerCase();
+        if (isMulti) {
+          // Use the multi-product parser
+          const parsedProducts = parseMultiProductCommand(rawText, []);
+          setExtractedProducts(parsedProducts);
+          
+          // For UI display, use the first product
+          if (parsedProducts.length > 0) {
+            const firstProduct = parsedProducts[0];
+            setExtractedProduct({
+              name: firstProduct.name,
+              quantity: firstProduct.quantity,
+              unit: firstProduct.unit
+            });
           }
+        } else {
+          // Process as single product command
+          // Extract product name from the full sentence using improved logic
+          let productName = "";
+          
+          // Try to extract using regex patterns for common voice commands
+          const addProductMatch = rawText.match(/add\s+(?:\d+\s*(?:kg|g|l|ml|pcs)?\s*)?(?:of\s+)?([a-zA-Z0-9\s]+?)(?:\s+(?:to|in|at|with|for|price|\$|₹|\d+)|\s*$)/i);
+          
+          if (addProductMatch && addProductMatch[1]) {
+            productName = addProductMatch[1].trim();
+          } else if (commandResult?.productName) {
+            productName = commandResult.productName;
+          } else {
+            // Fallback to a simple word extraction after "add"
+            const fallbackMatch = rawText.match(/add\s+(.+?)(?=\s+(?:to|in|at|with|for)|$)/i);
+            if (fallbackMatch && fallbackMatch[1]) {
+              productName = fallbackMatch[1].trim();
+            } else {
+              productName = rawText.replace(/add|create|new|find|search/gi, '').trim();
+            }
+          }
+        
+          // Extract quantity and unit if available
+          let quantity: number | undefined = undefined;
+          let unit: string | undefined = undefined;
+          
+          if (commandResult?.quantity) {
+            quantity = commandResult.quantity.value;
+            unit = commandResult.quantity.unit;
+          } else {
+            // Try to extract quantity and unit with regex
+            const quantityMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pcs|pieces?|units?|boxes?|packs?)/i);
+            if (quantityMatch) {
+              quantity = parseFloat(quantityMatch[1]);
+              unit = quantityMatch[2].toLowerCase();
+            }
+          }
+          
+          setExtractedProduct({ name: productName, quantity, unit });
         }
         
-        setExtractedProduct({ name: productName, quantity, unit });
-        setProcessedText(productName);
         setProcessing(false);
         
         if (onCommand) {
-          onCommand(rawText, { name: productName, quantity, unit });
+          if (isMulti) {
+            // Pass the first product for backward compatibility
+            const firstProduct = extractedProducts[0] || { name: '', quantity: 1, unit: 'unit' };
+            onCommand(rawText, firstProduct);
+          } else {
+            onCommand(rawText, extractedProduct || { name: '', quantity: undefined, unit: undefined });
+          }
         }
         
         toast.success("Voice command processed!");
@@ -86,14 +113,13 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
       console.error("Voice recognition error:", error);
       toast.error("Voice recognition failed. Please try again.");
       setProcessing(false);
-    } finally {
       setWaveformActive(false);
     }
   };
 
   return (
     <div className={`relative ${className}`}>
-      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-md">
+      <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-violet-500/10 to-indigo-500/10 backdrop-blur-md">
         <div className="flex flex-col items-center justify-center p-6">
           <AnimatePresence mode="wait">
             {isListening ? (
@@ -108,7 +134,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
                   {Array.from({ length: 24 }).map((_, i) => (
                     <motion.span
                       key={i}
-                      className="absolute inset-0 rounded-full border-2 border-purple-500/30"
+                      className="absolute inset-0 rounded-full border-2 border-violet-500/30"
                       style={{ 
                         rotate: `${i * 15}deg`,
                       }}
@@ -129,7 +155,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
                   size="lg" 
                   variant="outline"
                   onClick={() => {}} 
-                  className="h-20 w-20 rounded-full bg-white dark:bg-black border-2 border-purple-500/50 text-red-500 animate-pulse"
+                  className="h-20 w-20 rounded-full bg-white dark:bg-black border-2 border-violet-500/50 text-red-500 animate-pulse"
                 >
                   <MicOff className="h-8 w-8" />
                 </Button>
@@ -143,7 +169,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
               >
                 <div className="relative flex items-center justify-center">
                   <motion.div 
-                    className="absolute -inset-4 rounded-full border-2 border-purple-500/30"
+                    className="absolute -inset-4 rounded-full border-2 border-violet-500/30"
                     animate={{
                       scale: [1, 1.1, 1],
                       opacity: [0.7, 0.3, 0.7]
@@ -158,9 +184,9 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
                     size="lg" 
                     variant="outline"
                     disabled
-                    className="h-20 w-20 rounded-full bg-white dark:bg-black border-2 border-purple-500/50"
+                    className="h-20 w-20 rounded-full bg-white dark:bg-black border-2 border-violet-500/50"
                   >
-                    <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
                   </Button>
                 </div>
               </motion.div>
@@ -175,7 +201,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
                 <Button 
                   size="lg" 
                   onClick={handleListen}
-                  className="h-20 w-20 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg shadow-purple-500/20 border-0"
+                  className="h-20 w-20 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/20 border-0"
                 >
                   <Mic className="h-8 w-8" />
                 </Button>
@@ -194,7 +220,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
                 {Array.from({ length: 20 }).map((_, i) => (
                   <motion.div 
                     key={i} 
-                    className="w-1 bg-gradient-to-t from-purple-500 to-pink-500 rounded-full"
+                    className="w-1 bg-gradient-to-t from-violet-600 to-indigo-600 rounded-full"
                     animate={{ 
                       height: [
                         Math.random() * 10 + 5,
@@ -221,29 +247,63 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <motion.div 
-                className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-sm rounded-xl"
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <p className="text-lg font-medium">{processedText}</p>
-                {extractedProduct?.quantity && (
-                  <Badge className="mt-2 bg-gradient-to-r from-purple-500 to-pink-500">
-                    {extractedProduct.quantity} {extractedProduct.unit || 'units'}
-                  </Badge>
-                )}
-              </motion.div>
+              {isMultiCommand ? (
+                <div>
+                  <motion.div 
+                    className="p-3 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 backdrop-blur-sm rounded-xl"
+                    initial={{ scale: 0.9 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <p className="text-base sm:text-lg font-medium mb-2">Multiple Products</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {extractedProducts.map((product, index) => (
+                        <Badge 
+                          key={index}
+                          className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-2 py-1"
+                        >
+                          {product.quantity} {product.unit} {product.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </motion.div>
+                  
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                    Adding {extractedProducts.length} products to inventory
+                  </p>
+                </div>
+              ) : (
+                <motion.div 
+                  className="p-3 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 backdrop-blur-sm rounded-xl"
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <p className="text-lg font-medium">{extractedProduct?.name}</p>
+                  {extractedProduct?.quantity && (
+                    <Badge className="mt-2 bg-gradient-to-r from-violet-600 to-indigo-600">
+                      {extractedProduct.quantity} {extractedProduct.unit || 'units'}
+                    </Badge>
+                  )}
+                </motion.div>
+              )}
               
               <p className="text-xs text-muted-foreground">
-                {text && (
+                {processedText && (
                   <>
                     <span className="font-medium">Original: </span>
-                    {text}
+                    {processedText}
                   </>
                 )}
               </p>
             </motion.div>
+          )}
+          
+          {!isListening && !processing && !processedText && (
+            <div className="mt-6 text-center text-muted-foreground text-sm">
+              <p>Try saying:</p>
+              <p className="italic mt-1">"Add 5kg rice, 2kg sugar, 3 packs of biscuits"</p>
+            </div>
           )}
         </div>
       </Card>

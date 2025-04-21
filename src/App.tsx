@@ -1,64 +1,105 @@
 
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from "@/components/ui/theme-provider";
-import { Toaster } from 'sonner';
-import { AuthProvider } from '@/context/AuthContext';
-import { InventoryProvider } from '@/context/InventoryContext';
-import { LanguageProvider } from '@/context/LanguageContext';
-import Layout from '@/components/layout/Layout';
-import EnhancedLogin from '@/pages/EnhancedLogin';
-import AuthCallback from '@/pages/AuthCallback';
-import ModernRegister from '@/pages/ModernRegister';
-import Dashboard from '@/pages/Index';
-import Inventory from '@/pages/Inventory';
-import Products from '@/pages/Products';
-import Reports from '@/pages/Reports';
-import Billing from '@/pages/Billing';
-import Settings from '@/pages/Settings';
-import { AddProductForm } from '@/components/AddProductForm';
-import EditProduct from '@/pages/EditProduct';
-import NotFound from '@/pages/NotFound';
-import PosPage from '@/pages/pos';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import BulkInventory from '@/pages/BulkInventory';
+import React, { Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/layout/Layout';
+import Login from './pages/Login';
+import Index from './pages/Index';
+import Products from './pages/Products';
+import BulkInventory from './pages/BulkInventory';
+import AuthCallback from './pages/AuthCallback';
+import { useAuth } from './context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
-function App() {
+// Lazy-loaded routes for better performance
+const AddProduct = React.lazy(() => import('./pages/AddProduct'));
+const Inventory = React.lazy(() => import('./pages/Inventory'));
+const Reports = React.lazy(() => import('./pages/Reports'));
+const Billing = React.lazy(() => import('./pages/Billing'));
+const POS = React.lazy(() => import('./pages/POS'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const ShopFinder = React.lazy(() => import('./pages/ShopFinder'));
+
+// Loading fallback for lazy-loaded routes
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center w-full h-screen">
+    <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+  </div>
+);
+
+// Protected route wrapper
+const ProtectedRoute: React.FC<{ children: React.ReactNode; redirectTo?: string }> = ({ 
+  children, 
+  redirectTo = '/login' 
+}) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingFallback />;
+  }
+  
+  return user ? <>{children}</> : <Navigate to={redirectTo} replace />;
+};
+
+const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" storageKey="apni-dukaan-theme">
-        <LanguageProvider>
-          <AuthProvider>
-            <InventoryProvider>
-              <Toaster position="top-right" richColors />
-              <Routes>
-                <Route path="/login" element={<EnhancedLogin />} />
-                <Route path="/register" element={<ModernRegister />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route element={
-                  <ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>
-                }>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/inventory" element={<Inventory />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/products/add" element={<AddProductForm />} />
-                  <Route path="/products/edit/:id" element={<EditProduct />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/billing" element={<Billing />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/pos" element={<PosPage />} />
-                  <Route path="/bulk-inventory" element={<BulkInventory />} />
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-              </Routes>
-            </InventoryProvider>
-          </AuthProvider>
-        </LanguageProvider>
-      </ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth-callback" element={<AuthCallback />} />
+        
+        <Route element={<Layout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/products" element={<Products />} />
+          
+          <Route path="/products/add" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <AddProduct />
+            </Suspense>
+          } />
+          
+          <Route path="/inventory" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <Inventory />
+            </Suspense>
+          } />
+          
+          <Route path="/bulk-inventory" element={<BulkInventory />} />
+          
+          <Route path="/reports" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <Reports />
+            </Suspense>
+          } />
+          
+          <Route path="/billing" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <Billing />
+            </Suspense>
+          } />
+          
+          <Route path="/pos" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <POS />
+            </Suspense>
+          } />
+          
+          <Route path="/settings" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <Settings />
+            </Suspense>
+          } />
+          
+          <Route path="/shop-finder" element={
+            <Suspense fallback={<LoadingFallback />}>
+              <ShopFinder />
+            </Suspense>
+          } />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
-}
+};
 
 export default App;

@@ -1,220 +1,135 @@
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User, Provider } from '@supabase/supabase-js';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
-import { Session, User, AuthError } from '@supabase/supabase-js';
-import { DbProfile } from '@/lib/supabase';
 
-type UserProfile = {
-  id: string;
-  name: string;
-  email: string;
-  role: 'shopkeeper' | 'worker';
-  shopId?: string;
-  preferredLanguage?: string;
-  photoURL?: string;
-  avatar?: string;
-};
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+}
 
-export type LoginResult = {
-  error?: {
-    message: string;
-  };
-};
-
-type AuthContextType = {
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  preferredLanguage: string;
-  setPreferredLanguage: (language: string) => void;
-  login: (email: string, password: string) => Promise<LoginResult | undefined>;
-  register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  shopName: string;
-  setShopName: (name: string) => void;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  loading: true,
+  login: async () => {},
+  register: async () => {},
+  logout: async () => {},
+  loginWithGoogle: async () => {},
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [preferredLanguage, setPreferredLanguage] = useState<string>(() => {
-    return localStorage.getItem('preferredLanguage') || 'en-US';
-  });
-  const [shopName, setShopName] = useState<string>(() => {
-    return localStorage.getItem('shopName') || 'Apni Dukaan';
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem('preferredLanguage', preferredLanguage);
-  }, [preferredLanguage]);
+    // Set up the session listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log('Auth event:', event);
+      
+      // Update state based on session changes
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
+      } else if (event === 'SIGNED_IN') {
+        console.log('User signed in:', currentSession?.user?.email);
+      }
+    });
 
-  useEffect(() => {
-    localStorage.setItem('shopName', shopName);
-  }, [shopName]);
-
-  // Initialize auth and set up auth state listener
-  useEffect(() => {
-    setIsLoading(true);
-    
-    // First check for existing session
-    const getSession = async () => {
+    // Check for existing session
+    const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        setLoading(true);
+        const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session:', error);
-        } else if (session) {
-          await handleSession(session);
+          throw error;
         }
-      } catch (err) {
-        console.error('Session check error:', err);
+
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        toast.error('Failed to retrieve authentication status');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    
-    getSession();
-    
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        // Creating a local variable to avoid race conditions
-        let isSessionHandled = false;
-        
-        if (session) {
-          isSessionHandled = true;
-          await handleSession(session);
-        } else if (!isSessionHandled) {
-          // Only reset user if we haven't already handled this event
-          setUser(null);
-        }
-        
-        setIsLoading(false);
-      }
-    );
-    
+
+    initializeAuth();
+
+    // Cleanup function
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  const handleSession = async (session: Session) => {
+  const login = async (email: string, password: string) => {
     try {
-      const userData = session.user;
-      
-      // Demo mode handling logic
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        // Create a demo user profile
-        const demoProfile: UserProfile = {
-          id: userData?.id || 'demo-user-id',
-          name: 'Demo User',
-          email: userData?.email || 'demo@example.com',
-          role: 'shopkeeper',
-          preferredLanguage
-        };
-        
-        setUser(demoProfile);
-        return;
-      }
-      
-      // For demo/development, create a profile with user data
-      const demoProfile: UserProfile = {
-        id: userData?.id || 'demo-user-id',
-        name: userData?.user_metadata?.name || userData?.email?.split('@')[0] || 'User',
-        email: userData?.email || 'demo@example.com',
-        role: 'shopkeeper',
-        preferredLanguage: preferredLanguage
-      };
-      
-      setUser(demoProfile);
-      
-      // Persist auth in localStorage to prevent automatic logouts
-      localStorage.setItem('authUser', JSON.stringify({
-        id: demoProfile.id,
-        email: demoProfile.email,
-        name: demoProfile.name
-      }));
-    } catch (error) {
-      console.error('Session handling error:', error);
-    }
-  };
-
-  const login = async (email: string, password: string): Promise<LoginResult | undefined> => {
-    setIsLoading(true);
-    try {
-      // Handle demo mode login
-      if (email === 'demo@example.com' && password === 'password') {
-        // Create a demo user profile
-        const demoProfile: UserProfile = {
-          id: 'demo-user-id',
-          name: 'Demo User',
-          email: 'demo@example.com',
-          role: 'shopkeeper',
-          preferredLanguage
-        };
-        
-        setUser(demoProfile);
-        
-        // Store in localStorage to prevent logout
-        localStorage.setItem('authUser', JSON.stringify({
-          id: demoProfile.id,
-          email: demoProfile.email,
-          name: demoProfile.name
-        }));
-        
-        return undefined;
-      }
-      
-      // Normal Supabase login
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
-      
+
       if (error) {
-        toast.error(error.message);
-        return { error: { message: error.message } };
+        throw error;
       }
-      
-      toast.success('Successfully logged in');
-      return undefined;
+
+      // Auth state will be updated via the listener
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error('Login failed');
-      return { error: { message: error.message || 'Login failed' } };
-    } finally {
-      setIsLoading(false);
+      throw error;
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
+  const register = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            name
-          }
-        }
       });
-      
+
       if (error) {
-        toast.error(error.message);
+        throw error;
+      }
+
+      // For immediate sign-in after registration:
+      if (data.user && !data.session) {
+        // Email confirmation might be required
+        toast.info('Please check your email for verification link');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback`,
+        },
+      });
+
+      if (error) {
         throw error;
       }
       
-      toast.success('Account created successfully. Please check your email for verification link.');
-    } catch (error) {
-      console.error('Registration error:', error);
-      toast.error('Registration failed');
+      // Will redirect to Google login
+    } catch (error: any) {
+      console.error('Google login error:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -223,58 +138,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        toast.error(error.message);
         throw error;
       }
-      
-      // Clear local storage auth data
-      localStorage.removeItem('authUser');
-      
-      setUser(null);
-      toast.success('Logged out successfully');
-    } catch (error) {
+
+      // Auth state will be updated via the listener
+    } catch (error: any) {
       console.error('Logout error:', error);
-      toast.error('Logout failed');
+      throw error;
     }
   };
 
-  const handleSetPreferredLanguage = async (language: string) => {
-    setPreferredLanguage(language);
-    
-    if (user) {
-      try {
-        // In demo mode, we don't actually update the database
-        console.log('Language preference updated to:', language);
-      } catch (error) {
-        console.error('Error updating language preference:', error);
-      }
-    }
+  const authValues: AuthContextType = {
+    user,
+    session,
+    loading,
+    login,
+    register,
+    logout,
+    loginWithGoogle,
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        preferredLanguage,
-        setPreferredLanguage: handleSetPreferredLanguage,
-        login,
-        register,
-        logout,
-        shopName,
-        setShopName
-      }}
-    >
+    <AuthContext.Provider value={authValues}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

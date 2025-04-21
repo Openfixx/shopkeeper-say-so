@@ -10,7 +10,7 @@ export interface MultiProduct {
 
 const fuseOptions = {
   keys: ['name'],
-  threshold: 0.4, // Increased threshold for better matching
+  threshold: 0.4,
   ignoreLocation: true,
   findAllMatches: true,
 };
@@ -26,8 +26,13 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
   
   console.log("Parsing command:", command);
 
-  // Split input by commas to separate products
-  const parts = command.split(',');
+  // Clean up the command string
+  const cleanedCommand = command
+    .replace(/add|create|insert|put/gi, '')
+    .trim();
+
+  // Split input by commas or "and" to separate products
+  const parts = cleanedCommand.split(/,|\sand\s/i);
   console.log("Parts after splitting:", parts);
 
   const fuse = new Fuse(productList, fuseOptions);
@@ -35,8 +40,9 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
 
   parts.forEach(part => {
     console.log("Processing part:", part);
+    if (!part.trim()) return; // Skip empty parts
     
-    // Attempt to parse quantity, unit, name, and price from each part
+    // Enhanced regex to handle various formats
     // Pattern to capture: quantity, unit, name, price (price optional)
     const regex = /(\d+(?:\.\d+)?)\s*(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box)?\s*([\w\s]+?)(?:\s*(?:for|at|₹|rs|rupees)\s*(\d+(?:\.\d+)?))?$/i;
 
@@ -44,8 +50,9 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
     if (match) {
       console.log("Regex match:", match);
       let [, quantityStr, unit, nameRaw, priceStr] = match;
-      // Clean name
-      const name = nameRaw.trim().toLowerCase();
+      
+      // Clean name and strip leading "of" if present
+      const name = nameRaw.trim().toLowerCase().replace(/^of\s+/, '');
       console.log("Extracted name (raw):", name);
 
       // Use fuse to get best matching product from list
@@ -63,38 +70,46 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
 
       results.push({
         name: matchedName,
-        quantity: quantityStr ? parseFloat(quantityStr) : undefined,
-        unit: unit ? unit.toLowerCase() : undefined,
+        quantity: quantityStr ? parseFloat(quantityStr) : 1,
+        unit: unit ? unit.toLowerCase() : 'unit',
         price: priceStr ? parseFloat(priceStr) : undefined,
       });
     } else {
-      // Try a simpler approach for cases where the regex fails
-      console.log("Regex failed, trying simpler approach");
-      
-      // Try to extract just "add X" pattern
-      const simpleMatch = part.trim().match(/add\s+(.+?)(?=$|for|at|price)/i);
-      if (simpleMatch && simpleMatch[1]) {
-        const simpleName = simpleMatch[1].trim().toLowerCase();
-        console.log("Simple match name:", simpleName);
+      // Alternative approach for when regex fails
+      const simpleQuantityMatch = part.match(/(\d+(?:\.\d+)?)\s+([\w\s]+)/);
+      if (simpleQuantityMatch) {
+        const quantity = parseFloat(simpleQuantityMatch[1]);
+        const namePart = simpleQuantityMatch[2].trim();
         
-        let matchedName = simpleName;
-        if (productList.length > 0) {
-          const fuseResult = fuse.search(simpleName);
-          if (fuseResult.length > 0) {
-            matchedName = fuseResult[0].item.name.toLowerCase();
-          }
+        // Try to separate unit from name
+        const unitMatch = namePart.match(/^(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box)\s+([\w\s]+)/i);
+        
+        if (unitMatch) {
+          results.push({
+            name: unitMatch[2].trim().toLowerCase(),
+            quantity: quantity,
+            unit: unitMatch[1].toLowerCase(),
+            price: undefined
+          });
+        } else {
+          results.push({
+            name: namePart.toLowerCase(),
+            quantity: quantity,
+            unit: 'unit',
+            price: undefined
+          });
         }
-        
-        // Extract price if present
-        const priceMatch = part.trim().match(/(?:for|at|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i);
-        const price = priceMatch ? parseFloat(priceMatch[1]) : undefined;
-        
-        results.push({
-          name: matchedName,
-          quantity: 1, // Default quantity
-          unit: 'unit', // Default unit
-          price
-        });
+      } else {
+        // Last resort - just take the whole part as a product name
+        const simpleName = part.trim().toLowerCase();
+        if (simpleName) {
+          results.push({
+            name: simpleName,
+            quantity: 1,
+            unit: 'unit',
+            price: undefined
+          });
+        }
       }
     }
   });

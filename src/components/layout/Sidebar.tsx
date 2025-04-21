@@ -35,11 +35,24 @@ interface SidebarProps {
 
 export const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const navigate = useNavigate();
-  const { user, logout, shopName } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useLanguage();
   const { pathname } = useLocation();
-  const { switchTab } = useNavigateTabs();
+  const { userTabs, setUserTabs, allTabs } = useNavigateTabs();
   
+  // Extract shop name from user email or use default
+  const shopName = user?.email 
+    ? `${user.email.split('@')[0]}'s` 
+    : "Shopkeeper's";
+
+  useEffect(() => {
+    if (!user) {
+      setUserTabs([]);
+    } else if (user && userTabs.length === 0) {
+      setUserTabs(allTabs);
+    }
+  }, [user, setUserTabs, userTabs.length, allTabs]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -48,16 +61,16 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-72 p-0 border-r bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
-          <SheetHeader className="p-6 border-b bg-gradient-to-r from-purple-600 to-indigo-700 text-white">
+        <SheetContent side="left" className="w-72 p-0 border-r">
+          <SheetHeader className="p-6 border-b">
             <SheetTitle className="flex items-center justify-between">
-              <span className="text-white">
-                {shopName || "Apni Dukaan"}
+              <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                Apni Dukaan
               </span>
-              <Badge variant="outline" className="border-white/30 text-white">{t('beta')}</Badge>
+              <Badge variant="outline">{t('beta')}</Badge>
             </SheetTitle>
-            <SheetDescription className="text-white/80">
-              {user?.name ? `${user.name} ki Apni Dukaan` : "Apni Dukaan"}
+            <SheetDescription>
+              {shopName} ki Apni Dukaan
             </SheetDescription>
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-10rem)]">
@@ -133,6 +146,26 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   />
                 </ul>
               </div>
+
+              {userTabs.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {t('yourTabs')}
+                  </h3>
+                  <ul className="space-y-1">
+                    {userTabs.map((tab) => (
+                      <NavItem
+                        key={tab.href}
+                        icon={tab.icon}
+                        href={tab.href}
+                        text={tab.text}
+                        isActive={pathname === tab.href}
+                        onClick={() => setOpen(false)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {user && (
                 <div className="space-y-1">

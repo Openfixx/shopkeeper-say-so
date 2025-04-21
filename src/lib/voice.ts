@@ -20,14 +20,23 @@ export const useVoiceRecognition = () => {
   const extractPureProductName = (t: string): string => {
     // Try several regex patterns to extract just the product name
     const patterns = [
+      // Match quantity unit product pattern
+      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l))\s*(?:of\s+)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i,
+      
       // Match "add X to rack/shelf" pattern
-      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l)\s*)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i,
+      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l)\s*)?(?:of\s+)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i,
+      
       // Match "X quantity unit" pattern
       /(?:add|create|get)?\s*(.+?)(?=\s+\d+\s*(?:kg|g|ml|l|pieces?|pcs|units?))/i,
+      
       // Match after quantity
       /(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)\s+(?:of\s+)?(.+?)(?=\s+(?:to|on|in|for|price|expiry)|$))/i,
+      
       // Simple fallback - everything after add/create and before prepositions
-      /(?:add|create|get)\s+(.+?)(?=\s+(?:to|on|in|for|price|expiry)|$)/i
+      /(?:add|create|get)\s+(.+?)(?=\s+(?:to|on|in|for|price|expiry)|$)/i,
+      
+      // Even more basic extraction - just after add
+      /add\s+(.*?)(?=$|for|at|price|expiry)/i
     ];
 
     // Try each pattern until one works
@@ -56,11 +65,11 @@ export const useVoiceRecognition = () => {
     };
 
     // Try to match number + unit
-    const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?)/i);
+    const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)/i);
     if (m) return { value: parseFloat(m[1]), unit: m[2].toLowerCase() };
 
     // Try to match word number + unit
-    const wordMatch = t.match(new RegExp(`(${Object.keys(numberWords).join('|')})\\s*(kg|g|ml|l|pieces?|pcs|units?)`, 'i'));
+    const wordMatch = t.match(new RegExp(`(${Object.keys(numberWords).join('|')})\\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)`, 'i'));
     if (wordMatch) return { value: numberWords[wordMatch[1].toLowerCase()], unit: wordMatch[2].toLowerCase() };
 
     return undefined;
@@ -106,7 +115,11 @@ export const useVoiceRecognition = () => {
     'apple', 'banana', 'orange', 'grapes', 'watermelon',
     'coffee', 'tea', 'juice', 'water', 'soda',
     'cookies', 'chocolate', 'candy', 'chips', 'nuts',
-    'pasta', 'noodles', 'cereal', 'oats', 'bread'
+    'pasta', 'noodles', 'cereal', 'oats', 'bread',
+    'dal', 'lentil', 'spices', 'masala', 'ghee',
+    'atta', 'maida', 'besan', 'suji', 'poha',
+    'basmati', 'toor dal', 'moong dal', 'chana dal', 'urad dal',
+    'jaggery', 'gur', 'honey', 'biscuits', 'namkeen'
   ];
   
   const levenshtein = (a: string, b: string) => {
@@ -159,7 +172,9 @@ export const useVoiceRecognition = () => {
       'flour': 'https://source.unsplash.com/300x300/?flour,wheat',
       'milk': 'https://source.unsplash.com/300x300/?milk,bottle',
       'bread': 'https://source.unsplash.com/300x300/?bread,loaf',
-      'eggs': 'https://source.unsplash.com/300x300/?eggs,carton'
+      'eggs': 'https://source.unsplash.com/300x300/?eggs,carton',
+      'dal': 'https://source.unsplash.com/300x300/?lentils',
+      'atta': 'https://source.unsplash.com/300x300/?wheat,flour'
     };
     
     if (commonProducts[q]) {
