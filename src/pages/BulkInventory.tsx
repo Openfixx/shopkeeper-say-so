@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useInventory } from '@/context/InventoryContext';
 import ImageAssignModal from '@/components/ui-custom/ImageAssignModal';
@@ -5,6 +6,7 @@ import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Product } from '@/context/InventoryContext';
+import { supabase } from '@/lib/supabase';
 
 export default function BulkInventory() {
   const { products, addProduct, updateProduct } = useInventory();
@@ -29,7 +31,7 @@ export default function BulkInventory() {
         const file = uploadFiles[i];
         // Unique file name
         const fileName = `${file.name.replace(/\s+/g,'-').toLowerCase()}-${Date.now()}-${i}.jpg`;
-        const { data, error } = await window.supabase.storage.from('product-images').upload(fileName, file);
+        const { data, error } = await supabase.storage.from('product-images').upload(fileName, file);
 
         if (error) {
           console.error('Upload error:', error);
@@ -37,7 +39,7 @@ export default function BulkInventory() {
           continue;
         }
 
-        const { data: publicUrlData } = window.supabase.storage.from('product-images').getPublicUrl(data.path);
+        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(data.path);
         newUrls.push(publicUrlData.publicUrl);
       }
 
