@@ -112,6 +112,10 @@ export default function BulkInventory() {
       return;
     }
 
+    // Get current user ID for new products
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id || 'demo-user';
+
     // For each product from voice command, add to inventory (if doesn't exist, add as new)
     const newlyAdded: Product[] = [];
     for (const item of multiProducts) {
@@ -150,6 +154,7 @@ export default function BulkInventory() {
             id: Date.now().toString(), // Temporary ID for display purposes
             updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
+            userId: userId, // Adding the required userId property
           });
         }
       } catch (err) {
@@ -349,3 +354,4 @@ const VoiceInput = ({ onCommand }: { onCommand: (command: string) => void }) => 
     </Button>
   );
 };
+
