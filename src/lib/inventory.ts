@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Product } from '@/types';
 
@@ -58,7 +59,7 @@ export const addProduct = async (
     image_url: data?.image_url || urlData.publicUrl,
     created_at: data?.created_at || now,
     createdAt: data?.created_at || now,
-    updatedAt: data?.updated_at || now,
+    updatedAt: now, // Use the current timestamp instead of trying to access data.updated_at
     userId: 'demo-user', // Default user ID
   };
 };
