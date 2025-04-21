@@ -15,7 +15,7 @@ export type Product = {
   stockAlert?: number;
   created_at?: string; // For backward compatibility
   createdAt: string; // Now required
-  updatedAt?: string;
+  updatedAt: string; // Now required (making it required instead of optional)
   shopId?: string;
   // Add mappings for the other version of Product type
   userId?: string; // Maps to user_id

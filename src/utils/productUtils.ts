@@ -17,6 +17,8 @@ export const convertProduct = (product: any): Product => {
     image: product.image || product.image_url || '',
     user_id: product.userId || product.user_id || '',
     created_at: product.createdAt || product.created_at || '',
+    createdAt: product.createdAt || product.created_at || new Date().toISOString(),
+    updatedAt: product.updatedAt || product.updated_at || new Date().toISOString(),
   };
 };
 

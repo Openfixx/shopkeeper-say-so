@@ -1,10 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { DbProduct } from '@/lib/supabase';
 import { Bill, BillItem, StockAlert, ProductFindResult } from '@/types/inventory';
-import { fetchProductImage } from '@/lib/fetchImage'; 
+import { fetchProductImage } from '@/lib/fetchImage';
 import type { Shop } from '@/types/inventory';
 
 // ——— Types ———

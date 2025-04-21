@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,7 +37,6 @@ const Index = () => {
           unit: processedProduct.unit,
           price: 0, // Default price
           position: 'Default', // Default position
-          description: '',
           image_url: ''
         });
       } else {
