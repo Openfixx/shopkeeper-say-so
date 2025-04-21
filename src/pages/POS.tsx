@@ -7,4 +7,5 @@ import { getCachedImage } from '@/utils/fetchImage';
 import { DbInventoryItem } from '@/lib/supabase';
 
 // Re-export the POS component from the existing lowercase file
-export { default } from './pos';
+// Use a correct export approach that won't cause casing conflicts
+export { default } from '@/pages/pos';

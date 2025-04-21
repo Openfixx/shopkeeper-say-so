@@ -1,153 +1,151 @@
 
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Bell, Search, Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { convertProduct } from '@/utils/productUtils';
-import { Mic, Search, Menu } from 'lucide-react';
-import { useInventory } from '@/context/InventoryContext';
 import { toast } from 'sonner';
-import type { Product } from '@/types';
-import { Input } from '@/components/ui/input';
+import AppLogo from '../ui-custom/AppLogo';
+import { useLocation } from 'react-router-dom';
+import { useMobile } from '@/hooks/useMobile';
 
 interface HeaderProps {
-  toggleSidebar?: () => void;
+  onMenuToggle: () => void;
+  isSidebarOpen: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
-  const { user, logout, shopName } = useAuth();
-  const { products } = useInventory();
+const Header: React.FC<HeaderProps> = ({ onMenuToggle, isSidebarOpen }) => {
+  const { user, logout, isAuthenticated } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const location = useLocation();
+  const isMobile = useMobile();
+  
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
-    
-    // Filter products by search term
-    const filteredProducts = products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    
-    if (filteredProducts.length > 0) {
-      navigate('/products', { state: { searchQuery: searchTerm } });
-    } else {
-      toast.info(`No products found matching "${searchTerm}"`);
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
-  const startVoiceSearch = () => {
-    setIsVoiceListening(true);
-    
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Speech recognition is not supported in this browser");
-      setIsVoiceListening(false);
-      return;
-    }
-    
-    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.lang = 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setSearchTerm(transcript);
-      
-      // Auto search when voice input completes
-      const filteredProducts = products.filter(p => 
-        p.name.toLowerCase().includes(transcript.toLowerCase())
-      );
-      
-      navigate('/products', { state: { searchQuery: transcript } });
-      toast.success(`Searching for: "${transcript}"`);
-    };
-    
-    recognition.onend = () => {
-      setIsVoiceListening(false);
-    };
-    
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error", event.error);
-      setIsVoiceListening(false);
-      toast.error("Failed to recognize speech");
-    };
-    
-    recognition.start();
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'AD'; // Default to "Apni Dukaan" initials
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2);
   };
+
+  const getUserDisplayName = () => {
+    if (!user) return 'Guest';
+    // Try to get name from user object (might be null)
+    const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+    return userName;
+  };
+
+  // In auth pages, we show a simplified header
+  if (isAuthPage) {
+    return (
+      <header className="bg-transparent border-b border-transparent py-3 px-4">
+        <div className="container mx-auto flex justify-center">
+          <Link to="/" className="flex items-center space-x-2">
+            <AppLogo size={32} />
+            <span className="text-xl font-bold text-primary">Apni Dukaan</span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   return (
-    <header className="bg-gradient-to-r from-purple-600 to-indigo-700 shadow-md px-4 py-3 flex justify-between items-center">
-      <div className="flex items-center">
-        {toggleSidebar && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="mr-2 text-white hover:bg-white/10" 
-            onClick={toggleSidebar}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
-        <Link to="/" className="flex flex-col">
-          <span className="text-xl font-bold text-white">
-            {shopName || "Apni Dukaan"}
-          </span>
-          <span className="text-xs text-white/80">
-            {user?.name ? `${user.name} ki Apni Dukaan` : "Apni Dukaan"}
-          </span>
-        </Link>
-      </div>
-      
-      <form onSubmit={handleSearch} className="flex-1 max-w-md mx-4">
-        <div className="relative flex w-full">
-          <Input
-            type="search"
-            placeholder="Search products..."
-            className="w-full rounded-l-md border-0 bg-white/10 text-white placeholder:text-white/70 focus:ring-2 focus:ring-white/30 focus:border-0"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-          <Button 
-            type="button" 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-none bg-white/10 border-0 text-white hover:bg-white/20"
-            disabled={isVoiceListening}
-            onClick={startVoiceSearch}
-          >
-            <Mic className="h-4 w-4" />
-            <span className="sr-only">Search with voice</span>
-          </Button>
-          <Button type="submit" className="rounded-r-md rounded-l-none bg-white/20 hover:bg-white/30 text-white border-0">
-            <Search className="h-4 w-4" />
-            <span className="sr-only">Search</span>
-          </Button>
-        </div>
-      </form>
-      
-      <div className="flex items-center gap-2">
-        {user ? (
-          <>
-            <span className="text-sm text-white hidden md:inline-block">
-              {user.name}
-            </span>
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 border border-white/20" onClick={handleLogout}>
-              Logout
+    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="mr-2 md:hidden" 
+              onClick={onMenuToggle}
+            >
+              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </Button>
-          </>
-        ) : (
-          <Link to="/login">
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 border border-white/20">Login</Button>
-          </Link>
-        )}
+            
+            <Link to="/" className="flex items-center space-x-2">
+              <AppLogo size={32} />
+              <span className="text-xl font-bold text-primary hidden md:inline-block">
+                Apni Dukaan
+              </span>
+            </Link>
+          </div>
+          
+          <div className={cn(
+            "flex-1 transition-all duration-300 ease-in-out",
+            isMobile && !isAuthenticated ? "hidden" : "flex justify-center mx-4"
+          )}>
+            <form onSubmit={handleSearch} className="w-full max-w-md">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <Input
+                  type="search"
+                  placeholder="Search products, categories..."
+                  className="w-full bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </form>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell size={20} />
+              <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+            </Button>
+            
+            <div className="flex items-center space-x-1">
+              {isAuthenticated ? (
+                <>
+                  <div className="mr-2 text-sm text-right hidden md:block">
+                    <p className="font-medium">{getUserDisplayName()}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user?.user_metadata?.avatar_url || ''} alt={getUserDisplayName()} />
+                      <AvatarFallback>{getInitials(getUserDisplayName())}</AvatarFallback>
+                    </Avatar>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleLogout} 
+                      className="hidden md:flex"
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <Button asChild variant="default" className="bg-gradient-to-r from-violet-600 to-indigo-600">
+                  <Link to="/login">Login</Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </header>
   );

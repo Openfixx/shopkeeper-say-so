@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,6 @@ const EnhancedLogin = () => {
   const location = useLocation();
   const { t } = useLanguage();
 
-  // Get the intended redirect path if coming from a protected route
   const from = location.state?.from || '/';
 
   useEffect(() => {
@@ -47,14 +45,9 @@ const EnhancedLogin = () => {
     setLoading(true);
     
     try {
-      const result = await login(email, password);
-      
-      if (result?.error) {
-        toast.error(result.error.message);
-      } else {
-        toast.success('Login successful');
-        navigate(from, { replace: true });
-      }
+      await login(email, password);
+      toast.success('Login successful');
+      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || 'Login failed');
@@ -69,7 +62,6 @@ const EnhancedLogin = () => {
       return;
     }
     
-    // In a real app, we would integrate with an SMS service
     toast.success(`Verification code sent to ${phoneNumber}`);
     setCodeSent(true);
   };
@@ -82,9 +74,7 @@ const EnhancedLogin = () => {
       return;
     }
     
-    // In a real app, we would verify the code with our backend
     toast.success('Login successful');
-    // For demo purposes
     setTimeout(() => {
       navigate(from, { replace: true });
     }, 1500);
@@ -94,7 +84,6 @@ const EnhancedLogin = () => {
     try {
       setGoogleLoading(true);
       
-      // Use Supabase OAuth with Google provider
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -119,14 +108,9 @@ const EnhancedLogin = () => {
   const handleDemoLogin = async () => {
     setLoading(true);
     try {
-      const result = await login('demo@example.com', 'password');
-      
-      if (result?.error) {
-        toast.error(result.error.message);
-      } else {
-        toast.success('Demo login successful');
-        navigate(from, { replace: true });
-      }
+      await login('demo@example.com', 'password');
+      toast.success('Demo login successful');
+      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Demo login error:', error);
       toast.error(error.message || 'Login failed');
@@ -135,7 +119,6 @@ const EnhancedLogin = () => {
     }
   };
 
-  // If already authenticated, redirect to intended destination
   if (isAuthenticated && !authLoading) {
     return <Navigate to={from} replace />;
   }

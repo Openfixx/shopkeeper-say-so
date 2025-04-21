@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -37,6 +36,8 @@ const BulkInventory: React.FC = () => {
   const [parsedProducts, setParsedProducts] = useState<MultiProduct[]>([]);
   const [showVoiceUI, setShowVoiceUI] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [bulkProducts, setBulkProducts] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const { products, addProduct } = useInventory();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -137,6 +138,50 @@ const BulkInventory: React.FC = () => {
   const handleCancelParsed = () => {
     setParsedProducts([]);
     setShowVoiceUI(false);
+  };
+
+  const handleBulkUpload = async () => {
+    setIsUploading(true);
+    try {
+      // Process and filter valid products
+      const validProducts = bulkProducts
+        .filter(p => p.name && p.price)
+        .map(p => ({
+          name: p.name,
+          description: p.description || '',
+          price: Number(p.price) || 0,
+          stock: Number(p.stock) || 0,
+          barcode: p.barcode || '',
+          category: p.category || '',
+          imageUrl: p.imageUrl || '',
+          costPrice: Number(p.costPrice) || 0,
+          sellingPrice: Number(p.sellingPrice) || 0,
+          taxRate: Number(p.taxRate) || 0,
+          sku: p.sku || '',
+          supplier: p.supplier || '',
+          reorderPoint: Number(p.reorderPoint) || 0,
+          expiryDate: p.expiryDate || null
+        }));
+
+      if (validProducts.length === 0) {
+        toast.error('No valid products to upload');
+        return;
+      }
+
+      // Upload products
+      const { data, error } = await supabase.from('products').insert(validProducts);
+
+      if (error) throw error;
+      
+      toast.success(`Successfully uploaded ${validProducts.length} products`);
+      setBulkProducts([]);
+      setShowUploadModal(false);
+    } catch (error: any) {
+      console.error('Error uploading products:', error);
+      toast.error(error.message || 'Error uploading products');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
