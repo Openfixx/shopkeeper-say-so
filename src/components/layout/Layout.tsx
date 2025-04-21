@@ -1,54 +1,37 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import Sidebar from './Sidebar';
 import Header from './Header';
+import Sidebar from './Sidebar';
+import { cn } from '@/lib/utils';
 
 const Layout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    // Check if on mobile device
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
-        setSidebarOpen(true);
-      } else {
-        setSidebarOpen(false);
-      }
-    };
-    
-    // Initial check
-    checkIfMobile();
-    
-    // Listen for resize events
-    window.addEventListener('resize', checkIfMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkIfMobile);
-    };
-  }, []);
-  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header toggleSidebar={toggleSidebar} />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-        <main className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <Sidebar isOpen={isSidebarOpen} />
+      <div className="flex flex-col flex-1 w-full">
+        <Header onMenuToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+        <main
+          className={cn(
+            "flex-1 overflow-y-auto transition-all duration-300 ease-in-out",
+            isSidebarOpen ? "md:ml-64" : "md:ml-0"
+          )}
+        >
           <AnimatePresence mode="wait">
             <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 20 }}
+              key="page-content"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="p-4 md:p-6 max-w-screen-xl mx-auto"
+              className="min-h-screen"
             >
               <Outlet />
             </motion.div>

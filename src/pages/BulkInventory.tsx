@@ -1,333 +1,308 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CheckCircle, AlertCircle, Upload, FileText, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
-import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
-import { FileUp, Mic, Info, X } from 'lucide-react';
-import { useVoiceRecognition } from '@/lib/voice';
-import { Badge } from '@/components/ui/badge';
-import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
+import { supabase } from '@/lib/supabase';
 
-const BulkInventory: React.FC = () => {
-  const [bulkText, setBulkText] = useState('');
+interface ImportRow {
+  name: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  position: string;
+  status?: 'pending' | 'success' | 'error';
+  message?: string;
+}
+
+const BulkInventory = () => {
+  const { addProduct } = useInventory();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [importData, setImportData] = useState<ImportRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parsedProducts, setParsedProducts] = useState<MultiProduct[]>([]);
-  const [showVoiceUI, setShowVoiceUI] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [bulkProducts, setBulkProducts] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const { products, addProduct } = useInventory();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const { listen, isListening } = useVoiceRecognition();
-  const [showMultiProductToast, setShowMultiProductToast] = useState(false);
-
-  const handleTextParse = () => {
-    if (!bulkText.trim()) {
-      toast.error('Please enter some text to parse');
-      return;
-    }
+  const [processedCount, setProcessedCount] = useState(0);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [fileName, setFileName] = useState('');
+  
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     
-    setIsProcessing(true);
+    setFileName(file.name);
     
-    try {
-      // Get existing product names for better matching
-      const productNames = products.map(p => ({ name: p.name }));
-      
-      // Parse the bulk text
-      const parsed = parseMultiProductCommand(bulkText, productNames);
-      setParsedProducts(parsed);
-      
-      if (parsed.length === 0) {
-        toast.error('No products could be identified in the text');
-      } else {
-        toast.success(`Identified ${parsed.length} products`);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const csvData = event.target?.result as string;
+        const rows = parseCSV(csvData);
+        setImportData(rows);
+        setShowUploadModal(true);
+      } catch (error) {
+        console.error('Error parsing file:', error);
+        toast.error('Failed to parse file. Please check the format.');
       }
-    } catch (error) {
-      console.error('Error parsing bulk text:', error);
-      toast.error('Failed to parse text. Please check format and try again.');
-    } finally {
-      setIsProcessing(false);
-    }
+    };
+    
+    reader.readAsText(file);
   };
   
-  const handleVoiceCommand = async () => {
-    try {
-      setShowVoiceUI(true);
-      const result = await listen();
-      setTranscript(result.rawText);
-      
-      // Parse the voice command for products
-      const productNames = products.map(p => ({ name: p.name }));
-      const parsed = parseMultiProductCommand(result.rawText, productNames);
-      setParsedProducts(parsed);
-      
-      if (parsed.length === 0) {
-        toast.error('No products could be identified in the voice command');
-      } else {
-        toast.success(`Identified ${parsed.length} products from voice command`);
-      }
-    } catch (error) {
-      console.error('Voice recognition error:', error);
-      toast.error('Voice recognition failed. Please try again.');
+  const parseCSV = (csvText: string): ImportRow[] => {
+    const lines = csvText.split('\n');
+    
+    // Check header row
+    const header = lines[0].toLowerCase().split(',');
+    const requiredColumns = ['name', 'quantity', 'unit', 'price'];
+    const missingColumns = requiredColumns.filter(col => !header.includes(col));
+    
+    if (missingColumns.length > 0) {
+      throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
     }
+    
+    const nameIndex = header.indexOf('name');
+    const quantityIndex = header.indexOf('quantity');
+    const unitIndex = header.indexOf('unit');
+    const priceIndex = header.indexOf('price');
+    const positionIndex = header.indexOf('position');
+    
+    return lines.slice(1)
+      .filter(line => line.trim() !== '')
+      .map(line => {
+        const values = line.split(',');
+        return {
+          name: values[nameIndex]?.trim() || '',
+          quantity: parseFloat(values[quantityIndex]) || 0,
+          unit: values[unitIndex]?.trim() || 'unit',
+          price: parseFloat(values[priceIndex]) || 0,
+          position: positionIndex >= 0 ? values[positionIndex]?.trim() || '' : '',
+          status: 'pending'
+        };
+      });
   };
-
-  const handleAddToInventory = () => {
-    if (parsedProducts.length === 0) {
-      toast.error('No products to add');
-      return;
-    }
+  
+  const handleImport = async () => {
+    setIsProcessing(true);
+    setProcessedCount(0);
     
-    setShowMultiProductToast(true);
+    const updatedData = [...importData];
     
-    // Add each product to inventory with delay
-    parsedProducts.forEach((product, index) => {
-      setTimeout(() => {
-        const userId = user?.id || 'demo-user';
-        addProduct({
-          name: product.name,
-          quantity: product.quantity || 1,
-          unit: product.unit || 'unit',
-          price: product.price || 0,
-          position: 'Default',
-          image_url: '',
-          userId,
-          barcode: undefined,
-          stockAlert: undefined,
-          shopId: undefined
+    for (let i = 0; i < updatedData.length; i++) {
+      const item = updatedData[i];
+      
+      try {
+        await addProduct({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          price: item.price,
+          position: item.position,
+          image_url: ''
         });
         
-        // If last product, show success and navigate
-        if (index === parsedProducts.length - 1) {
-          setTimeout(() => {
-            toast.success(`Successfully added ${parsedProducts.length} products to inventory`);
-            // Reset everything
-            setBulkText('');
-            setParsedProducts([]);
-            setShowVoiceUI(false);
-            setTranscript('');
-          }, 1000);
-        }
-      }, index * 800);
-    });
-  };
-
-  const handleCancelParsed = () => {
-    setParsedProducts([]);
-    setShowVoiceUI(false);
-  };
-
-  const handleBulkUpload = async () => {
-    setIsUploading(true);
-    try {
-      // Process and filter valid products
-      const validProducts = bulkProducts
-        .filter(p => p.name && p.price)
-        .map(p => ({
-          name: p.name,
-          description: p.description || '',
-          price: Number(p.price) || 0,
-          stock: Number(p.stock) || 0,
-          barcode: p.barcode || '',
-          category: p.category || '',
-          imageUrl: p.imageUrl || '',
-          costPrice: Number(p.costPrice) || 0,
-          sellingPrice: Number(p.sellingPrice) || 0,
-          taxRate: Number(p.taxRate) || 0,
-          sku: p.sku || '',
-          supplier: p.supplier || '',
-          reorderPoint: Number(p.reorderPoint) || 0,
-          expiryDate: p.expiryDate || null
-        }));
-
-      if (validProducts.length === 0) {
-        toast.error('No valid products to upload');
-        return;
+        updatedData[i] = {
+          ...item,
+          status: 'success',
+          message: 'Added successfully'
+        };
+      } catch (error) {
+        console.error(`Error adding product ${item.name}:`, error);
+        
+        updatedData[i] = {
+          ...item,
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Failed to add product'
+        };
       }
-
-      // Upload products
-      const { data, error } = await supabase.from('products').insert(validProducts);
-
-      if (error) throw error;
       
-      toast.success(`Successfully uploaded ${validProducts.length} products`);
-      setBulkProducts([]);
-      setShowUploadModal(false);
-    } catch (error: any) {
-      console.error('Error uploading products:', error);
-      toast.error(error.message || 'Error uploading products');
-    } finally {
-      setIsUploading(false);
+      setProcessedCount(i + 1);
+      setImportData([...updatedData]);
     }
+    
+    setIsProcessing(false);
+    toast.success(`Processed ${updatedData.filter(item => item.status === 'success').length} items successfully`);
   };
-
+  
+  const handleDownloadTemplate = () => {
+    const template = 'name,quantity,unit,price,position\nRice,10,kg,100,Shelf A\nSugar,5,kg,50,Shelf B';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventory_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast.success('Template downloaded');
+  };
+  
+  const handleClearData = () => {
+    setImportData([]);
+    setProcessedCount(0);
+    setFileName('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setShowUploadModal(false);
+  };
+  
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-          Bulk Inventory
-        </h1>
-        <p className="text-muted-foreground mt-1">Add multiple products at once using text or voice commands</p>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border shadow-md">
-          <CardHeader>
-            <CardTitle>Text Input</CardTitle>
-            <CardDescription>
-              Enter multiple products separated by commas. Format: "quantity unit product for price"
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="bulk-text">Product List</Label>
-                <Textarea
-                  id="bulk-text"
-                  placeholder="Example: 5 kg rice for ₹200, 2 litre milk for ₹60, 3 packs biscuits for ₹45"
-                  className="h-32"
-                  value={bulkText}
-                  onChange={(e) => setBulkText(e.target.value)}
-                />
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p className="flex items-center"><Info className="h-3 w-3 mr-1" /> Supported format examples:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>5 kg rice for ₹200</li>
-                  <li>2 litre milk</li>
-                  <li>3 packs biscuits for Rs 45</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-4">
-            <div className="space-x-2">
-              <Button 
-                variant="outline"
-                onClick={() => setBulkText('')}
-                disabled={!bulkText || isProcessing}
-              >
-                Clear
-              </Button>
-              <Button
-                onClick={handleTextParse}
-                disabled={!bulkText || isProcessing}
-              >
-                Parse Products
-              </Button>
-            </div>
-            <Button
-              variant="default"
-              className="bg-gradient-to-r from-violet-600 to-indigo-600"
-              onClick={handleVoiceCommand}
-              disabled={isListening}
-            >
-              <Mic className="h-4 w-4 mr-2" />
-              Voice Command
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card className="border shadow-md">
-          <CardHeader>
-            <CardTitle>Parsed Products</CardTitle>
-            <CardDescription>
-              {parsedProducts.length 
-                ? `${parsedProducts.length} products identified` 
-                : "Products will appear here after parsing"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {showVoiceUI && transcript && (
-              <div className="px-6 py-3 bg-muted/30 border-b">
-                <p className="text-sm font-medium">Voice Command:</p>
-                <p className="text-sm mt-1">{transcript}</p>
-              </div>
-            )}
-            
-            {parsedProducts.length > 0 ? (
-              <div className="max-h-[320px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="w-[100px]">Quantity</TableHead>
-                      <TableHead className="w-[100px]">Unit</TableHead>
-                      <TableHead className="w-[100px]">Price</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parsedProducts.map((product, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.quantity || 1}</TableCell>
-                        <TableCell>{product.unit || 'unit'}</TableCell>
-                        <TableCell>{product.price ? `₹${product.price}` : '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-                <FileUp className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                <p className="text-muted-foreground">
-                  No products parsed yet. Enter text or use voice command.
-                </p>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-end border-t pt-4 gap-2">
-            {parsedProducts.length > 0 && (
-              <>
-                <Button variant="ghost" onClick={handleCancelParsed}>
-                  <X className="h-4 w-4 mr-1" /> Cancel
-                </Button>
-                <Button 
-                  onClick={handleAddToInventory} 
-                  disabled={parsedProducts.length === 0}
-                  className="bg-gradient-to-r from-violet-600 to-indigo-600"
-                >
-                  Add {parsedProducts.length} Products to Inventory
-                </Button>
-              </>
-            )}
-          </CardFooter>
-        </Card>
-      </div>
+    <div className="container mx-auto p-4 space-y-6">
+      <h1 className="text-2xl font-bold mb-4">Bulk Inventory Management</h1>
       
-      {showMultiProductToast && (
-        <MultiProductAddToast 
-          products={parsedProducts} 
-          onClose={() => setShowMultiProductToast(false)}
-          onComplete={() => {
-            navigate('/products');
-          }}
-        />
-      )}
+      <Tabs defaultValue="import" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="import">Import Products</TabsTrigger>
+          <TabsTrigger value="export">Export Products</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="import" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Import Products</CardTitle>
+              <CardDescription>
+                Upload a CSV file to add multiple products at once.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-md p-6 text-center">
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Upload a CSV file with product details
+                  </p>
+                  <Label htmlFor="file-upload" className="cursor-pointer">
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      Select File
+                    </Button>
+                    <Input
+                      ref={fileInputRef}
+                      id="file-upload"
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                  </Label>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Need a template? Download our format.
+                </p>
+                <Button variant="link" size="sm" onClick={handleDownloadTemplate}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download Template
+                </Button>
+              </div>
+              
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Important</AlertTitle>
+                <AlertDescription>
+                  CSV file must include name, quantity, unit, and price columns.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="export" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Export Products</CardTitle>
+              <CardDescription>
+                Download your inventory as CSV or Excel file.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button className="flex items-center justify-center h-24">
+                  <div className="text-center">
+                    <FileText className="h-8 w-8 mx-auto mb-2" />
+                    <span>Export as CSV</span>
+                  </div>
+                </Button>
+                
+                <Button variant="outline" className="flex items-center justify-center h-24">
+                  <div className="text-center">
+                    <FileSpreadsheet className="h-8 w-8 mx-auto mb-2" />
+                    <span>Export as Excel</span>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Review and Import Products</DialogTitle>
+            <DialogDescription>
+              File: {fileName} ({importData.length} products)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableCaption>
+                {isProcessing 
+                  ? `Processing... (${processedCount}/${importData.length})` 
+                  : 'Review products before importing'}
+              </TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {importData.map((item, index) => (
+                  <TableRow key={index} className={item.status === 'error' ? 'bg-red-50 dark:bg-red-900/10' : ''}>
+                    <TableCell>{item.name}</TableCell>
+                    <TableCell className="text-right">{item.quantity}</TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                    <TableCell className="text-right">{item.price}</TableCell>
+                    <TableCell>{item.position}</TableCell>
+                    <TableCell>
+                      {item.status === 'success' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                      {item.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" title={item.message} />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleClearData} className="sm:order-1">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+            <Button onClick={handleImport} disabled={isProcessing || importData.length === 0} className="sm:order-2">
+              {isProcessing ? (
+                <>Processing...</>
+              ) : (
+                <>Import {importData.length} Products</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
