@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import {
   Sheet,
@@ -21,7 +22,7 @@ import {
   LogOut,
   UploadCloud,
 } from "lucide-react"
-import { NavItem } from "@/components/layout/NavItem"
+import NavItem from "@/components/layout/NavItem"
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,7 +38,24 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
   const { pathname } = useLocation();
-  const { userTabs, setUserTabs, allTabs } = useNavigateTabs();
+  // Only use the switchTab function for navigation, the rest will be implemented in this component
+  const { switchTab } = useNavigateTabs();
+  
+  // Create a local state for user tabs since useNavigateTabs is incomplete
+  const [userTabs, setUserTabs] = React.useState<Array<{
+    href: string;
+    icon: React.ReactNode;
+    text: string;
+  }>>([]);
+
+  // Default tabs that will be used
+  const allTabs = React.useMemo(() => [
+    {
+      href: '/bulk-inventory',
+      icon: <UploadCloud className="h-4 w-4 mr-3" />,
+      text: 'Bulk Inventory',
+    }
+  ], []);
 
   useEffect(() => {
     if (!user) {
@@ -45,7 +63,7 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
     } else if (user && userTabs.length === 0) {
       setUserTabs(allTabs);
     }
-  }, [user, setUserTabs, userTabs.length, allTabs]);
+  }, [user, userTabs.length, allTabs]);
 
   const handleLogout = async () => {
     await logout();
@@ -187,34 +205,6 @@ export const Sidebar = ({ open, setOpen }: SidebarProps) => {
         </SheetContent>
       </Sheet>
     </>
-  );
-};
-
-interface NavItemProps {
-  icon: React.ReactNode;
-  href: string;
-  text: string;
-  isActive: boolean;
-  onClick?: () => void;
-}
-
-export const NavItem: React.FC<NavItemProps> = ({ icon, href, text, isActive, onClick }) => {
-  return (
-    <li>
-      <SheetClose asChild>
-        <Button
-          variant="ghost"
-          className={`w-full justify-start ${isActive ? 'font-semibold' : 'text-muted-foreground'}`}
-          onClick={onClick}
-          asChild
-        >
-          <a href={href} className="flex items-center w-full">
-            {icon}
-            {text}
-          </a>
-        </Button>
-      </SheetClose>
-    </li>
   );
 };
 

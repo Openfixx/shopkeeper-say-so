@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 
 const Layout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -14,7 +14,7 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar open={sidebarOpen} />
+      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col">
         <Header toggleSidebar={toggleSidebar} />
         <main className="flex-1 p-4 md:p-6 overflow-auto">
