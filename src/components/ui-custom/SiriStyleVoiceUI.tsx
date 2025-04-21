@@ -5,10 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { extractProductDetailsFromEntities } from '@/utils/voiceCommandUtils';
 import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
 import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
+import VoiceCommandPopup from './VoiceCommandPopup';
 
 interface SiriStyleVoiceUIProps {
   onCommand?: (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => void;
@@ -16,24 +16,26 @@ interface SiriStyleVoiceUIProps {
 }
 
 export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyleVoiceUIProps) {
-  const { text, isListening, listen, commandResult } = useVoiceRecognition();
+  const { text, isListening, listen, commandResult, reset } = useVoiceRecognition();
   const [processing, setProcessing] = useState(false);
   const [processedText, setProcessedText] = useState('');
   const [extractedProduct, setExtractedProduct] = useState<{name: string, quantity?: number, unit?: string} | null>(null);
   const [extractedProducts, setExtractedProducts] = useState<MultiProduct[]>([]);
   const [waveformActive, setWaveformActive] = useState(false);
   const [isMultiCommand, setIsMultiCommand] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [isAddingToInventory, setIsAddingToInventory] = useState(false);
 
   const handleListen = async () => {
     try {
       setWaveformActive(true);
       toast.info("Listening... Say commands like 'Add 5kg rice, 2kg sugar'", { duration: 3000 });
       
-      await listen();
+      const result = await listen();
       setProcessing(true);
       
       setTimeout(() => {
-        const rawText = text || commandResult?.rawText || "";
+        const rawText = result.rawText;
         setProcessedText(rawText);
         
         // Check if it's a multi-product command
@@ -56,56 +58,15 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
           }
         } else {
           // Process as single product command
-          // Extract product name from the full sentence using improved logic
-          let productName = "";
-          
-          // Try to extract using regex patterns for common voice commands
-          const addProductMatch = rawText.match(/add\s+(?:\d+\s*(?:kg|g|l|ml|pcs)?\s*)?(?:of\s+)?([a-zA-Z0-9\s]+?)(?:\s+(?:to|in|at|with|for|price|\$|₹|\d+)|\s*$)/i);
-          
-          if (addProductMatch && addProductMatch[1]) {
-            productName = addProductMatch[1].trim();
-          } else if (commandResult?.productName) {
-            productName = commandResult.productName;
-          } else {
-            // Fallback to a simple word extraction after "add"
-            const fallbackMatch = rawText.match(/add\s+(.+?)(?=\s+(?:to|in|at|with|for)|$)/i);
-            if (fallbackMatch && fallbackMatch[1]) {
-              productName = fallbackMatch[1].trim();
-            } else {
-              productName = rawText.replace(/add|create|new|find|search/gi, '').trim();
-            }
-          }
-        
-          // Extract quantity and unit if available
-          let quantity: number | undefined = undefined;
-          let unit: string | undefined = undefined;
-          
-          if (commandResult?.quantity) {
-            quantity = commandResult.quantity.value;
-            unit = commandResult.quantity.unit;
-          } else {
-            // Try to extract quantity and unit with regex
-            const quantityMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pcs|pieces?|units?|boxes?|packs?)/i);
-            if (quantityMatch) {
-              quantity = parseFloat(quantityMatch[1]);
-              unit = quantityMatch[2].toLowerCase();
-            }
-          }
-          
-          setExtractedProduct({ name: productName, quantity, unit });
+          setExtractedProduct({
+            name: result.productName,
+            quantity: result.quantity?.value,
+            unit: result.quantity?.unit
+          });
         }
         
         setProcessing(false);
-        
-        if (onCommand) {
-          if (isMulti) {
-            // Pass the first product for backward compatibility
-            const firstProduct = extractedProducts[0] || { name: '', quantity: 1, unit: 'unit' };
-            onCommand(rawText, firstProduct);
-          } else {
-            onCommand(rawText, extractedProduct || { name: '', quantity: undefined, unit: undefined });
-          }
-        }
+        setShowPopup(true);
         
         toast.success("Voice command processed!");
       }, 1000);
@@ -115,6 +76,36 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
       setProcessing(false);
       setWaveformActive(false);
     }
+  };
+
+  const handleConfirmProduct = () => {
+    setIsAddingToInventory(true);
+    
+    try {
+      if (onCommand) {
+        if (isMultiCommand) {
+          // Pass the first product for backward compatibility
+          const firstProduct = extractedProducts[0] || { name: '', quantity: 1, unit: 'unit' };
+          onCommand(processedText, firstProduct);
+        } else {
+          onCommand(processedText, extractedProduct || { name: '', quantity: undefined, unit: undefined });
+        }
+      }
+      
+      toast.success("Product added to inventory!");
+    } catch (error) {
+      toast.error("Failed to add product.");
+      console.error("Error adding product:", error);
+    } finally {
+      setIsAddingToInventory(false);
+      setShowPopup(false);
+      reset();
+    }
+  };
+
+  const handleCancelProduct = () => {
+    setShowPopup(false);
+    reset();
   };
 
   return (
@@ -240,7 +231,7 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
             )}
           </AnimatePresence>
           
-          {processedText && !isListening && (
+          {processedText && !isListening && !showPopup && (
             <motion.div 
               className="mt-6 text-center space-y-3"
               initial={{ opacity: 0, y: 20 }}
@@ -307,6 +298,17 @@ export default function SiriStyleVoiceUI({ onCommand, className = '' }: SiriStyl
           )}
         </div>
       </Card>
+      
+      <AnimatePresence>
+        {showPopup && (
+          <VoiceCommandPopup 
+            result={commandResult} 
+            onConfirm={handleConfirmProduct}
+            onCancel={handleCancelProduct}
+            loading={isAddingToInventory}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 
 export type CommandResult = {
@@ -16,47 +15,63 @@ export const useVoiceRecognition = () => {
   const [isListening, setIsListening] = useState(false);
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
 
-  // ——— 1) Enhanced regex‑based product name extractor ———
+  // Significantly improved regex-based product name extractor
   const extractPureProductName = (t: string): string => {
-    // Try several regex patterns to extract just the product name
-    const patterns = [
-      // Match quantity unit product pattern
-      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l))\s*(?:of\s+)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i,
+    // First, check for specific patterns that indicate product names
+    const directMatch = t.match(/add\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)?\s*(?:of\s+)?)([\w\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i);
+    if (directMatch && directMatch[2]?.trim()) {
+      return directMatch[2].trim();
+    }
+    
+    // Handle multi-product commands differently
+    if (t.includes(',') || /\s+and\s+/.test(t)) {
+      // This is likely a multi-product command, extract the first product
+      const parts = t.split(/,|\s+and\s+/i);
+      const firstPart = parts[0];
+      const productMatch = firstPart.match(/(\d+(?:\.\d+)?)\s*(?:kg|g|ml|l|pieces?|pcs|units?)?\s*(?:of\s+)?([\w\s]+?)(?:\s+(?:for|at|₹|rs|price)|\s*$)/i);
+      if (productMatch && productMatch[2]?.trim()) {
+        return productMatch[2].trim();
+      }
+    }
+    
+    // Simplified pattern matching focused on common voice command structures
+    const commonPatterns = [
+      // Pattern: "add X kg/g/units of ProductName"
+      /add\s+\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)\s+(?:of\s+)?([\w\s]+?)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
       
-      // Match "add X to rack/shelf" pattern
-      /(?:add|create)?\s*(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l)\s*)?(?:of\s+)?(.+?)(?=\s+(?:to|on|in)\s+(?:rack|shelf)\b|\s+(?:price|for)\b|\s+₹|\s+\d|\bexpiry\b|$)/i,
+      // Pattern: "add ProductName" (no quantities)
+      /add\s+([\w\s]+?)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
       
-      // Match "X quantity unit" pattern
-      /(?:add|create|get)?\s*(.+?)(?=\s+\d+\s*(?:kg|g|ml|l|pieces?|pcs|units?))/i,
-      
-      // Match after quantity
-      /(?:\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)\s+(?:of\s+)?(.+?)(?=\s+(?:to|on|in|for|price|expiry)|$))/i,
-      
-      // Simple fallback - everything after add/create and before prepositions
-      /(?:add|create|get)\s+(.+?)(?=\s+(?:to|on|in|for|price|expiry)|$)/i,
-      
-      // Even more basic extraction - just after add
-      /add\s+(.*?)(?=$|for|at|price|expiry)/i
+      // Pattern: "ProductName X kg/g/units"
+      /([\w\s]+?)\s+\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)/i,
     ];
-
-    // Try each pattern until one works
-    for (const pattern of patterns) {
-      const m = t.match(pattern);
-      if (m && m[1] && m[1].trim().length > 0) {
-        return m[1].trim();
+    
+    for (const pattern of commonPatterns) {
+      const match = t.match(pattern);
+      if (match && match[1]?.trim()) {
+        return match[1].trim();
       }
     }
 
-    // Ultimate fallback - clean up the text
-    return t
-      .replace(/(\d+(?:\.\d+)?|one|two|three|…|ten)\s*(kg|g|ml|l)\b/gi, '')
+    // If all else fails, try to clean up the text and extract what might be a product name
+    const cleaned = t
+      .replace(/\b(?:add|create|get|upload|set|put)\b/gi, '')
+      .replace(/\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:kg|g|ml|l|pieces?|pcs|units?)\b/gi, '')
       .replace(/\b(?:to|on|in)\s+(?:rack|shelf)\s*\d+\b/gi, '')
-      .replace(/\b(add|create|price|for|₹|expiry|expire|next)\b/gi, '')
+      .replace(/\b(?:price|for|₹|rs|rupees|expiry|expire|next)\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
+    
+    // Extract the first 2-3 words as the likely product name
+    const words = cleaned.split(/\s+/);
+    if (words.length > 0) {
+      return words.slice(0, Math.min(3, words.length)).join(' ');
+    }
+    
+    return '';
   };
 
-  // ——— 2) Enhanced quantity / position / price / expiry parsers ———
+  // Enhanced quantity parser with better regex patterns
   const parseQuantity = (t: string) => {
     // Added support for words like "one", "two", etc.
     const numberWords: Record<string, number> = {
@@ -64,7 +79,7 @@ export const useVoiceRecognition = () => {
       six: 6, seven: 7, eight: 8, nine: 9, ten: 10
     };
 
-    // Try to match number + unit
+    // Try to match number + unit with improved pattern
     const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)/i);
     if (m) return { value: parseFloat(m[1]), unit: m[2].toLowerCase() };
 
@@ -72,9 +87,11 @@ export const useVoiceRecognition = () => {
     const wordMatch = t.match(new RegExp(`(${Object.keys(numberWords).join('|')})\\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)`, 'i'));
     if (wordMatch) return { value: numberWords[wordMatch[1].toLowerCase()], unit: wordMatch[2].toLowerCase() };
 
-    return undefined;
+    // If no specific quantity is found, default to 1 unit
+    return { value: 1, unit: 'unit' };
   };
 
+  // Enhanced position / shelf parser
   const parsePosition = (t: string) => {
     // Improved to capture various position descriptions
     const shelfMatch = t.match(/(?:to|on|in)\s+(rack|shelf)\s*(\d+)/i);
@@ -84,6 +101,7 @@ export const useVoiceRecognition = () => {
     return positionMatch ? positionMatch[1].trim() : undefined;
   };
 
+  // Enhanced price parser
   const parsePrice = (t: string) => {
     // Improved to handle various price formats
     const patterns = [
@@ -106,7 +124,7 @@ export const useVoiceRecognition = () => {
     return m ? m[1].trim() : undefined;
   };
 
-  // ——— 3) Enhanced autocorrect with common grocery items + Levenshtein ———
+  // Enhanced autocorrect with common grocery items + Levenshtein
   const DICTIONARY = [
     'rice', 'sugar', 'flour', 'oil', 'salt', 'soap', 'shampoo', 'detergent',
     'milk', 'bread', 'eggs', 'cheese', 'butter', 'yogurt', 'cream',
@@ -154,7 +172,6 @@ export const useVoiceRecognition = () => {
     return minDist <= threshold ? best : input;
   };
 
-  // ——— 4) Enhanced product image fetch ———
   const fetchProductImage = async (productName: string): Promise<string> => {
     if (!productName) return 'https://placehold.co/300x300?text=No+Name';
     
@@ -186,11 +203,11 @@ export const useVoiceRecognition = () => {
     return url;
   };
 
-  // ——— 5) Enhanced Browser SpeechRecognition core ———
+  // Enhanced recognition function with better error handling
   const recognize = async (lang = 'en-IN'): Promise<string> => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      alert('❌ SpeechRecognition not supported on this device.');
+      console.error('SpeechRecognition not supported on this browser');
       throw new Error('SpeechRecognition not supported');
     }
     const recog = new SR();
@@ -215,17 +232,33 @@ export const useVoiceRecognition = () => {
           }
         }
         
+        // Set text even for interim results
+        setText(interimTranscript || finalTranscript);
+        
         if (finalTranscript) {
           resolve(finalTranscript);
         }
       };
       
-      recog.onerror = (e: any) => reject(e.error);
+      recog.onerror = (e: any) => {
+        console.error('Speech recognition error:', e);
+        reject(e.error || new Error('Speech recognition failed'));
+      };
+      
+      recog.onend = () => {
+        // If we got no final result but got some interim results
+        if (!finalTranscript && text) {
+          resolve(text); // Use what we have
+        } else if (!finalTranscript) {
+          reject(new Error('No speech detected'));
+        }
+      };
+      
       recog.start();
     });
   };
 
-  // ——— 6) Enhanced Single‐shot listen + parse + autocorrect ———
+  // Improved listen function with better product extraction
   const listen = async (lang = 'en-IN'): Promise<CommandResult> => {
     setIsListening(true);
     try {
@@ -233,23 +266,28 @@ export const useVoiceRecognition = () => {
       console.log('Transcript →', transcript);
       setText(transcript);
 
-      // Extract the raw product name
+      // Extract the raw product name with the improved function
       const rawName = extractPureProductName(transcript);
-      console.log('Extracted (raw) name →', rawName);
+      console.log('Extracted product name →', rawName);
       
-      // Auto-correct the name
-      const correctedName = autoCorrect(rawName);
-      console.log('Auto‑corrected name →', correctedName);
-
       // Parse other properties
       const quantity = parseQuantity(transcript);
-      const position = parsePosition(transcript);
-      const price = parsePrice(transcript);
-      const expiry = parseExpiry(transcript);
-      const imageUrl = await fetchProductImage(correctedName);
+      const position = transcript.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i) 
+        ? transcript.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i)![0]
+        : undefined;
+        
+      const price = transcript.match(/(?:price|cost|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i)
+        ? parseFloat(transcript.match(/(?:price|cost|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i)![1])
+        : undefined;
+        
+      const expiry = transcript.match(/expiry\s+(.+?)(?:\s|$)/i)
+        ? transcript.match(/expiry\s+(.+?)(?:\s|$)/i)![1]
+        : undefined;
+        
+      const imageUrl = await fetchProductImage(rawName);
 
       const result: CommandResult = {
-        productName: correctedName,
+        productName: rawName,
         quantity,
         position,
         price,
@@ -261,6 +299,9 @@ export const useVoiceRecognition = () => {
       console.log('Final CommandResult →', result);
       setCommandResult(result);
       return result;
+    } catch (error) {
+      console.error('Voice recognition error:', error);
+      throw error;
     } finally {
       setIsListening(false);
     }

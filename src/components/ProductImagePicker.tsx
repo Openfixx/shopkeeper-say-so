@@ -1,223 +1,131 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Card } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchProductImage } from '../lib/fetchImage';
 
-export interface ProductImagePickerProps {
+interface ProductImagePickerProps {
   productName: string;
-  initialImage: string;
-  onConfirm?: (confirmedImageUrl: string) => void;
-  onCancel?: () => void;
+  initialImage?: string;
+  onConfirm: (imageUrl: string) => void;
+  onCancel: () => void;
 }
 
-export default function ProductImagePicker({
+const ProductImagePicker: React.FC<ProductImagePickerProps> = ({
   productName,
-  initialImage,
+  initialImage = '',
   onConfirm,
   onCancel
-}: ProductImagePickerProps) {
-  const [image, setImage] = useState(initialImage || '');
-  const [isLoading, setIsLoading] = useState(false);
-  const [alternativeImages, setAlternativeImages] = useState<string[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  useEffect(() => {
-    // If no initial image is provided, try to fetch one
-    if (!initialImage && productName) {
-      findProductImage();
-    } else {
-      setImage(initialImage);
-    }
-  }, [initialImage, productName]);
-
-  const findProductImage = async () => {
-    if (!productName) {
-      toast.error('Please enter a product name first');
-      return;
-    }
-    
+}) => {
+  const [selectedImage, setSelectedImage] = useState(initialImage);
+  const [suggestedImages, setSuggestedImages] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Function to fetch images from Unsplash
+  const fetchImages = async () => {
     setIsLoading(true);
     try {
-      const imageUrl = await fetchProductImage(productName);
+      // Generate multiple images for selection
+      const images = [];
+      for (let i = 0; i < 4; i++) {
+        // Add a random parameter to avoid caching
+        const randomParam = Math.random().toString(36).substring(7);
+        images.push(`https://source.unsplash.com/300x300/?${encodeURIComponent(productName)}&random=${randomParam}`);
+      }
+      setSuggestedImages(images);
       
-      if (imageUrl && !imageUrl.includes('placehold.co')) {
-        console.log(`Found image for ${productName}:`, imageUrl);
-        setImage(imageUrl);
-        toast.success('Product image found');
-      } else {
-        console.log(`No real image found for ${productName}, using placeholder`);
-        setImage(`https://placehold.co/300x300?text=${encodeURIComponent(productName)}`);
-        toast.error('Could not find product image');
+      // If no image is selected yet, select the first one
+      if (!selectedImage) {
+        setSelectedImage(images[0]);
       }
     } catch (error) {
-      console.error('Error fetching product image:', error);
-      toast.error('Failed to fetch product image');
-      setImage(`https://placehold.co/300x300?text=${encodeURIComponent(productName)}`);
+      console.error('Error fetching images:', error);
+      toast.error('Failed to fetch product images');
     } finally {
       setIsLoading(false);
     }
   };
-
-  const loadAlternativeImages = async () => {
-    if (!productName) return;
-    
-    setIsSearching(true);
-    try {
-      // Try to get a few alternative images with different queries
-      const variations = [
-        `${productName} product`,
-        `${productName} package`,
-        `${productName} grocery item`
-      ];
-      
-      const altImages: string[] = [];
-      
-      for (const query of variations) {
-        try {
-          const imageUrl = await fetchProductImage(query);
-          
-          if (imageUrl && 
-              !imageUrl.includes('placehold.co') && 
-              imageUrl !== image && 
-              !altImages.includes(imageUrl)) {
-            altImages.push(imageUrl);
-          }
-        } catch (e) {
-          console.error(`Error loading alternative for "${query}":`, e);
-        }
-      }
-      
-      setAlternativeImages(altImages);
-      
-      if (altImages.length === 0) {
-        toast.info('No alternative images found');
-      }
-    } catch (error) {
-      console.error('Error loading alternative images:', error);
-      toast.error('Failed to load alternative images');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
+  
+  // Initial load of images
   useEffect(() => {
-    // Load alternative images when the component mounts
-    if (productName && !isSearching) {
-      loadAlternativeImages();
-    }
+    fetchImages();
   }, [productName]);
-
-  const handleConfirm = async () => {
-    try {
-      toast.success(`Image selected for ${productName}`);
-      if (onConfirm) onConfirm(image);  // Pass the selected image URL
-    } catch (error) {
-      console.error('Error selecting image:', error);
-      toast.error('Failed to select image');
+  
+  const handleSelectImage = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+  };
+  
+  const handleRefresh = () => {
+    fetchImages();
+  };
+  
+  const handleConfirm = () => {
+    if (selectedImage) {
+      onConfirm(selectedImage);
+    } else {
+      toast.error('Please select an image first');
     }
   };
-
-  const selectAlternative = (url: string) => {
-    setImage(url);
-    toast.info('Alternative image selected');
-  };
-
+  
   return (
-    <Dialog open={true} onOpenChange={() => onCancel && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center">Product Image for {productName}</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex flex-col items-center space-y-4">
-          {isLoading ? (
-            <div className="w-full h-64 flex items-center justify-center bg-muted rounded-md">
-              <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
-            </div>
-          ) : (
-            <Card className="relative w-full h-64 bg-muted overflow-hidden rounded-md">
-              <img 
-                src={image || `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`} 
-                alt={productName}
-                className="w-full h-full object-contain"
-                onError={() => {
-                  // If image fails to load, set a placeholder
-                  setImage(`https://placehold.co/300x300?text=${encodeURIComponent(productName)}`);
-                }}
-              />
-            </Card>
-          )}
-
-          <div className="w-full">
-            <h3 className="text-sm font-medium mb-2">Alternative Images</h3>
-            <div className="flex overflow-x-auto space-x-2 pb-2">
-              {isSearching ? (
-                <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-              ) : alternativeImages.length > 0 ? (
-                alternativeImages.map((url, index) => (
-                  <div 
-                    key={index} 
-                    className="relative flex-shrink-0 cursor-pointer border-2 rounded-md overflow-hidden hover:border-primary transition-colors"
-                    onClick={() => selectAlternative(url)}
-                  >
-                    <img 
-                      src={url} 
-                      alt={`Alternative ${index + 1}`}
-                      className="w-16 h-16 object-cover" 
-                      onError={(e) => {
-                        // Remove this alternative if it fails to load
-                        setAlternativeImages(prevAlt => prevAlt.filter(item => item !== url));
-                      }}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="w-full p-2 text-center text-sm text-muted-foreground">
-                  No alternatives found
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={() => onCancel && onCancel()}
+    <Card className="overflow-hidden border">
+      <CardContent className="p-4 space-y-4">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-medium">Select Image for {productName}</h3>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
             disabled={isLoading}
           >
-            <XCircle className="mr-2 h-4 w-4" />
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span className="ml-1">Refresh</span>
+          </Button>
+        </div>
+        
+        {isLoading ? (
+          <div className="h-60 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {suggestedImages.map((image, index) => (
+              <div 
+                key={index}
+                className={`aspect-square rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
+                  selectedImage === image ? 'border-primary scale-105 shadow-lg' : 'border-transparent hover:border-muted-foreground'
+                }`}
+                onClick={() => handleSelectImage(image)}
+              >
+                <img 
+                  src={image} 
+                  alt={`${productName} option ${index + 1}`} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              onClick={findProductImage}
-              disabled={isLoading}
-            >
-              <Search className="mr-2 h-4 w-4" />
-              Find Another
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={isLoading || !image}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              Confirm Image
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <Button onClick={handleConfirm} disabled={!selectedImage || isLoading}>
+            Confirm Image
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default ProductImagePicker;

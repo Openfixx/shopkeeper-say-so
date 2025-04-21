@@ -1,136 +1,93 @@
 
-import { toast } from 'sonner';
+// Cache for previously fetched images to avoid unnecessary API calls
+const imageCache: Record<string, string> = {};
 
 /**
- * Fetch product image from Pixabay
+ * Fetches an image for a product with caching
+ * 
+ * @param productName - Name of the product to fetch an image for
+ * @returns A URL to an image for the product
  */
-export const fetchProductImage = async (productName: string): Promise<string> => {
+export const getCachedImage = async (productName: string): Promise<string> => {
+  // Normalize the product name for consistent caching
+  const normalizedName = productName.toLowerCase().trim();
+  
+  // Check if we have a cached image for this product
+  if (imageCache[normalizedName]) {
+    console.log('Using cached image for', normalizedName);
+    return imageCache[normalizedName];
+  }
+  
   try {
-    toast.loading(`Finding image for ${productName}...`);
+    // Generate a clean search term by removing quantities and units
+    const searchTerm = normalizedName
+      .replace(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)/gi, '')
+      .trim();
     
-    // Try multiple image search strategies
-    const strategies = [
-      fetchImageFromAPI,
-      fetchImageFromFallbackAPI,
-      createPlaceholderImage
-    ];
+    // Common product images for frequently used items
+    const commonProducts: Record<string, string> = {
+      'rice': 'https://source.unsplash.com/featured/?rice,bag',
+      'sugar': 'https://source.unsplash.com/featured/?sugar,white',
+      'flour': 'https://source.unsplash.com/featured/?flour,wheat',
+      'milk': 'https://source.unsplash.com/featured/?milk,bottle',
+      'bread': 'https://source.unsplash.com/featured/?bread,loaf',
+      'eggs': 'https://source.unsplash.com/featured/?eggs,carton',
+      'dal': 'https://source.unsplash.com/featured/?lentils,dal',
+      'oil': 'https://source.unsplash.com/featured/?oil,cooking',
+      'salt': 'https://source.unsplash.com/featured/?salt,table',
+    };
     
-    for (const strategy of strategies) {
-      try {
-        const result = await strategy(productName);
-        if (result) {
-          toast.dismiss();
-          toast.success('Image found!');
-          return result;
-        }
-      } catch (error) {
-        console.error(`Strategy failed:`, error);
-        // Continue to next strategy
+    // Check if it's a common product
+    for (const [key, url] of Object.entries(commonProducts)) {
+      if (searchTerm.includes(key)) {
+        imageCache[normalizedName] = url;
+        return url;
       }
     }
     
-    toast.dismiss();
-    toast.error('Could not find an image');
+    // Add a random parameter to prevent caching by the browser/CDN
+    const randomParam = Date.now();
+    const imageUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(searchTerm)}&random=${randomParam}`;
     
-    // Final fallback - use placeholder
-    return createPlaceholderImage(productName);
+    // Cache the result for future use
+    imageCache[normalizedName] = imageUrl;
+    return imageUrl;
   } catch (error) {
-    console.error('Error in image fetching process:', error);
-    toast.dismiss();
-    toast.error('Image search failed');
-    
-    // Ultimate fallback
+    console.error('Error fetching product image:', error);
+    // Return a placeholder if something goes wrong
     return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
   }
 };
 
 /**
- * Primary strategy - use our API endpoint with Pixabay
+ * Optimized batch image fetching
+ * 
+ * @param productNames - Array of product names to fetch images for
+ * @returns Record of product names to image URLs
  */
-async function fetchImageFromAPI(productName: string): Promise<string | null> {
-  const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(productName)}`, {
-    method: 'GET'
-  });
+export const batchFetchImages = async (productNames: string[]): Promise<Record<string, string>> => {
+  const results: Record<string, string> = {};
   
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-  
-  // Check if response is HTML instead of JSON (common error with our API)
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('text/html')) {
-    throw new Error('Received HTML instead of JSON');
-  }
-  
-  try {
-    const data = await response.json();
-    return data?.imageUrl || null;
-  } catch (error) {
-    console.error('JSON parsing error:', error);
-    throw new Error('Failed to parse API response');
-  }
-}
-
-/**
- * Fallback strategy - try alternative search terms
- */
-async function fetchImageFromFallbackAPI(productName: string): Promise<string | null> {
-  // Try with alternative search terms
-  const searchTerms = [
-    `${productName} product`,
-    `${productName} package`,
-    `${productName} grocery`
-  ];
-  
-  for (const term of searchTerms) {
-    try {
-      const response = await fetch(`/api/fetch-image?q=${encodeURIComponent(term)}`, {
-        method: 'GET'
-      });
-      
-      if (!response.ok) continue;
-      
-      // Check content type
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('text/html')) continue;
-      
-      const data = await response.json();
-      if (data?.imageUrl) {
-        return data.imageUrl;
+  // Process in batches of 5 to avoid rate limiting
+  const batchSize = 5;
+  for (let i = 0; i < productNames.length; i += batchSize) {
+    const batch = productNames.slice(i, i + batchSize);
+    const promises = batch.map(name => getCachedImage(name).then(url => ({ name, url })));
+    
+    const batchResults = await Promise.allSettled(promises);
+    batchResults.forEach(result => {
+      if (result.status === 'fulfilled') {
+        results[result.value.name] = result.value.url;
+      } else {
+        console.error('Failed to fetch image:', result.reason);
       }
-    } catch (error) {
-      console.error(`Error with search term "${term}":`, error);
-      // Continue to next term
+    });
+    
+    // Add a small delay between batches
+    if (i + batchSize < productNames.length) {
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
   
-  return null;
-}
-
-/**
- * Last resort - generate placeholder image
- */
-function createPlaceholderImage(productName: string): string {
-  return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
-}
-
-/**
- * Cache images to improve performance
- */
-const imageCache = new Map<string, string>();
-
-export const getCachedImage = async (productName: string): Promise<string> => {
-  const normalizedName = productName.toLowerCase().trim();
-  
-  if (imageCache.has(normalizedName)) {
-    return imageCache.get(normalizedName) || createPlaceholderImage(normalizedName);
-  }
-  
-  const imageUrl = await fetchProductImage(normalizedName);
-  
-  if (imageUrl) {
-    imageCache.set(normalizedName, imageUrl);
-  }
-  
-  return imageUrl;
+  return results;
 };
