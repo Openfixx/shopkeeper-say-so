@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,14 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   onCancel,
   loading = false 
 }) => {
-  const [location, setLocation] = useState(result?.position || '');
+  const [location, setLocation] = useState('');
+  
+  // Update location when result changes
+  useEffect(() => {
+    if (result?.position) {
+      setLocation(result.position);
+    }
+  }, [result]);
   
   if (!result) return null;
 
@@ -81,21 +88,19 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
             </div>
           </div>
           
-          {!result.position && (
-            <div className="space-y-1.5">
-              <Label htmlFor="location" className="text-sm flex items-center">
-                <MapPin className="mr-1 h-3 w-3" />
-                Location (Rack/Shelf)
-              </Label>
-              <Input
-                id="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Enter shelf or rack number"
-                className="h-8 text-sm"
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="location" className="text-sm flex items-center">
+              <MapPin className="mr-1 h-3 w-3" />
+              Location (Rack/Shelf)
+            </Label>
+            <Input
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Enter shelf or rack number"
+              className="h-8 text-sm"
+            />
+          </div>
           
           <div className="pt-2 flex justify-end gap-2">
             <Button variant="outline" onClick={onCancel} disabled={loading}>
@@ -104,7 +109,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
             <Button 
               onClick={() => {
                 // Update the result object with the location
-                if (result && !result.position && location) {
+                if (result && location) {
                   result.position = location;
                 }
                 onConfirm();

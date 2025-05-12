@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -118,11 +119,21 @@ const Products: React.FC = () => {
         // Try to get a product image
         const imageUrl = await getCachedImage(productName);
         
+        // Try to extract location/position
+        let position = 'Default';
+        const positionMatch = command.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i) || 
+                             command.match(/(?:place|put|position)\s+(?:at|on|in)\s+([a-zA-Z0-9\s]+?)(?=\s+and|\s+with|\s+for|$)/i);
+        
+        if (positionMatch) {
+          position = positionMatch[1] ? `${positionMatch[1]} ${positionMatch[2]}` : positionMatch[0];
+        }
+        
         const result: CommandResult = {
           productName,
           quantity: processedProduct.quantity ? 
             { value: processedProduct.quantity, unit: processedProduct.unit || 'unit' } : 
             { value: 1, unit: 'unit' },
+          position,
           imageUrl,
           rawText: command
         };

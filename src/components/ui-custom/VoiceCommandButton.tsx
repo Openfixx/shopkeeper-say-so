@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
+import { useInventory } from '@/context/InventoryContext';
 
 export interface VoiceCommandButtonProps {
   onVoiceCommand: (command: string, processedProduct?: { name: string, quantity?: number, unit?: string }) => void;
@@ -34,6 +36,45 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState("");
+  const { products } = useInventory();
+  
+  const processCommand = (transcript: string) => {
+    // Check if it's a multi-product command by looking for commas or "and"
+    if (transcript.includes(',') || /\band\b/i.test(transcript)) {
+      // Use our multi-product parser
+      const productNames = products.map(p => ({ name: p.name }));
+      const parsedProducts = parseMultiProductCommand(transcript, productNames);
+      
+      if (parsedProducts.length > 0) {
+        // Extract first product for basic processing
+        const firstProduct = parsedProducts[0];
+        
+        // Pass all products in the command for further processing
+        onVoiceCommand(transcript, { 
+          name: firstProduct.name, 
+          quantity: firstProduct.quantity, 
+          unit: firstProduct.unit 
+        });
+        return;
+      }
+    }
+    
+    // Extract potential product name from command
+    const productMatch = transcript.match(/\b(add|create)\s+(?:\d+\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i);
+    const productName = productMatch ? productMatch[2].trim() : '';
+    
+    // Extract potential quantity
+    const quantityMatch = transcript.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)/i);
+    const quantity = quantityMatch ? parseFloat(quantityMatch[1]) : undefined;
+    const unit = quantityMatch ? quantityMatch[2].toLowerCase() : undefined;
+    
+    // Process the voice command with extracted product information
+    onVoiceCommand(transcript, { 
+      name: productName, 
+      quantity: quantity, 
+      unit: unit 
+    });
+  };
   
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -59,8 +100,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       setCurrentTranscript(transcript);
       console.log("Voice transcript:", transcript);
       
-      // Process the voice command - now calling with empty second parameter
-      onVoiceCommand(transcript, { name: '', quantity: undefined, unit: undefined });
+      // Process the command with improved product detection
+      processCommand(transcript);
     };
     
     recognition.onend = () => {
