@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { Package, Plus, X, MapPin } from 'lucide-react';
+import { Plus, X, MapPin } from 'lucide-react';
 import { CommandResult } from '@/lib/voice';
 
 interface VoiceCommandPopupProps {
@@ -40,10 +40,12 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   
   if (!result) return null;
 
-  // Extract product name, handling cases where it might be different formats
-  const productName = typeof result.productName === 'object' ? 
-    result.productName.value || 'Unknown Product' : 
-    result.productName;
+  // Extract product name, handling cases where it might be different formats or null
+  const productName = result.productName ? 
+    (typeof result.productName === 'object' ? 
+      result.productName.value || 'Unknown Product' : 
+      result.productName) : 
+    'Unknown Product';
 
   return (
     <motion.div
@@ -85,7 +87,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                   </Badge>
                 )}
                 
-                {result.price && (
+                {result.price !== undefined && result.price !== null && (
                   <Badge variant="outline" className="bg-green-500/10">
                     ₹{typeof result.price === 'object' ? result.price.value : result.price}
                   </Badge>
