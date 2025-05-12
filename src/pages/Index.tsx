@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
@@ -118,6 +117,7 @@ const Index = () => {
         </p>
       </motion.div>
       
+      {/* Keep the original SiriStyleVoiceUI on the dashboard */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

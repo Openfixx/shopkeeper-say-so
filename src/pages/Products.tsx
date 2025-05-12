@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Package2, 
@@ -12,7 +11,7 @@ import { useInventory } from '@/context/InventoryContext';
 import { Product as TypesProduct } from '@/types';
 import ProductCard from '@/components/ui-custom/ProductCard';
 import SearchBar from '@/components/ui-custom/SearchBar';
-import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
+import UnifiedVoiceCommand from '@/components/ui-custom/UnifiedVoiceCommand';
 import { Button } from '@/components/ui/button';
 import { 
   Dialog, 
@@ -27,11 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-import { CommandResult } from '@/lib/voice';
-import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
-import { MultiProduct, parseMultiProductCommand } from '@/utils/multiVoiceParse';
-import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getCachedImage } from '@/utils/fetchImage';
 import { convertProduct } from '@/utils/productUtils';
 
@@ -62,11 +57,17 @@ const Products: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
-  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [multiProducts, setMultiProducts] = useState<MultiProduct[]>([]);
-  const [showMultiProductToast, setShowMultiProductToast] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check for search query passed via navigation state
+  useEffect(() => {
+    if (location.state?.searchQuery) {
+      setSearchQuery(location.state.searchQuery);
+      // Clear the state to prevent persistence on page refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
   
   const filteredProducts = searchQuery
     ? products.filter(product => 
@@ -76,103 +77,6 @@ const Products: React.FC = () => {
   
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-  };
-  
-  const handleVoiceCommand = async (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => {
-    console.log("Voice command:", command);
-    console.log("Processed product:", processedProduct);
-    
-    // Check if it's a multi-product command by looking for commas or "and"
-    if (command.includes(',') || /\band\b/i.test(command)) {
-      // Use our multi-product parser
-      const productNames = products.map(p => ({ name: p.name }));
-      const parsedProducts = parseMultiProductCommand(command, productNames);
-      
-      if (parsedProducts.length > 0) {
-        setMultiProducts(parsedProducts);
-        setShowMultiProductToast(true);
-        
-        // Add all products with a delay
-        parsedProducts.forEach((product, index) => {
-          setTimeout(() => {
-            addProduct({
-              name: product.name,
-              quantity: product.quantity || 1,
-              unit: product.unit || 'unit',
-              price: product.price || 0,
-              position: 'Default', 
-              image_url: ''
-            });
-          }, index * 800);
-        });
-        
-        return;
-      }
-    }
-    
-    // Handle single product command
-    if (command.toLowerCase().includes('add') && processedProduct.name) {
-      const productName = processedProduct.name;
-      setIsProcessingCommand(true);
-      
-      try {
-        // Try to get a product image
-        const imageUrl = await getCachedImage(productName);
-        
-        // Try to extract location/position
-        let position = 'Default';
-        const positionMatch = command.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i) || 
-                             command.match(/(?:place|put|position)\s+(?:at|on|in)\s+([a-zA-Z0-9\s]+?)(?=\s+and|\s+with|\s+for|$)/i);
-        
-        if (positionMatch) {
-          position = positionMatch[1] ? `${positionMatch[1]} ${positionMatch[2]}` : positionMatch[0];
-        }
-        
-        const result: CommandResult = {
-          productName,
-          quantity: processedProduct.quantity ? 
-            { value: processedProduct.quantity, unit: processedProduct.unit || 'unit' } : 
-            { value: 1, unit: 'unit' },
-          position,
-          imageUrl,
-          rawText: command
-        };
-        
-        setCommandResult(result);
-      } catch (error) {
-        console.error("Error processing command:", error);
-        toast.error("Error processing voice command");
-      } finally {
-        setIsProcessingCommand(false);
-      }
-    } else if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
-      // Handle search command
-      setSearchQuery(processedProduct.name || '');
-    }
-  };
-  
-  const handleConfirmProduct = () => {
-    if (!commandResult) return;
-    
-    setIsProcessingCommand(true);
-    
-    addProduct({
-      name: commandResult.productName,
-      quantity: commandResult.quantity?.value || 1,
-      unit: commandResult.quantity?.unit || 'unit',
-      price: commandResult.price || 0,
-      position: commandResult.position || 'Default',
-      image_url: commandResult.imageUrl || ''
-    });
-    
-    toast.success(`Added ${commandResult.productName} to inventory`);
-    
-    setIsProcessingCommand(false);
-    setCommandResult(null);
-  };
-  
-  const handleCancelCommand = () => {
-    setCommandResult(null);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -472,12 +376,7 @@ const Products: React.FC = () => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <VoiceCommandButton 
-            onVoiceCommand={handleVoiceCommand}
-            showDialog={true}
-            label="Voice Command"
-            size="default"
-          />
+          <UnifiedVoiceCommand compact={true} />
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -505,6 +404,11 @@ const Products: React.FC = () => {
           onSearch={handleSearch}
           className="w-full sm:w-96"
         />
+        
+        {/* Add the full voice command UI here */}
+        <div className="w-full sm:w-auto">
+          <UnifiedVoiceCommand />
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -577,26 +481,6 @@ const Products: React.FC = () => {
           {renderForm()}
         </DialogContent>
       </Dialog>
-      
-      {/* Voice Command Popup */}
-      {commandResult && (
-        <VoiceCommandPopup
-          result={commandResult}
-          onConfirm={handleConfirmProduct}
-          onCancel={handleCancelCommand}
-          loading={isProcessingCommand}
-        />
-      )}
-      
-      {showMultiProductToast && (
-        <MultiProductAddToast 
-          products={multiProducts} 
-          onClose={() => setShowMultiProductToast(false)}
-          onComplete={() => {
-            toast.success(`Added ${multiProducts.length} products to inventory`);
-          }}
-        />
-      )}
     </div>
   );
 };
