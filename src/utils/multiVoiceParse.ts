@@ -6,6 +6,7 @@ export interface MultiProduct {
   quantity?: number;
   unit?: string;
   price?: number;
+  position?: string; // Added this property to fix the TypeScript error
 }
 
 const fuseOptions = {
