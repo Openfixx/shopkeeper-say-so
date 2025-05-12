@@ -27,11 +27,23 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   // Update location when result changes
   useEffect(() => {
     if (result?.position) {
-      setLocation(result.position);
+      // If position is an object with a value, use that value
+      if (typeof result.position === 'object' && result.position.value) {
+        setLocation(result.position.value);
+      } 
+      // If position is a string, use it directly
+      else if (typeof result.position === 'string') {
+        setLocation(result.position);
+      }
     }
   }, [result]);
   
   if (!result) return null;
+
+  // Extract product name, handling cases where it might be different formats
+  const productName = typeof result.productName === 'object' ? 
+    result.productName.value || 'Unknown Product' : 
+    result.productName;
 
   return (
     <motion.div
@@ -54,7 +66,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
               <div className="relative h-16 w-16 rounded overflow-hidden bg-muted">
                 <img 
                   src={result.imageUrl} 
-                  alt={result.productName} 
+                  alt={productName} 
                   className="h-full w-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Product';
@@ -64,7 +76,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
             )}
             
             <div className="flex-1 space-y-1">
-              <p className="font-medium text-base">{result.productName}</p>
+              <p className="font-medium text-base">{productName}</p>
               
               <div className="flex flex-wrap gap-2">
                 {result.quantity && (
@@ -75,7 +87,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                 
                 {result.price && (
                   <Badge variant="outline" className="bg-green-500/10">
-                    ₹{result.price}
+                    ₹{typeof result.price === 'object' ? result.price.value : result.price}
                   </Badge>
                 )}
                 
@@ -109,7 +121,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
             <Button 
               onClick={() => {
                 // Update the result object with the location
-                if (result && location) {
+                if (result) {
                   result.position = location;
                 }
                 onConfirm();

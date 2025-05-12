@@ -1,3 +1,4 @@
+
 // Define the ProductDetails interface
 interface ProductDetails {
   name: string;
@@ -21,18 +22,31 @@ export const VOICE_COMMAND_TYPES = {
 };
 
 /**
- * Detect command type from voice input
+ * Detect command type from voice input with expanded phrase recognition
  */
 export const detectCommandType = (text: string) => {
   const lowerText = text.toLowerCase();
   
-  // Detect bill creation commands
+  // Detect bill creation commands with expanded phrase patterns
   if (
     lowerText.includes('create bill') ||
     lowerText.includes('new bill') ||
     lowerText.includes('make bill') ||
     lowerText.includes('start bill') ||
-    lowerText.includes('generate bill')
+    lowerText.includes('generate bill') ||
+    lowerText.includes('prepare bill') ||
+    lowerText.includes('begin billing') ||
+    lowerText.includes('create invoice') ||
+    lowerText.includes('checkout') ||
+    lowerText.includes('print bill') ||
+    lowerText.includes('issue bill') ||
+    lowerText.includes('create receipt') ||
+    lowerText.includes('make receipt') ||
+    lowerText.includes('generate receipt') ||
+    lowerText.includes('start checkout') ||
+    lowerText.includes('bill for') ||
+    lowerText.includes('billing') ||
+    lowerText.includes('sale')
   ) {
     // Extract items mentioned in the bill command
     const items = extractBillItems(text);
@@ -42,25 +56,50 @@ export const detectCommandType = (text: string) => {
     };
   }
   
-  // Detect add product commands
+  // Detect add product commands with expanded phrase patterns
   if (
-    lowerText.includes('add ') && 
-    !lowerText.includes('bill')
+    lowerText.includes('add ') || 
+    lowerText.includes('create ') ||
+    lowerText.includes('insert ') ||
+    lowerText.includes('put ') ||
+    lowerText.includes('register ') ||
+    lowerText.includes('include ') ||
+    lowerText.includes('log ') ||
+    lowerText.includes('record ') ||
+    lowerText.includes('enter ') ||
+    lowerText.includes('save ') ||
+    lowerText.includes('store ') ||
+    lowerText.includes('place ') ||
+    lowerText.includes('set up ') ||
+    lowerText.includes('new product') ||
+    lowerText.includes('make entry') ||
+    lowerText.includes('bring in') ||
+    lowerText.includes('stock ') ||
+    lowerText.includes('upload ')
   ) {
-    return {
-      type: VOICE_COMMAND_TYPES.ADD_PRODUCT
-    };
+    // Make sure it's not about bill creation
+    if (!lowerText.includes('bill') && !lowerText.includes('invoice') && !lowerText.includes('receipt')) {
+      return {
+        type: VOICE_COMMAND_TYPES.ADD_PRODUCT
+      };
+    }
   }
   
   // Detect search commands
   if (
     lowerText.includes('search') || 
-    lowerText.includes('find ')
+    lowerText.includes('find ') ||
+    lowerText.includes('look for') ||
+    lowerText.includes('locate') ||
+    lowerText.includes('where is') ||
+    lowerText.includes('show me') ||
+    lowerText.includes('check if') ||
+    lowerText.includes('do we have')
   ) {
     let searchTerm = null;
     
     // Try to extract what we're searching for
-    const searchMatches = lowerText.match(/(?:search|find|look for)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i);
+    const searchMatches = lowerText.match(/(?:search|find|look for|where is|show me|locate|check if|do we have)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i);
     if (searchMatches && searchMatches[1]) {
       searchTerm = searchMatches[1].trim();
     }
@@ -199,18 +238,31 @@ const processText = async (text: string) => {
     // This would ideally call a backend NLP service
     const mockedEntities = [];
     
-    // Simple pattern matching for demonstration
-    // Product name
-    const productMatch = text.match(/add\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i);
-    if (productMatch && productMatch[1]) {
-      mockedEntities.push({
-        text: productMatch[1].trim(),
-        label: 'PRODUCT'
-      });
+    // Simple pattern matching for demonstration - enhanced with more patterns
+    // Product name - expanded patterns
+    const productPatterns = [
+      /add\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /create\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /insert\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i, 
+      /put\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /record\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /save\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /log\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i
+    ];
+    
+    for (const pattern of productPatterns) {
+      const productMatch = text.match(pattern);
+      if (productMatch && productMatch[1]) {
+        mockedEntities.push({
+          text: productMatch[1].trim(),
+          label: 'PRODUCT'
+        });
+        break; // Found a match, exit loop
+      }
     }
     
-    // Quantity
-    const quantityMatch = text.match(/(\d+)\s*(kg|g|ml|l|pieces?|pcs)/i);
+    // Quantity - expanded patterns
+    const quantityMatch = text.match(/(\d+)\s*(kg|g|ml|l|litre|liter|pieces?|pcs|box|boxes|pack|packs|unit|units|bottle|bottles|carton|bag|bags)/i);
     if (quantityMatch) {
       mockedEntities.push({
         text: quantityMatch[1],
@@ -222,22 +274,43 @@ const processText = async (text: string) => {
       });
     }
     
-    // Position (rack/shelf)
-    const positionMatch = text.match(/(rack|shelf)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
-    if (positionMatch) {
-      mockedEntities.push({
-        text: `${positionMatch[1]} ${positionMatch[2]}`,
-        label: 'POSITION'
-      });
+    // Position (rack/shelf) - expanded patterns
+    const positionPatterns = [
+      /(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      /on\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      /in\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      /at\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+    ];
+    
+    for (const pattern of positionPatterns) {
+      const positionMatch = text.match(pattern);
+      if (positionMatch) {
+        mockedEntities.push({
+          text: positionMatch[0],
+          label: 'POSITION'
+        });
+        break; // Found a match, exit loop
+      }
     }
     
-    // Price
-    const priceMatch = text.match(/(?:price|cost|₹|Rs|rupees)\s*(\d+)/i);
-    if (priceMatch) {
-      mockedEntities.push({
-        text: priceMatch[1],
-        label: 'PRICE'
-      });
+    // Price - expanded patterns
+    const pricePatterns = [
+      /(?:price|cost|₹|Rs|rupees)\s*(\d+)/i,
+      /for\s*(?:price|cost|₹|Rs|rupees)?\s*(\d+)/i,
+      /at\s*(?:price|cost|₹|Rs|rupees)?\s*(\d+)/i,
+      /worth\s*(?:price|cost|₹|Rs|rupees)?\s*(\d+)/i,
+      /costs?\s*(?:price|cost|₹|Rs|rupees)?\s*(\d+)/i,
+    ];
+    
+    for (const pattern of pricePatterns) {
+      const priceMatch = text.match(pattern);
+      if (priceMatch) {
+        mockedEntities.push({
+          text: priceMatch[1],
+          label: 'PRICE'
+        });
+        break; // Found a match, exit loop
+      }
     }
     
     return {

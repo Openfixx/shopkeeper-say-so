@@ -21,37 +21,59 @@ export interface QuickBillDialogProps {
   transcript?: string; // Make this optional
 }
 
-const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
-  open,
-  onOpenChange,
-  transcript = '' // Default value
-}) => {
+export default function QuickBillDialog({ open, onOpenChange, transcript = '' }: QuickBillDialogProps) {
   const { products, currentBill, startNewBill, addToBill, completeBill } = useInventory();
   const [isProcessing, setIsProcessing] = useState(false);
   const [items, setItems] = useState<{ product: string; quantity: number }[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   
-  // Process transcript to extract items
+  // Process transcript to extract items - enhanced to handle more patterns
   useEffect(() => {
     if (transcript) {
       setIsProcessing(true);
       
       try {
-        // Simple regex to extract product quantities
-        // Format: "create bill for 2 rice 3 sugar"
-        const matches = transcript.toLowerCase().match(/(\d+)\s+([a-z]+)/g);
+        // Enhanced regex to extract product quantities with various patterns
+        // Format variations: "create bill for 2 rice 3 sugar", "bill with 2 kg rice and 3 packs sugar"
+        const itemRegex = /(\d+)(?:\s*(?:kg|g|l|ml|piece|pieces|pcs|box|boxes|pack|packs))?\s+([a-z]+)/gi;
+        const matches = Array.from(transcript.toLowerCase().matchAll(itemRegex));
         
-        if (matches) {
+        if (matches && matches.length > 0) {
           const extractedItems = matches.map(match => {
-            const [quantity, product] = match.split(/\s+/, 2);
             return { 
-              product: product.trim(), 
-              quantity: parseInt(quantity.trim()) 
+              product: match[2].trim(), 
+              quantity: parseInt(match[1].trim()) 
             };
           });
           
           setItems(extractedItems);
+        } else {
+          // Alternative approach - look for product names after "bill for/with/containing"
+          const billForMatch = transcript.toLowerCase().match(/bill(?:\s+for|\s+with|\s+containing)?\s+(.+)/i);
+          if (billForMatch && billForMatch[1]) {
+            const productText = billForMatch[1];
+            // Split by common separators
+            const productParts = productText.split(/,|\s+and\s+|\s+with\s+|\s+plus\s+/i);
+            
+            const simpleItems = productParts.map(part => {
+              // Try to extract quantity if present
+              const qtyMatch = part.match(/(\d+)\s+(.+)/);
+              if (qtyMatch) {
+                return {
+                  product: qtyMatch[2].trim(),
+                  quantity: parseInt(qtyMatch[1].trim())
+                };
+              }
+              // Default to quantity 1 if no number found
+              return {
+                product: part.trim(),
+                quantity: 1
+              };
+            });
+            
+            setItems(simpleItems);
+          }
         }
       } catch (error) {
         console.error('Error processing voice command:', error);
@@ -241,6 +263,4 @@ const QuickBillDialog: React.FC<QuickBillDialogProps> = ({
       </DialogContent>
     </Dialog>
   );
-};
-
-export default QuickBillDialog;
+}

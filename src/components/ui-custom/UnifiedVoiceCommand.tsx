@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -34,7 +33,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
   const handleListen = async () => {
     try {
       setWaveformActive(true);
-      toast.info("Listening... Say commands like 'Add 5kg rice, 2kg sugar'", { duration: 3000 });
+      toast.info("Listening... Say commands like 'Add 5kg rice, 2kg sugar' or 'Create bill for 5 rice and 3 milk'", { duration: 3000 });
       
       const result = await listen();
       setProcessing(true);
@@ -151,8 +150,17 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
   const handleVoiceCommand = (command: string) => {
     const lowerCommand = command.toLowerCase();
     
-    if (lowerCommand.includes('search') || lowerCommand.includes('find')) {
-      const searchTerms = lowerCommand.replace(/search|find|for/g, '').trim();
+    // Enhanced command detection with more patterns
+    const isSearchCommand = /search|find|look for|locate|where is|show|check/i.test(lowerCommand);
+    const isBillCommand = /bill|invoice|receipt|checkout|sale/i.test(lowerCommand);
+    const isProductsCommand = /products|inventory|stock|items/i.test(lowerCommand);
+    
+    if (isSearchCommand) {
+      // Extract search term with improved pattern matching
+      const searchPattern = /(?:search|find|look for|locate|where is|show|check)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i;
+      const searchMatch = lowerCommand.match(searchPattern);
+      const searchTerms = searchMatch ? searchMatch[1].trim() : lowerCommand.replace(/search|find|for/gi, '').trim();
+      
       if (searchTerms) {
         navigate('/products', { state: { searchQuery: searchTerms } });
       } else {
@@ -161,12 +169,12 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
       return;
     }
     
-    if (lowerCommand.includes('bill') || lowerCommand.includes('checkout')) {
+    if (isBillCommand) {
       navigate('/billing');
       return;
     }
     
-    if (lowerCommand.includes('products') || lowerCommand.includes('inventory')) {
+    if (isProductsCommand) {
       navigate('/products');
       return;
     }
