@@ -9,6 +9,10 @@ const imageCache: Record<string, string> = {};
  * @returns A URL to an image for the product
  */
 export const getCachedImage = async (productName: string): Promise<string> => {
+  if (!productName) {
+    return 'https://placehold.co/300x300?text=Product';
+  }
+  
   // Normalize the product name for consistent caching
   const normalizedName = productName.toLowerCase().trim();
   
@@ -48,6 +52,14 @@ export const getCachedImage = async (productName: string): Promise<string> => {
     // Add a random parameter to prevent caching by the browser/CDN
     const randomParam = Date.now();
     const imageUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(searchTerm)}&random=${randomParam}`;
+    
+    // Force the image to load by creating a new Image object
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
     
     // Cache the result for future use
     imageCache[normalizedName] = imageUrl;

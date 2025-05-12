@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 export type CommandResult = {
@@ -15,56 +16,62 @@ export const useVoiceRecognition = () => {
   const [isListening, setIsListening] = useState(false);
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
 
-  // Significantly improved regex-based product name extractor
+  // Improved product name extractor with better pattern matching
   const extractPureProductName = (t: string): string => {
-    // First, check for specific patterns that indicate product names
-    const directMatch = t.match(/add\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)?\s*(?:of\s+)?)([\w\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i);
-    if (directMatch && directMatch[2]?.trim()) {
-      return directMatch[2].trim();
-    }
+    if (!t) return '';
     
-    // Handle multi-product commands differently
-    if (t.includes(',') || /\s+and\s+/.test(t)) {
-      // This is likely a multi-product command, extract the first product
-      const parts = t.split(/,|\s+and\s+/i);
-      const firstPart = parts[0];
-      const productMatch = firstPart.match(/(\d+(?:\.\d+)?)\s*(?:kg|g|ml|l|pieces?|pcs|units?)?\s*(?:of\s+)?([\w\s]+?)(?:\s+(?:for|at|₹|rs|price)|\s*$)/i);
-      if (productMatch && productMatch[2]?.trim()) {
-        return productMatch[2].trim();
-      }
-    }
+    // Normalize text: lowercase and remove extra spaces
+    const normalizedText = t.toLowerCase().replace(/\s+/g, ' ').trim();
     
-    // Simplified pattern matching focused on common voice command structures
-    const commonPatterns = [
-      // Pattern: "add X kg/g/units of ProductName"
-      /add\s+\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)\s+(?:of\s+)?([\w\s]+?)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
-      
-      // Pattern: "add ProductName" (no quantities)
-      /add\s+([\w\s]+?)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
-      
-      // Pattern: "ProductName X kg/g/units"
-      /([\w\s]+?)\s+\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)/i,
+    // Handle direct patterns like "add X of Y" or "add X Y"
+    const directAddPatterns = [
+      /add\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?|packs?|boxes?)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
+      /add\s+([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
     ];
     
-    for (const pattern of commonPatterns) {
-      const match = t.match(pattern);
-      if (match && match[1]?.trim()) {
-        return match[1].trim();
+    for (const pattern of directAddPatterns) {
+      const match = normalizedText.match(pattern);
+      if (match) {
+        // If we have a match from the first pattern (with quantity), use the name part
+        if (match[2]) return match[2].trim();
+        // If we have a match from the second pattern (no quantity), use the entire match
+        if (match[1]) return match[1].trim();
       }
     }
-
-    // If all else fails, try to clean up the text and extract what might be a product name
-    const cleaned = t
-      .replace(/\b(?:add|create|get|upload|set|put)\b/gi, '')
-      .replace(/\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:kg|g|ml|l|pieces?|pcs|units?)\b/gi, '')
-      .replace(/\b(?:to|on|in)\s+(?:rack|shelf)\s*\d+\b/gi, '')
-      .replace(/\b(?:price|for|₹|rs|rupees|expiry|expire|next)\b/gi, '')
+    
+    // Handle multi-product commands with comma or "and"
+    if (normalizedText.includes(',') || normalizedText.includes(' and ')) {
+      const parts = normalizedText.split(/,|\s+and\s+/);
+      // Process the first part to extract product name
+      const firstPart = parts[0].trim();
+      
+      // Try to match "X kg of Y" pattern in the first part
+      const multiMatch = firstPart.match(/(?:add\s+)?(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s*$)/i);
+      
+      if (multiMatch && multiMatch[2]) {
+        return multiMatch[2].trim();
+      }
+      
+      // If no match with quantity, try to extract just the product name
+      const nameMatch = firstPart.match(/(?:add\s+)?([a-zA-Z\s]+)(?:\s*$)/i);
+      if (nameMatch && nameMatch[1]) {
+        const name = nameMatch[1].replace(/\b(?:add|to|for|at)\b/gi, '').trim();
+        if (name) return name;
+      }
+    }
+    
+    // Last resort: extract product name after removing common command words
+    const cleaned = normalizedText
+      .replace(/\badd\b|\bcreate\b|\bget\b|\bupload\b|\bset\b|\bput\b/gi, '')
+      .replace(/\b(?:to|on|in|rack|shelf)\s+\d+\b/gi, '')
+      .replace(/\b(?:\d+(?:\.\d+)?)\s*(?:kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)\b/gi, '')
+      .replace(/\b(?:price|for|₹|rs|rupees|expiry|expire|next)\s+\d+\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
     
     // Extract the first 2-3 words as the likely product name
-    const words = cleaned.split(/\s+/);
-    if (words.length > 0) {
+    if (cleaned) {
+      const words = cleaned.split(/\s+/);
       return words.slice(0, Math.min(3, words.length)).join(' ');
     }
     
@@ -73,6 +80,8 @@ export const useVoiceRecognition = () => {
 
   // Enhanced quantity parser with better regex patterns
   const parseQuantity = (t: string) => {
+    if (!t) return { value: 1, unit: 'unit' };
+    
     // Added support for words like "one", "two", etc.
     const numberWords: Record<string, number> = {
       one: 1, two: 2, three: 3, four: 4, five: 5,
@@ -93,17 +102,28 @@ export const useVoiceRecognition = () => {
 
   // Enhanced position / shelf parser
   const parsePosition = (t: string) => {
-    // Improved to capture various position descriptions
-    const shelfMatch = t.match(/(?:to|on|in)\s+(rack|shelf)\s*(\d+)/i);
+    if (!t) return undefined;
+    
+    // Match "on/in rack/shelf X" pattern
+    const shelfMatch = t.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i);
     if (shelfMatch) return `${shelfMatch[1]} ${shelfMatch[2]}`;
     
-    const positionMatch = t.match(/(?:place|put|position|locate)\s+(?:at|on|in)\s+(.+?)(?=\s+and|\s+with|\s+for|$)/i);
-    return positionMatch ? positionMatch[1].trim() : undefined;
+    // Match "place/put/position X at/on/in Y" pattern
+    const positionMatch = t.match(/(?:place|put|position|locate)\s+(?:at|on|in)\s+([a-zA-Z0-9\s]+?)(?=\s+and|\s+with|\s+for|$)/i);
+    if (positionMatch) return positionMatch[1].trim();
+    
+    // Match numbers preceded by position-related words
+    const rackNumberMatch = t.match(/(?:rack|shelf)\s+(\d+)/i);
+    if (rackNumberMatch) return `Rack ${rackNumberMatch[1]}`;
+    
+    return undefined;
   };
 
   // Enhanced price parser
   const parsePrice = (t: string) => {
-    // Improved to handle various price formats
+    if (!t) return undefined;
+    
+    // Try multiple price patterns
     const patterns = [
       /₹\s*(\d+(?:\.\d+)?)/,
       /(\d+(?:\.\d+)?)\s*₹/,
@@ -119,12 +139,15 @@ export const useVoiceRecognition = () => {
     return undefined;
   };
 
+  // Parse expiration date
   const parseExpiry = (t: string) => {
+    if (!t) return undefined;
+    
     const m = t.match(/\b(?:expiry|expire|next|valid until|use before)\b\s*(.+?)(?=\s+and|\s+with|\s+for|$)/i);
     return m ? m[1].trim() : undefined;
   };
 
-  // Enhanced autocorrect with common grocery items + Levenshtein
+  // Enhanced autocorrect with common grocery items
   const DICTIONARY = [
     'rice', 'sugar', 'flour', 'oil', 'salt', 'soap', 'shampoo', 'detergent',
     'milk', 'bread', 'eggs', 'cheese', 'butter', 'yogurt', 'cream',
@@ -141,6 +164,8 @@ export const useVoiceRecognition = () => {
   ];
   
   const levenshtein = (a: string, b: string) => {
+    if (!a || !b) return 0;
+    
     const dp: number[][] = Array(a.length+1).fill(0).map(() => Array(b.length+1).fill(0));
     for (let i=0;i<=a.length;i++) dp[i][0]=i;
     for (let j=0;j<=b.length;j++) dp[0][j]=j;
@@ -157,6 +182,8 @@ export const useVoiceRecognition = () => {
   };
   
   const autoCorrect = (input: string): string => {
+    if (!input) return input;
+    
     // Don't correct if too long (likely a sentence, not a product name)
     if (input.split(' ').length > 3) return input;
     
@@ -175,32 +202,13 @@ export const useVoiceRecognition = () => {
   const fetchProductImage = async (productName: string): Promise<string> => {
     if (!productName) return 'https://placehold.co/300x300?text=No+Name';
     
-    // Clean up the name for better search
-    const q = productName
-      .replace(/(kg|g|ml|l)\b/gi, '')
-      .replace(/\d+/g, '')
-      .trim()
-      .toLowerCase();
-      
-    // Try to find a specific image for common products
-    const commonProducts: Record<string, string> = {
-      'rice': 'https://source.unsplash.com/300x300/?rice,bag',
-      'sugar': 'https://source.unsplash.com/300x300/?sugar,granulated',
-      'flour': 'https://source.unsplash.com/300x300/?flour,wheat',
-      'milk': 'https://source.unsplash.com/300x300/?milk,bottle',
-      'bread': 'https://source.unsplash.com/300x300/?bread,loaf',
-      'eggs': 'https://source.unsplash.com/300x300/?eggs,carton',
-      'dal': 'https://source.unsplash.com/300x300/?lentils',
-      'atta': 'https://source.unsplash.com/300x300/?wheat,flour'
-    };
-    
-    if (commonProducts[q]) {
-      return commonProducts[q];
+    try {
+      const { getCachedImage } = await import('../utils/fetchImage');
+      return await getCachedImage(productName);
+    } catch (error) {
+      console.error("Error fetching product image:", error);
+      return `https://placehold.co/300x300?text=${encodeURIComponent(productName)}`;
     }
-    
-    const url = `https://source.unsplash.com/300x300/?${encodeURIComponent(q)}`;
-    console.log('Unsplash URL →', url);
-    return url;
   };
 
   // Enhanced recognition function with better error handling
@@ -270,24 +278,19 @@ export const useVoiceRecognition = () => {
       const rawName = extractPureProductName(transcript);
       console.log('Extracted product name →', rawName);
       
+      // Apply autocorrection to the product name for common items
+      const correctedName = autoCorrect(rawName);
+      console.log('Corrected product name →', correctedName);
+      
       // Parse other properties
       const quantity = parseQuantity(transcript);
-      const position = transcript.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i) 
-        ? transcript.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i)![0]
-        : undefined;
-        
-      const price = transcript.match(/(?:price|cost|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i)
-        ? parseFloat(transcript.match(/(?:price|cost|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i)![1])
-        : undefined;
-        
-      const expiry = transcript.match(/expiry\s+(.+?)(?:\s|$)/i)
-        ? transcript.match(/expiry\s+(.+?)(?:\s|$)/i)![1]
-        : undefined;
-        
-      const imageUrl = await fetchProductImage(rawName);
+      const position = parsePosition(transcript);
+      const price = parsePrice(transcript);
+      const expiry = parseExpiry(transcript);
+      const imageUrl = await fetchProductImage(correctedName);
 
       const result: CommandResult = {
-        productName: rawName,
+        productName: correctedName,
         quantity,
         position,
         price,

@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import SiriStyleVoiceUI from '@/components/ui-custom/SiriStyleVoiceUI';
 import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
 import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
+import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
+import { CommandResult } from '@/lib/voice';
 
 const Index = () => {
   const { user } = useAuth();
@@ -21,6 +23,8 @@ const Index = () => {
   const { t } = useLanguage();
   const [multiProducts, setMultiProducts] = useState<MultiProduct[]>([]);
   const [showMultiProductToast, setShowMultiProductToast] = useState(false);
+  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   
   const handleVoiceCommand = (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => {
     console.log("Voice command:", command);
@@ -56,28 +60,46 @@ const Index = () => {
     
     // Handle single product command
     if (command.toLowerCase().includes('add') && processedProduct.name) {
-      // Show toast notification about what we recognized
-      toast.success(`Adding product: ${processedProduct.name}`);
-      
-      // Navigate to add product page or add the product directly
-      if (processedProduct.quantity && processedProduct.unit) {
-        // Add product with detected quantity and unit
-        addProduct({
-          name: processedProduct.name,
-          quantity: processedProduct.quantity,
-          unit: processedProduct.unit,
-          price: 0, // Default price
-          position: 'Default', // Default position
-          image_url: ''
-        });
-      } else {
-        // Navigate to add product page with pre-filled name
-        navigate('/products/add', { state: { productName: processedProduct.name } });
-      }
+      // For single product, show the confirmation popup
+      setCommandResult({
+        productName: processedProduct.name,
+        quantity: {
+          value: processedProduct.quantity || 1,
+          unit: processedProduct.unit || 'unit'
+        },
+        rawText: command
+      });
     } else if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
       // Handle search command
       navigate('/products', { state: { searchQuery: processedProduct.name } });
+    } else if (command.toLowerCase().includes('bill')) {
+      // Handle bill command
+      navigate('/billing');
     }
+  };
+  
+  const handleConfirmProduct = () => {
+    if (!commandResult) return;
+    
+    setIsProcessingCommand(true);
+    
+    addProduct({
+      name: commandResult.productName,
+      quantity: commandResult.quantity?.value || 1,
+      unit: commandResult.quantity?.unit || 'unit',
+      price: commandResult.price || 0,
+      position: commandResult.position || 'Default',
+      image_url: commandResult.imageUrl || ''
+    });
+    
+    toast.success(`Added ${commandResult.productName} to inventory`);
+    
+    setIsProcessingCommand(false);
+    setCommandResult(null);
+  };
+  
+  const handleCancelCommand = () => {
+    setCommandResult(null);
   };
   
   return (
@@ -169,6 +191,16 @@ const Index = () => {
             toast.success(`Added ${multiProducts.length} products to inventory`);
             navigate('/products');
           }}
+        />
+      )}
+      
+      {/* Voice Command Popup */}
+      {commandResult && (
+        <VoiceCommandPopup
+          result={commandResult}
+          onConfirm={handleConfirmProduct}
+          onCancel={handleCancelCommand}
+          loading={isProcessingCommand}
         />
       )}
     </div>

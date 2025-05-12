@@ -40,13 +40,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; redirectTo?: string 
 };
 
 const App: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
         <Route path="/auth-callback" element={<AuthCallback />} />
         
-        <Route element={<Layout />}>
+        <Route element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
           <Route path="/" element={<Index />} />
           <Route path="/products" element={<Products />} />
           

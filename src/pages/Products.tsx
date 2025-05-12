@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -27,12 +28,11 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { 
-  extractProductDetails, 
-  searchProductImage, 
-  detectCommandType, 
-  VOICE_COMMAND_TYPES 
-} from '@/utils/voiceCommandUtils';
+import { CommandResult } from '@/lib/voice';
+import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
+import { MultiProduct, parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
+import { getCachedImage } from '@/utils/fetchImage';
 import { convertProduct } from '@/utils/productUtils';
 
 interface ProductFormData {
@@ -62,9 +62,10 @@ const Products: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [isVoiceDialogOpen, setIsVoiceDialogOpen] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState('');
-  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
+  const [multiProducts, setMultiProducts] = useState<MultiProduct[]>([]);
+  const [showMultiProductToast, setShowMultiProductToast] = useState(false);
   const navigate = useNavigate();
   
   const filteredProducts = searchQuery
@@ -77,67 +78,91 @@ const Products: React.FC = () => {
     setSearchQuery(query);
   };
   
-  const handleVoiceCommand = async (command: string) => {
-    setCurrentTranscript(command);
-    const lowerCommand = command.toLowerCase();
+  const handleVoiceCommand = async (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => {
+    console.log("Voice command:", command);
+    console.log("Processed product:", processedProduct);
     
-    const commandInfo = detectCommandType(command);
+    // Check if it's a multi-product command by looking for commas or "and"
+    if (command.includes(',') || /\band\b/i.test(command)) {
+      // Use our multi-product parser
+      const productNames = products.map(p => ({ name: p.name }));
+      const parsedProducts = parseMultiProductCommand(command, productNames);
+      
+      if (parsedProducts.length > 0) {
+        setMultiProducts(parsedProducts);
+        setShowMultiProductToast(true);
+        
+        // Add all products with a delay
+        parsedProducts.forEach((product, index) => {
+          setTimeout(() => {
+            addProduct({
+              name: product.name,
+              quantity: product.quantity || 1,
+              unit: product.unit || 'unit',
+              price: product.price || 0,
+              position: 'Default', 
+              image_url: ''
+            });
+          }, index * 800);
+        });
+        
+        return;
+      }
+    }
     
-    if (commandInfo.type === VOICE_COMMAND_TYPES.ADD_PRODUCT) {
-      setIsProcessingVoice(true);
+    // Handle single product command
+    if (command.toLowerCase().includes('add') && processedProduct.name) {
+      const productName = processedProduct.name;
+      setIsProcessingCommand(true);
       
       try {
-        const productDetails = await extractProductDetails(command);
+        // Try to get a product image
+        const imageUrl = await getCachedImage(productName);
         
-        if (productDetails.name) {
-          if (!productDetails.image && productDetails.name) {
-            try {
-              const imageUrl = await searchProductImage(productDetails.name);
-              if (imageUrl) {
-                productDetails.image = imageUrl;
-                toast.success('Product image found automatically');
-              }
-            } catch (error) {
-              console.error('Failed to fetch product image:', error);
-            }
-          }
-          
-          setFormData({
-            name: productDetails.name || '',
-            quantity: productDetails.quantity || 0,
-            unit: productDetails.unit || 'kg',
-            position: productDetails.position || '',
-            expiry: productDetails.expiry || '',
-            price: productDetails.price || 0,
-            image_url: productDetails.image || '',
-          });
-          
-          setIsAddDialogOpen(true);
-          toast.success(`Product details extracted: ${productDetails.name}`);
-        } else {
-          setIsAddDialogOpen(true);
-          toast.info('Please provide product details');
-        }
+        const result: CommandResult = {
+          productName,
+          quantity: processedProduct.quantity ? 
+            { value: processedProduct.quantity, unit: processedProduct.unit || 'unit' } : 
+            { value: 1, unit: 'unit' },
+          imageUrl,
+          rawText: command
+        };
+        
+        setCommandResult(result);
       } catch (error) {
-        console.error('Error extracting product details:', error);
-        toast.error('Failed to process product details');
-        setIsAddDialogOpen(true);
+        console.error("Error processing command:", error);
+        toast.error("Error processing voice command");
+      } finally {
+        setIsProcessingCommand(false);
       }
-      
-      setIsProcessingVoice(false);
-    } else if (commandInfo.type === VOICE_COMMAND_TYPES.CREATE_BILL) {
-      navigate('/billing');
-      toast.success('Opening billing page');
-    } else if (commandInfo.type === VOICE_COMMAND_TYPES.SEARCH_PRODUCT) {
-      if (commandInfo.data?.searchTerm) {
-        setSearchQuery(commandInfo.data.searchTerm);
-        toast.info(`Searching for "${commandInfo.data.searchTerm}"`);
-      } else {
-        toast.info('Please specify what to search for');
-      }
-    } else {
-      toast.info(`Command not recognized: "${command}"`);
+    } else if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
+      // Handle search command
+      setSearchQuery(processedProduct.name || '');
     }
+  };
+  
+  const handleConfirmProduct = () => {
+    if (!commandResult) return;
+    
+    setIsProcessingCommand(true);
+    
+    addProduct({
+      name: commandResult.productName,
+      quantity: commandResult.quantity?.value || 1,
+      unit: commandResult.quantity?.unit || 'unit',
+      price: commandResult.price || 0,
+      position: commandResult.position || 'Default',
+      image_url: commandResult.imageUrl || ''
+    });
+    
+    toast.success(`Added ${commandResult.productName} to inventory`);
+    
+    setIsProcessingCommand(false);
+    setCommandResult(null);
+  };
+  
+  const handleCancelCommand = () => {
+    setCommandResult(null);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,7 +225,7 @@ const Products: React.FC = () => {
     toast.loading('Searching for product image...');
     
     try {
-      const imageUrl = await searchProductImage(formData.name);
+      const imageUrl = await getCachedImage(formData.name);
       if (imageUrl) {
         setFormData(prev => ({
           ...prev,
@@ -225,7 +250,18 @@ const Products: React.FC = () => {
     if (editingProductId) {
       const product = convertProduct(products.find(p => p.id === editingProductId));
       if (!product) return;
-      updateProduct(editingProductId, product);
+      
+      const updatedProduct = {
+        ...product,
+        name: formData.name,
+        quantity: formData.quantity,
+        unit: formData.unit,
+        position: formData.position,
+        price: formData.price,
+        image_url: formData.image_url
+      };
+      
+      updateProduct(editingProductId, updatedProduct);
       setIsEditDialogOpen(false);
     } else {
       addProduct({
@@ -233,12 +269,8 @@ const Products: React.FC = () => {
         quantity: formData.quantity,
         unit: formData.unit,
         position: formData.position,
-        expiry: formData.expiry,
         price: formData.price,
-        image_url: formData.image_url,
-        barcode: undefined,
-        stockAlert: undefined,
-        shopId: undefined
+        image_url: formData.image_url
       });
       setIsAddDialogOpen(false);
     }
@@ -535,22 +567,25 @@ const Products: React.FC = () => {
           {renderForm()}
         </DialogContent>
       </Dialog>
-
-      {currentTranscript && (
-        <Dialog open={isVoiceDialogOpen} onOpenChange={setIsVoiceDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Voice Command</DialogTitle>
-              <DialogDescription>
-                Processing your voice command...
-              </DialogDescription>
-            </DialogHeader>
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-1">Transcript:</p>
-              <p className="text-sm">{currentTranscript}</p>
-            </div>
-          </DialogContent>
-        </Dialog>
+      
+      {/* Voice Command Popup */}
+      {commandResult && (
+        <VoiceCommandPopup
+          result={commandResult}
+          onConfirm={handleConfirmProduct}
+          onCancel={handleCancelCommand}
+          loading={isProcessingCommand}
+        />
+      )}
+      
+      {showMultiProductToast && (
+        <MultiProductAddToast 
+          products={multiProducts} 
+          onClose={() => setShowMultiProductToast(false)}
+          onComplete={() => {
+            toast.success(`Added ${multiProducts.length} products to inventory`);
+          }}
+        />
       )}
     </div>
   );

@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
-import { Package, Plus, X } from 'lucide-react';
+import { Package, Plus, X, MapPin } from 'lucide-react';
 import { CommandResult } from '@/lib/voice';
 
 interface VoiceCommandPopupProps {
@@ -20,6 +22,8 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   onCancel,
   loading = false 
 }) => {
+  const [location, setLocation] = useState(result?.position || '');
+  
   if (!result) return null;
 
   return (
@@ -68,20 +72,46 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                   </Badge>
                 )}
                 
-                {result.position && (
+                {location && (
                   <Badge variant="outline" className="bg-blue-500/10">
-                    {result.position}
+                    {location}
                   </Badge>
                 )}
               </div>
             </div>
           </div>
           
+          {!result.position && (
+            <div className="space-y-1.5">
+              <Label htmlFor="location" className="text-sm flex items-center">
+                <MapPin className="mr-1 h-3 w-3" />
+                Location (Rack/Shelf)
+              </Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Enter shelf or rack number"
+                className="h-8 text-sm"
+              />
+            </div>
+          )}
+          
           <div className="pt-2 flex justify-end gap-2">
             <Button variant="outline" onClick={onCancel} disabled={loading}>
               Cancel
             </Button>
-            <Button onClick={onConfirm} disabled={loading} className="flex items-center gap-1">
+            <Button 
+              onClick={() => {
+                // Update the result object with the location
+                if (result && !result.position && location) {
+                  result.position = location;
+                }
+                onConfirm();
+              }} 
+              disabled={loading} 
+              className="flex items-center gap-1"
+            >
               {loading ? (
                 <span>Processing...</span>
               ) : (
