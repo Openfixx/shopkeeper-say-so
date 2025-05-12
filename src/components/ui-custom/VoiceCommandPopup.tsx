@@ -35,6 +35,9 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
       else if (typeof result.position === 'string') {
         setLocation(result.position);
       }
+    } else {
+      // Default location if none is provided
+      setLocation('');
     }
   }, [result]);
   

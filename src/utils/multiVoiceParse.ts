@@ -6,7 +6,7 @@ export interface MultiProduct {
   quantity?: number;
   unit?: string;
   price?: number;
-  position?: string; // Added this property to fix the TypeScript error
+  position?: string;
 }
 
 const fuseOptions = {
@@ -14,6 +14,57 @@ const fuseOptions = {
   threshold: 0.4,
   ignoreLocation: true,
   findAllMatches: true,
+};
+
+/**
+ * Extracts just the product name from a command like "add 2 kg rice"
+ * focusing only on the main product and ignoring quantity, unit, etc.
+ */
+const extractProductName = (text: string): string => {
+  // First, clean up common command words
+  let cleanedText = text.replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '');
+  
+  // Basic pattern for quantity + unit + product name
+  const quantityPattern = /^\d+(\.\d+)?\s+(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box|dozen|carton|bag|bags|bottle|bottles)\s+/i;
+  
+  // Clean up quantity and unit if present
+  cleanedText = cleanedText.replace(quantityPattern, '');
+  
+  // Remove location information if present
+  cleanedText = cleanedText.replace(/\s+(at|in|on)\s+(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s+\d+/i, '');
+  cleanedText = cleanedText.replace(/\s+(for|at|price|cost)\s+(\d+|₹\d+|rs\d+)/i, '');
+  
+  // Further cleanup common conjunctions or phrases in multi-product commands
+  cleanedText = cleanedText.replace(/\s+and\s+.*$/, '');
+  cleanedText = cleanedText.replace(/\s*,\s*.*$/, '');
+  
+  return cleanedText.trim();
+};
+
+/**
+ * Extracts position from commands like "at shelf 7" or "on rack 3"
+ */
+const extractPosition = (text: string): string | undefined => {
+  const positionMatch = text.match(/(at|in|on)?\s*(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
+  
+  if (positionMatch) {
+    const numberMap: Record<string, string> = {
+      'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+      'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+    };
+    
+    const locationType = positionMatch[2];
+    let locationNum = positionMatch[3];
+    
+    // Convert word numbers to digits if needed
+    if (numberMap[locationNum.toLowerCase()]) {
+      locationNum = numberMap[locationNum.toLowerCase()];
+    }
+    
+    return `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNum}`;
+  }
+  
+  return undefined;
 };
 
 /**
@@ -52,28 +103,25 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
       console.log("Regex match:", match);
       let [, quantityStr, unit, nameRaw, priceStr] = match;
       
-      // Clean name and strip leading connectors like "of", "some", etc.
-      const name = nameRaw.trim().toLowerCase().replace(/^(of|some|the|a|an)\s+/i, '');
-      console.log("Extracted name (raw):", name);
-
+      // Extract the clean product name
+      const cleanName = extractProductName(part.trim());
+      console.log("Extracted clean name:", cleanName);
+      
+      // Extract position if present
+      const position = extractPosition(part);
+      console.log("Extracted position:", position);
+      
       // Use fuse to get best matching product from list
-      let matchedName = name;
+      let matchedName = cleanName;
       if (productList.length > 0) {
         console.log("Searching for match in product list...");
-        const fuseResult = fuse.search(name);
+        const fuseResult = fuse.search(cleanName);
         console.log("Fuse search results:", fuseResult);
         
         if (fuseResult.length > 0) {
           matchedName = fuseResult[0].item.name.toLowerCase();
           console.log("Matched to existing product:", matchedName);
         }
-      }
-
-      // Handle position/location information if present
-      let position: string | undefined;
-      const positionMatch = part.match(/(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s+(\w+)/i);
-      if (positionMatch) {
-        position = positionMatch[0];
       }
 
       results.push({
@@ -90,38 +138,44 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
         const quantity = parseFloat(simpleQuantityMatch[1]);
         const namePart = simpleQuantityMatch[2].trim();
         
+        // Extract clean product name from this part
+        const cleanName = extractProductName(part.trim());
+        
         // Try to separate unit from name
         const unitMatch = namePart.match(/^(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box|dozen|carton|bag|bags|bottle|bottles)\s+([\w\s]+)/i);
+        
+        // Extract position if present
+        const position = extractPosition(part);
         
         if (unitMatch) {
           results.push({
             name: unitMatch[2].trim().toLowerCase(),
             quantity: quantity,
             unit: unitMatch[1].toLowerCase(),
-            price: undefined
+            position: position
           });
         } else {
           results.push({
-            name: namePart.toLowerCase(),
+            name: cleanName.toLowerCase(),
             quantity: quantity,
             unit: 'unit',
-            price: undefined
+            position: position
           });
         }
       } else {
         // Last resort - just take the whole part as a product name
         // Attempt to extract product name by removing common phrases
-        const simpleName = part.trim()
-          .toLowerCase()
-          .replace(/^(please|kindly|could you|can you|i want|i need|i would like|get me|add|insert|put|include)\s+/i, '')
-          .replace(/\s+(please|now|for me|to inventory|to stock|to list)$/i, '');
+        const simpleName = extractProductName(part.trim());
+        
+        // Extract position if present
+        const position = extractPosition(part);
         
         if (simpleName) {
           results.push({
-            name: simpleName,
+            name: simpleName.toLowerCase(),
             quantity: 1,
             unit: 'unit',
-            price: undefined
+            position: position
           });
         }
       }

@@ -11,6 +11,7 @@ import VoiceCommandPopup from './VoiceCommandPopup';
 import { CommandResult } from '@/lib/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UnifiedVoiceCommandProps {
   className?: string;
@@ -52,7 +53,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           const parsedProducts = parseMultiProductCommand(rawText, productNames);
           setExtractedProducts(parsedProducts);
           
-          // For UI display, use the first product
+          // For UI display, use the first product and update the commandResult
           if (parsedProducts.length > 0) {
             const firstProduct = parsedProducts[0];
             setExtractedProduct({
@@ -60,14 +61,39 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
               quantity: firstProduct.quantity,
               unit: firstProduct.unit
             });
+            
+            // Update the commandResult with the first product info
+            if (result && parsedProducts[0]) {
+              result.productName = parsedProducts[0].name;
+              result.quantity = { 
+                value: parsedProducts[0].quantity || 1, 
+                unit: parsedProducts[0].unit || 'unit' 
+              };
+              result.position = parsedProducts[0].position || '';
+              if (parsedProducts[0].price !== undefined) {
+                result.price = parsedProducts[0].price;
+              }
+            }
           }
         } else {
-          // Process as single product command
+          // Process as single product command - extract clean product name
+          const cleanProductName = rawText
+            .replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '')
+            .replace(/^\d+(\.\d+)?\s+(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box|dozen|carton|bag|bags|bottle|bottles)\s+/i, '')
+            .replace(/\s+(at|in|on)\s+(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s+\d+/i, '')
+            .replace(/\s+(for|at|price|cost)\s+(\d+|₹\d+|rs\d+)/i, '')
+            .trim();
+          
           setExtractedProduct({
-            name: result.productName,
+            name: cleanProductName,
             quantity: result.quantity?.value,
             unit: result.quantity?.unit
           });
+          
+          // Update the productName in the result
+          if (result) {
+            result.productName = cleanProductName;
+          }
         }
         
         setProcessing(false);
@@ -83,36 +109,65 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     }
   };
 
-  const handleAddMultiProducts = () => {
+  const handleAddMultiProducts = async () => {
     setIsAddingToInventory(true);
     
     try {
       // Add all products with a delay
-      extractedProducts.forEach((product, index) => {
-        setTimeout(() => {
-          addProduct({
-            name: product.name,
-            quantity: product.quantity || 1,
-            unit: product.unit || 'unit',
-            price: product.price || 0,
-            position: product.position || 'Default', 
-            image_url: ''
-          });
-        }, index * 800);
-      });
+      let addedCount = 0;
       
-      toast.success(`Adding ${extractedProducts.length} products to inventory`);
+      for (const [index, product] of extractedProducts.entries()) {
+        try {
+          setTimeout(async () => {
+            const productData = {
+              name: product.name,
+              quantity: product.quantity || 1,
+              unit: product.unit || 'unit',
+              price: product.price || 0,
+              position: product.position || 'Default', 
+              image_url: ''
+            };
+            
+            // Add to in-memory state
+            addProduct(productData);
+            
+            // Also save directly to Supabase
+            try {
+              await supabase
+                .from('inventory')
+                .insert({
+                  product_name: product.name,
+                  quantity: product.quantity || 1,
+                  price: product.price || 0,
+                  image_url: '',
+                  hindi_name: ''
+                });
+            } catch (supabaseError) {
+              console.error("Supabase save error:", supabaseError);
+            }
+            
+            addedCount++;
+            if (addedCount === extractedProducts.length) {
+              toast.success(`Added ${addedCount} products to inventory`);
+              setIsAddingToInventory(false);
+              setShowPopup(false);
+              reset();
+            }
+          }, index * 800);
+        } catch (productError) {
+          console.error("Error adding product:", productError);
+        }
+      }
     } catch (error) {
       toast.error("Failed to add products.");
       console.error("Error adding products:", error);
-    } finally {
       setIsAddingToInventory(false);
       setShowPopup(false);
       reset();
     }
   };
 
-  const handleConfirmProduct = () => {
+  const handleConfirmProduct = async () => {
     if (!commandResult) return;
     
     setIsAddingToInventory(true);
@@ -121,21 +176,44 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
       if (isMultiCommand) {
         handleAddMultiProducts();
       } else {
-        addProduct({
-          name: commandResult.productName,
+        // Prepare product data
+        const productData = {
+          name: commandResult.productName || 'Unknown Product',
           quantity: commandResult.quantity?.value || 1,
           unit: commandResult.quantity?.unit || 'unit',
           price: commandResult.price || 0,
           position: commandResult.position || 'Default',
           image_url: commandResult.imageUrl || ''
-        });
+        };
         
-        toast.success(`Added ${commandResult.productName} to inventory`);
+        // Add to in-memory state
+        addProduct(productData);
+        
+        // Also save directly to Supabase
+        try {
+          await supabase
+            .from('inventory')
+            .insert({
+              product_name: productData.name,
+              quantity: productData.quantity,
+              price: productData.price || 0,
+              image_url: productData.image_url || '',
+              hindi_name: ''
+            });
+            
+          toast.success(`Added ${productData.name} to inventory and saved to database`);
+        } catch (supabaseError) {
+          console.error("Supabase save error:", supabaseError);
+          toast.error("Failed to save to database, but added locally");
+        }
+        
+        setIsAddingToInventory(false);
+        setShowPopup(false);
+        reset();
       }
     } catch (error) {
       toast.error("Failed to add product.");
       console.error("Error adding product:", error);
-    } finally {
       setIsAddingToInventory(false);
       setShowPopup(false);
       reset();
