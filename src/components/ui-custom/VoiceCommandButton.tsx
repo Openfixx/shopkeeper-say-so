@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export interface VoiceCommandButtonProps {
-  onVoiceCommand: (command: string) => void;
+  onVoiceCommand: (command: string, processedProduct?: { name: string, quantity?: number, unit?: string }) => void;
   className?: string;
   variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
   size?: "default" | "sm" | "lg" | "icon";
@@ -59,8 +59,8 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       setCurrentTranscript(transcript);
       console.log("Voice transcript:", transcript);
       
-      // Process the voice command
-      onVoiceCommand(transcript);
+      // Process the voice command - now calling with empty second parameter
+      onVoiceCommand(transcript, { name: '', quantity: undefined, unit: undefined });
     };
     
     recognition.onend = () => {
