@@ -9,12 +9,12 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <Layout>
-      <div>
+    <Layout children={
+      <>
         <Outlet />
         {children}
-      </div>
-    </Layout>
+      </>
+    } />
   );
 };
 

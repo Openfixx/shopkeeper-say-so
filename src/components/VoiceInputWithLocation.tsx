@@ -22,6 +22,8 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
   const [products, setProducts] = useState<EnhancedProduct[]>([]);
   const [detectedLocation, setDetectedLocation] = useState<string | undefined>(undefined);
   const [processing, setProcessing] = useState(false);
+  const [needsClarification, setNeedsClarification] = useState(false);
+  const [clarificationOptions, setClarificationOptions] = useState<string[]>([]);
 
   const handleListen = async () => {
     try {
@@ -82,6 +84,14 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
         setProducts(result.products);
         setDetectedLocation(result.detectedLocation);
         
+        if (result.needsClarification) {
+          setNeedsClarification(true);
+          setClarificationOptions(result.clarificationOptions || []);
+          toast.info(result.clarificationQuestion || "Did you mean one of these?");
+        } else {
+          setNeedsClarification(false);
+        }
+        
         // Pass the structured data back to the parent component
         if (onCommand && result.products.length > 0) {
           onCommand(command, result.products);
@@ -100,6 +110,25 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
       toast.error("Failed to process command");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleClarification = (option: string) => {
+    if (products.length > 0) {
+      // Update the first product with the selected option
+      const updatedProducts = [...products];
+      updatedProducts[0].name = option;
+      updatedProducts[0].confidence = 1.0; // Now we're confident
+      
+      setProducts(updatedProducts);
+      setNeedsClarification(false);
+      
+      // Pass the updated data back to the parent component
+      if (onCommand) {
+        onCommand(text, updatedProducts);
+      }
+      
+      toast.success(`Updated product to: ${option}`);
     }
   };
 
@@ -138,14 +167,32 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
           </div>
         )}
         
-        {detectedLocation && (
+        {needsClarification && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Did you mean:</h3>
+            <div className="flex flex-wrap gap-2">
+              {clarificationOptions.map((option, index) => (
+                <Button
+                  key={index}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleClarification(option)}
+                >
+                  {option}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {detectedLocation && !needsClarification && (
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-amber-500" />
             <span>Location: <Badge variant="outline">{detectedLocation}</Badge></span>
           </div>
         )}
         
-        {products.length > 0 && (
+        {products.length > 0 && !needsClarification && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Recognized Products:</h3>
             
@@ -176,7 +223,7 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
                 {product.expiry && (
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="h-4 w-4 text-blue-500" />
-                    <span>Expiry: {format(new Date(product.expiry), 'dd MMM yyyy')}</span>
+                    <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(product.expiry, 'dd MMM yyyy')}</span>
                   </div>
                 )}
                 
@@ -209,7 +256,7 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
             <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
             <p>Click "Start Voice Command" to add products with voice</p>
             <p className="text-sm mt-2">Try saying:</p>
-            <p className="text-xs mt-1 font-medium">"Add 5 kg rice from the top shelf expiring next month"</p>
+            <p className="text-xs mt-1 font-medium">"Add 5 kg basmati rice from the top shelf expiring next month"</p>
             <p className="text-xs mt-1 font-medium">"Add 2 liters milk from the fridge and 3 loaves of bread"</p>
           </div>
         )}

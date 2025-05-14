@@ -1,601 +1,330 @@
-
-/**
- * Enhanced Product Parser
- * A robust system for parsing product information from voice commands
- * with support for expiry dates, locations, and advanced NLP features
- */
-
-import { extractLocation } from './locationParser';
-import { extractExpiryDate } from './dateParser';
-import { levenshtein } from './levenshteinDistance';
-import { detectCommandIntent, CommandIntent, extractBillOptions, isMultiProductCommand } from './commandTypeDetector';
 import Fuse from 'fuse.js';
 
-// Product entity interface with enhanced features
 export interface EnhancedProduct {
   name: string;
   quantity?: number;
   unit?: string;
+  position?: string;
   price?: number;
-  position?: string;  // Storage location
-  expiry?: string;    // Expiry date in YYYY-MM-DD format
+  expiry?: string | Date;
+  confidence?: number;
   variant?: {
     size?: string;
     color?: string;
     type?: string;
   };
-  confidence: number;
 }
 
-// Voice command parsing result interface
-export interface ParsedVoiceCommand {
-  intent: CommandIntent;
+interface ParsingResult {
   products: EnhancedProduct[];
-  rawText: string;
-  billOptions?: Record<string, any>;
-  needsClarification?: boolean;
-  clarificationOptions?: string[];
-  clarificationQuestion?: string;
   detectedLocation?: string;
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
+  clarificationOptions?: string[];
 }
 
-// Dictionary for product synonyms
-const PRODUCT_SYNONYMS: Record<string, string[]> = {
-  "coca-cola": ["coke", "cola", "soda", "soft drink", "coke bottle"],
-  "pepsi": ["pepsi cola", "blue cola", "blue soda"],
-  "rice": ["basmati rice", "jasmine rice", "white rice", "brown rice"],
-  "milk": ["dairy milk", "cow milk", "soy milk", "almond milk", "oat milk"],
-  "bread": ["loaf", "bun", "roll", "toast", "bread loaf", "sliced bread"],
-  "flour": ["all-purpose flour", "wheat flour", "maida", "atta"],
-  "apple": ["red apple", "green apple", "fruit"],
-  "banana": ["yellow banana", "fruit"],
-  "sugar": ["white sugar", "brown sugar", "sweetener"],
-  "salt": ["table salt", "sea salt", "rock salt"],
-  "oil": ["cooking oil", "vegetable oil", "olive oil", "sunflower oil"],
-  "butter": ["dairy butter", "margarine", "spread"],
-  "cheese": ["cheddar", "mozzarella", "dairy product"]
-};
-
-// Unit standardization mapping
-const UNIT_MAPPING: Record<string, string> = {
-  "kg": "kg",
-  "kgs": "kg",
-  "kilos": "kg",
-  "kilogram": "kg",
-  "kilograms": "kg",
-  "g": "g",
-  "gram": "g",
-  "grams": "g",
-  "l": "l",
-  "liter": "l",
-  "liters": "l",
-  "litre": "l",
-  "litres": "l",
-  "ml": "ml",
-  "milliliter": "ml",
-  "milliliters": "ml",
-  "millilitre": "ml",
-  "millilitres": "ml",
-  "piece": "pc",
-  "pieces": "pc",
-  "pc": "pc",
-  "pcs": "pc",
-  "unit": "unit",
-  "units": "unit",
-  "pack": "pack",
-  "packs": "pack",
-  "packet": "pack",
-  "packets": "pack",
-  "box": "box",
-  "boxes": "box",
-  "bottle": "bottle",
-  "bottles": "bottle",
-  "carton": "carton",
-  "cartons": "carton",
-  "dozen": "dozen",
-  "dozens": "dozen"
+// Mapping common units to standardized units
+const unitMapping: Record<string, string> = {
+  'kilo': 'kg',
+  'kilos': 'kg',
+  'kgs': 'kg',
+  'gram': 'g',
+  'grams': 'g',
+  'liter': 'l',
+  'liters': 'l',
+  'litre': 'l',
+  'litres': 'l',
+  'ml': 'ml',
+  'milliliter': 'ml',
+  'milliliters': 'ml',
+  'millilitre': 'ml',
+  'millilitres': 'ml',
+  'piece': 'pcs',
+  'pieces': 'pcs',
+  'pc': 'pcs',
+  'packs': 'pack',
+  'packets': 'pack',
+  'boxes': 'box',
 };
 
 /**
- * Process and normalize a unit string
- * @param unit The unit string to normalize
- * @returns Normalized unit string
+ * Enhanced product voice command parser with fuzzy matching and multi-product parsing
  */
-const normalizeUnit = (unit: string): string => {
-  if (!unit) return 'unit';
+export const parseEnhancedVoiceCommand = (command: string, productList: { name: string }[] = []): ParsingResult => {
+  console.log("Parsing command:", command);
   
-  const lowercaseUnit = unit.toLowerCase().trim();
-  return UNIT_MAPPING[lowercaseUnit] || lowercaseUnit;
-};
-
-/**
- * Extract numbers including word representations
- */
-const extractNumber = (text: string): { value: number, original: string } | null => {
-  // Dictionary for number words
-  const numberWords: Record<string, number> = {
-    'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-    'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
-    'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20,
-    'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70,
-    'eighty': 80, 'ninety': 90, 'hundred': 100
+  // Initialize result
+  const result: ParsingResult = {
+    products: [],
+    needsClarification: false
   };
-  
-  // Try to match a digit
-  const digitMatch = text.match(/\b(\d+(\.\d+)?)\b/);
-  if (digitMatch) {
-    return {
-      value: parseFloat(digitMatch[1]),
-      original: digitMatch[1]
-    };
-  }
-  
-  // Try to match number words
-  const words = text.toLowerCase().split(/\s+/);
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
-    if (numberWords[word] !== undefined) {
-      return {
-        value: numberWords[word],
-        original: word
-      };
+
+  if (!command) return result;
+
+  // Step 1: Determine if this is a multi-product command
+  const isMultiCommand = command.includes(',') || 
+                         /\band\b|\balso\b|\bplus\b|\balong with\b|\btogether with\b|\bas well as\b/i.test(command);
+
+  if (isMultiCommand) {
+    // Split the command into parts for multi-product parsing
+    const parts = command.split(/,|\sand\s|\salso\s|\splus\s|\salong with\s|\stogether with\s|\swith\s|\sas well as\s/i);
+    
+    console.log("Splitting multi-command into parts:", parts);
+    
+    for (const part of parts) {
+      if (part.trim()) {
+        const productDetails = extractProductDetails(part.trim(), productList);
+        
+        // Only add to results if we found a product
+        if (productDetails.name) {
+          // Check confidence level
+          if (productDetails.confidence && productDetails.confidence < 0.8) {
+            result.needsClarification = true;
+            result.clarificationQuestion = `Did you mean "${productDetails.name}"?`;
+            
+            // Provide options based on fuzzy matches
+            if (productList.length > 0) {
+              const fuse = new Fuse(productList, { keys: ['name'], threshold: 0.6 });
+              const matches = fuse.search(productDetails.name);
+              result.clarificationOptions = matches.slice(0, 3).map(match => match.item.name);
+              
+              // Add the original as an option too
+              if (!result.clarificationOptions.includes(productDetails.name)) {
+                result.clarificationOptions.push(productDetails.name);
+              }
+            }
+          }
+          
+          result.products.push(productDetails);
+        }
+      }
+    }
+    
+    // Check for location in the full command
+    const location = extractLocationInfo(command);
+    if (location) {
+      result.detectedLocation = location;
+      
+      // Apply location to all products
+      result.products.forEach(product => {
+        if (!product.position) {
+          product.position = location;
+        }
+      });
+    } else {
+      // Add default location if none detected
+      result.products.forEach(product => {
+        if (!product.position) {
+          product.position = "unspecified";
+        }
+      });
+    }
+  } else {
+    // Single product parsing
+    const productDetails = extractProductDetails(command, productList);
+    
+    // Check confidence level
+    if (productDetails.name) {
+      if (productDetails.confidence && productDetails.confidence < 0.8) {
+        result.needsClarification = true;
+        result.clarificationQuestion = `Did you mean "${productDetails.name}"?`;
+        
+        // Provide options based on fuzzy matches
+        if (productList.length > 0) {
+          const fuse = new Fuse(productList, { keys: ['name'], threshold: 0.6 });
+          const matches = fuse.search(productDetails.name);
+          result.clarificationOptions = matches.slice(0, 3).map(match => match.item.name);
+          
+          // Add the original as an option too
+          if (!result.clarificationOptions.includes(productDetails.name)) {
+            result.clarificationOptions.push(productDetails.name);
+          }
+        }
+      }
+      
+      // Add location info
+      const location = extractLocationInfo(command);
+      if (location) {
+        productDetails.position = location;
+        result.detectedLocation = location;
+      } else {
+        productDetails.position = "unspecified";
+      }
+      
+      result.products.push(productDetails);
     }
   }
   
-  return null;
+  // Apply validation logic
+  result.products = result.products.filter(product => {
+    // Reject products with low confidence
+    if (product.confidence && product.confidence < 0.8) {
+      return false;
+    }
+    
+    // Ensure quantity is present
+    if (product.quantity === undefined || product.quantity <= 0) {
+      product.quantity = 1; // Default quantity
+    }
+    
+    // Ensure unit is present
+    if (!product.unit) {
+      product.unit = 'pcs'; // Default unit
+    }
+    
+    // Location is already handled above with defaults
+    return true;
+  });
+  
+  console.log("Parsing result:", result);
+  
+  return result;
 };
 
 /**
- * Extract quantity and unit from text
+ * Extract detailed product information from a voice command segment
  */
-const extractQuantityAndUnit = (text: string): { quantity: number; unit: string; } | null => {
-  // First try the pattern "X units"
-  const quantityUnitPattern = /(\d+(\.\d+)?)\s+(kg|g|l|ml|pc|pcs|piece|pieces|unit|units|pack|packs|box|boxes|bottle|bottles|carton|cartons|dozen|dozens|kilos?|grams?|liters?|litres?)/i;
-  const match = text.match(quantityUnitPattern);
+function extractProductDetails(text: string, productList: { name: string }[] = []): EnhancedProduct {
+  const product: EnhancedProduct = {
+    name: '',
+    confidence: 1.0,
+    quantity: undefined,
+    unit: undefined,
+    position: undefined,
+    price: undefined,
+  };
+
+  // Clean the command to remove common add/create prefixes
+  const cleanedText = text.replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '');
   
-  if (match) {
-    const quantity = parseFloat(match[1]);
-    let unit = match[3].toLowerCase();
+  // Extract quantity and unit with regex
+  const quantityUnitMatch = cleanedText.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|litre|litres|liter|liters|piece|pieces|pc|pcs|pack|packs|box|boxes|unit|units|carton|dozen|bottle|bottles|bag|bags)s?\b/i);
+  
+  if (quantityUnitMatch) {
+    product.quantity = parseFloat(quantityUnitMatch[1]);
     
-    return { quantity, unit: normalizeUnit(unit) };
+    // Standardize the unit
+    const rawUnit = quantityUnitMatch[2].toLowerCase();
+    product.unit = unitMapping[rawUnit] || rawUnit;
+    
+    // Extract product name - everything after quantity and unit
+    const afterQuantityUnit = cleanedText.substring(quantityUnitMatch.index! + quantityUnitMatch[0].length).trim();
+    
+    // Clean up the product name
+    product.name = afterQuantityUnit
+      .replace(/\s+(in|at|on)\s+(shelf|rack|aisle|section|position|bin|box|cabinet)\s+\d+/i, '') // Remove location info
+      .replace(/\s+(for|at|price|cost|costing|worth)\s+(\d+|₹\d+|rs\d+)/i, '') // Remove price info
+      .trim();
+  } else {
+    // If no quantity/unit found, extract product name directly
+    product.name = cleanedText
+      .replace(/\s+(in|at|on)\s+(shelf|rack|aisle|section|position|bin|box|cabinet)\s+\d+/i, '')
+      .replace(/\s+(for|at|price|cost|costing|worth)\s+(\d+|₹\d+|rs\d+)/i, '')
+      .trim();
+    
+    // Default quantity and unit
+    product.quantity = 1;
+    product.unit = 'pcs';
   }
   
-  // Try to find number words followed by units
-  const words = text.toLowerCase().split(/\s+/);
-  for (let i = 0; i < words.length - 1; i++) {
-    const numberInfo = extractNumber(words[i]);
-    if (numberInfo) {
-      // Check if the next word is a unit
-      const potentialUnit = words[i+1];
-      if (UNIT_MAPPING[potentialUnit]) {
-        return {
-          quantity: numberInfo.value,
-          unit: normalizeUnit(potentialUnit)
-        };
+  // Extract price information
+  const priceMatch = text.match(/(?:price|cost|for|at|worth|costing|₹|rs|rupees)\s*(\d+(?:\.\d+)?)/i);
+  if (priceMatch) {
+    product.price = parseFloat(priceMatch[1]);
+  }
+  
+  // Extract position/location 
+  const positionMatch = text.match(/(in|at|on)\s+(shelf|rack|aisle|section|position|bin|box|cabinet)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
+  if (positionMatch) {
+    const locationNumber = positionMatch[3];
+    const locationWord = positionMatch[2].charAt(0).toUpperCase() + positionMatch[2].slice(1);
+    
+    // Convert word numbers to digits if needed
+    const numberWords: Record<string, string> = {
+      'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+      'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+    };
+    
+    const locationValue = numberWords[locationNumber.toLowerCase()] || locationNumber;
+    product.position = `${locationWord} ${locationValue}`;
+  }
+  
+  // Extract product type/variant information (e.g., basmati rice vs. jasmine rice)
+  const variantPatterns = [
+    { type: 'color', pattern: /(red|blue|green|yellow|black|white|pink|purple|brown|orange|gray|grey)\s+([a-z]+)/i },
+    { type: 'size', pattern: /(small|medium|large|extra large|xl|xxl|mini|regular|jumbo|family size)\s+([a-z]+)/i },
+    { type: 'type', pattern: /(organic|fresh|frozen|canned|dried|raw|ripe|unripe|processed|whole grain|refined)\s+([a-z]+)/i },
+  ];
+  
+  for (const { type, pattern } of variantPatterns) {
+    const match = product.name.match(pattern);
+    if (match) {
+      if (!product.variant) product.variant = {};
+      
+      if (type === 'color') {
+        product.variant.color = match[1];
+      } else if (type === 'size') {
+        product.variant.size = match[1];
+      } else if (type === 'type') {
+        product.variant.type = match[1];
       }
     }
   }
   
-  // If we found a number but no unit, assume "pieces"
-  const numberInfo = extractNumber(text);
-  if (numberInfo) {
-    return {
-      quantity: numberInfo.value,
-      unit: "pc"
-    };
+  // Now use fuzzy matching to improve name recognition if we have a product list
+  if (productList.length > 0 && product.name) {
+    const fuse = new Fuse(productList, { 
+      keys: ['name'],
+      includeScore: true,
+      threshold: 0.6 
+    });
+    
+    const results = fuse.search(product.name);
+    
+    if (results.length > 0) {
+      const bestMatch = results[0];
+      product.name = bestMatch.item.name;
+      
+      // Convert Fuse.js score (0 is perfect match, 1 is bad match) to confidence (1 is perfect, 0 is bad)
+      product.confidence = bestMatch.score ? 1 - bestMatch.score : 1;
+    } else {
+      // No good match found, keep original but with lower confidence
+      product.confidence = 0.5;
+    }
   }
   
-  return null;
-};
+  return product;
+}
 
 /**
- * Extract product price
+ * Extract location information from a command
  */
-const extractPrice = (text: string): number | undefined => {
-  // Patterns for price extraction
-  const pricePatterns = [
-    // With currency symbol
-    /(?:price|cost|at|for|worth|valued at)\s*(?:₹|rs|rupees|inr)?\s*(\d+(?:\.\d+)?)/i,
-    /(?:₹|rs|rupees|inr)\s*(\d+(?:\.\d+)?)/i,
-    // With currency mention after
-    /(\d+(?:\.\d+)?)\s*(?:₹|rs|rupees|inr)\b/i
-  ];
+function extractLocationInfo(text: string): string | undefined {
+  // Match patterns like "at shelf 7", "in aisle 3", "on rack 2"
+  const locationMatch = text.match(/(in|at|on)\s+(shelf|rack|aisle|section|position|bin|box|cabinet)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
   
-  for (const pattern of pricePatterns) {
-    const match = text.match(pattern);
-    if (match && match[1]) {
-      return parseFloat(match[1]);
-    }
+  if (locationMatch) {
+    const locationType = locationMatch[2].charAt(0).toUpperCase() + locationMatch[2].slice(1);
+    const locationNumber = locationMatch[3];
+    
+    // Convert word numbers to digits if needed
+    const numberWords: Record<string, string> = {
+      'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+      'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+    };
+    
+    const locationValue = numberWords[locationNumber.toLowerCase()] || locationNumber;
+    return `${locationType} ${locationValue}`;
+  }
+  
+  // Check for other location patterns like "top shelf", "bottom drawer"
+  const relativeLocationMatch = text.match(/(top|bottom|upper|lower|left|right|middle|center|front|back)\s+(shelf|rack|aisle|section|position|bin|box|cabinet)/i);
+  
+  if (relativeLocationMatch) {
+    const position = relativeLocationMatch[1].charAt(0).toUpperCase() + relativeLocationMatch[1].slice(1);
+    const locationType = relativeLocationMatch[2].charAt(0).toUpperCase() + relativeLocationMatch[2].slice(1);
+    return `${position} ${locationType}`;
   }
   
   return undefined;
-};
-
-/**
- * Extract product variants (size, color, type)
- */
-const extractVariants = (productName: string): { 
-  name: string; 
-  variant: { size?: string; color?: string; type?: string; }; 
-} => {
-  const colors = [
-    "red", "blue", "green", "yellow", "black", "white", "purple", "orange", 
-    "pink", "brown", "gray", "grey", "silver", "gold"
-  ];
-  
-  const sizes = [
-    "small", "medium", "large", "xl", "xxl", "xs", "extra large", "extra small",
-    "tiny", "huge", "big", "regular", "family size", "king size", "mini"
-  ];
-  
-  const types = [
-    "organic", "fresh", "frozen", "canned", "dried", "packaged", "processed",
-    "raw", "cooked", "baked", "fried", "grilled", "steamed", "broiled",
-    "premium", "regular", "lite", "light", "diet", "fat-free", "low-fat",
-    "whole", "half", "quarter"
-  ];
-  
-  const variant: { size?: string; color?: string; type?: string; } = {};
-  let cleanedName = productName;
-  
-  // Check for colors
-  for (const color of colors) {
-    const colorRegex = new RegExp(`\\b${color}\\b`, 'i');
-    if (colorRegex.test(productName)) {
-      variant.color = color;
-      cleanedName = cleanedName.replace(colorRegex, '');
-    }
-  }
-  
-  // Check for sizes
-  for (const size of sizes) {
-    const sizeRegex = new RegExp(`\\b${size}\\b`, 'i');
-    if (sizeRegex.test(productName)) {
-      variant.size = size;
-      cleanedName = cleanedName.replace(sizeRegex, '');
-    }
-  }
-  
-  // Check for types
-  for (const type of types) {
-    const typeRegex = new RegExp(`\\b${type}\\b`, 'i');
-    if (typeRegex.test(productName)) {
-      variant.type = type;
-      cleanedName = cleanedName.replace(typeRegex, '');
-    }
-  }
-  
-  return {
-    name: cleanedName.replace(/\s+/g, ' ').trim(),
-    variant
-  };
-};
-
-/**
- * Find the best product match using fuzzy matching
- */
-const findBestProductMatch = (
-  productName: string,
-  productList: { name: string }[],
-  threshold = 0.6
-): { name: string; confidence: number } => {
-  // First check exact match
-  const exactMatch = productList.find(p => 
-    p.name.toLowerCase() === productName.toLowerCase()
-  );
-  
-  if (exactMatch) {
-    return { name: exactMatch.name, confidence: 1.0 };
-  }
-  
-  // Check for synonym match
-  for (const [canonicalName, synonyms] of Object.entries(PRODUCT_SYNONYMS)) {
-    if (synonyms.some(syn => syn.toLowerCase() === productName.toLowerCase())) {
-      const matchedProduct = productList.find(p => 
-        p.name.toLowerCase() === canonicalName.toLowerCase()
-      );
-      
-      if (matchedProduct) {
-        return { name: matchedProduct.name, confidence: 0.9 };
-      }
-    }
-  }
-  
-  // Use fuzzy matching as a fallback
-  const fuse = new Fuse(productList, {
-    keys: ['name'],
-    threshold: threshold,
-    includeScore: true
-  });
-  
-  const result = fuse.search(productName);
-  
-  if (result.length > 0) {
-    // Convert Fuse score (0 is perfect match) to confidence (1 is perfect match)
-    const score = result[0].score || 0.5;
-    const confidence = 1 - score;
-    
-    return { 
-      name: result[0].item.name,
-      confidence: confidence
-    };
-  }
-  
-  // If no match is found, just return the original with low confidence
-  return { name: productName, confidence: 0.3 };
-};
-
-/**
- * Extract clean product text by removing intent, quantity, units, etc.
- */
-const extractCleanProductText = (text: string): string => {
-  // Remove common command words
-  let cleanedText = text.toLowerCase().replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '');
-  
-  // Remove quantities and units
-  cleanedText = cleanedText.replace(/\b\d+(\.\d+)?\s*(kg|g|l|ml|pc|pcs|piece|pieces|unit|units|pack|packs|box|boxes|bottle|bottles|carton|cartons|dozen|dozens|kilos?|grams?|liters?|litres?)\b/i, '');
-  
-  // Remove expiry date mentions
-  cleanedText = cleanedText.replace(/\b(?:expir(?:y|ing|es|ed)?|valid\s+(?:until|till)|use\s+by|best\s+before|good\s+(?:until|till)|sell\s+by)\s+[a-z0-9\s,]+\b/i, '');
-  
-  // Remove location mentions
-  cleanedText = cleanedText.replace(/\b(?:in|at|on|from)\s+(?:the)?\s+(?:shelf|aisle|rack|section|storage|store room|back room|warehouse|pantry|fridge|refrigerator|freezer|cooler)\s*(?:number|#|no\.?)?\s*\d*\b/i, '');
-  
-  // Remove price mentions
-  cleanedText = cleanedText.replace(/\b(?:price|cost|at|for|worth|valued at)\s*(?:₹|rs|rupees|inr)?\s*\d+(?:\.\d+)?\b/i, '');
-  cleanedText = cleanedText.replace(/\b(?:₹|rs|rupees|inr)\s*\d+(?:\.\d+)?\b/i, '');
-  
-  // Remove common prepositions and conjunctions
-  cleanedText = cleanedText.replace(/\b(and|or|with|of|the|a|an|for|to|in|on|at|by|from|this|that|these|those)\b/gi, ' ');
-  
-  // Clean up extra spaces
-  cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
-  
-  return cleanedText;
-};
-
-/**
- * Extract product details from a text segment
- */
-const extractProductDetails = (
-  text: string,
-  productList: { name: string }[]
-): EnhancedProduct | null => {
-  // Extract quantity and unit
-  const quantityAndUnit = extractQuantityAndUnit(text);
-  
-  // Extract clean product name text
-  const cleanProductText = extractCleanProductText(text);
-  
-  // If we've cleaned too much, return null
-  if (cleanProductText.length < 2) {
-    return null;
-  }
-  
-  // Extract variant information
-  const { name: productName, variant } = extractVariants(cleanProductText);
-  
-  // Find best product match
-  const { name: matchedName, confidence } = findBestProductMatch(productName, productList);
-  
-  // Extract price information
-  const price = extractPrice(text);
-  
-  // Extract location information
-  const position = extractLocation(text);
-  
-  // Extract expiry date
-  const expiry = extractExpiryDate(text);
-  
-  return {
-    name: matchedName,
-    quantity: quantityAndUnit?.quantity || 1,
-    unit: quantityAndUnit?.unit || "pc",
-    price,
-    position,
-    expiry,
-    variant: Object.keys(variant).length > 0 ? variant : undefined,
-    confidence
-  };
-};
-
-/**
- * Split text into potential product segments
- */
-const splitIntoProductSegments = (text: string): string[] => {
-  // Remove the intent part
-  let cleanedText = text;
-  
-  // Remove common command prefixes
-  cleanedText = cleanedText.replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '');
-  
-  // Split by common separators
-  const segments = cleanedText
-    .split(/,|;|and\s+|\s+and|\s+also|\s+plus|\s+as well as|\s+together with|\s+along with|\s+with|\s+\+/i)
-    .map(segment => segment.trim())
-    .filter(segment => segment.length > 0);
-  
-  return segments.length > 0 ? segments : [cleanedText];
-};
-
-/**
- * Determine if clarification is needed based on confidence scores
- */
-const needsClarification = (products: EnhancedProduct[]): { 
-  needsClarification: boolean; 
-  productIndex: number; 
-} => {
-  for (let i = 0; i < products.length; i++) {
-    if (products[i].confidence < 0.5) {
-      return { needsClarification: true, productIndex: i };
-    }
-  }
-  return { needsClarification: false, productIndex: -1 };
-};
-
-/**
- * Generate clarification options for ambiguous products
- */
-const generateClarificationOptions = (
-  productName: string,
-  productList: { name: string }[]
-): string[] => {
-  // Use fuzzy search to find similar products
-  const fuse = new Fuse(productList, {
-    keys: ['name'],
-    threshold: 0.6,
-    includeScore: true
-  });
-  
-  const results = fuse.search(productName);
-  
-  // Take top 3 results for clarification
-  return results
-    .slice(0, 3)
-    .map(result => result.item.name);
-};
-
-/**
- * Parse voice command into structured data with enhanced features
- */
-export const parseEnhancedVoiceCommand = (
-  command: string,
-  productList: { name: string }[]
-): ParsedVoiceCommand => {
-  // Detect intent
-  const intent = detectCommandIntent(command);
-  
-  // Basic validation
-  if (!command || command.trim().length === 0) {
-    return {
-      intent: CommandIntent.UNKNOWN,
-      products: [],
-      rawText: command
-    };
-  }
-  
-  // For bill generation commands, return bill intent with options
-  if (intent === CommandIntent.GENERATE_BILL) {
-    const billOptions = extractBillOptions(command);
-    
-    return {
-      intent,
-      products: [],
-      rawText: command,
-      billOptions
-    };
-  }
-  
-  // For product-related intents, extract product information
-  const products: EnhancedProduct[] = [];
-  
-  // Check if it's a multi-product command
-  if (isMultiProductCommand(command)) {
-    // Split into product segments
-    const segments = splitIntoProductSegments(command);
-    
-    // Extract products from each segment
-    for (const segment of segments) {
-      const product = extractProductDetails(segment, productList);
-      if (product) {
-        products.push(product);
-      }
-    }
-  } else {
-    // Single product command
-    const product = extractProductDetails(command, productList);
-    if (product) {
-      products.push(product);
-    }
-  }
-  
-  // Check if clarification is needed for any product
-  const { needsClarification: needsClarity, productIndex } = needsClarification(products);
-  
-  if (needsClarity && productIndex >= 0) {
-    const options = generateClarificationOptions(products[productIndex].name, productList);
-    
-    return {
-      intent,
-      products,
-      rawText: command,
-      needsClarification: true,
-      clarificationOptions: options,
-      clarificationQuestion: `Did you mean ${options.join(', ')} or something else?`,
-      detectedLocation: products.find(p => p.position)?.position
-    };
-  }
-  
-  // Find any detected location from all products
-  const detectedLocation = products.find(p => p.position)?.position;
-  
-  return {
-    intent,
-    products,
-    rawText: command,
-    detectedLocation
-  };
-};
-
-/**
- * Validate products against inventory
- */
-export const validateProducts = (
-  parsedCommand: ParsedVoiceCommand,
-  inventory: { name: string; quantity: number }[]
-): ParsedVoiceCommand => {
-  // Mark products that are not in inventory
-  const validatedProducts = parsedCommand.products.map(product => {
-    const inventoryItem = inventory.find(item => 
-      item.name.toLowerCase() === product.name.toLowerCase()
-    );
-    
-    if (!inventoryItem) {
-      return {
-        ...product,
-        confidence: 0, // Mark as invalid
-        notInInventory: true
-      };
-    }
-    
-    return product;
-  });
-  
-  // Check if any product needs clarification due to validation
-  const invalidProduct = validatedProducts.find(p => p.confidence === 0);
-  
-  if (invalidProduct) {
-    return {
-      ...parsedCommand,
-      products: validatedProducts,
-      needsClarification: true,
-      clarificationOptions: [],
-      clarificationQuestion: `Product "${invalidProduct.name}" not found in inventory. Would you like to add it as a new product?`
-    };
-  }
-  
-  return {
-    ...parsedCommand,
-    products: validatedProducts
-  };
-};
-
-/**
- * Process voice command with clarification if needed
- */
-export const processVoiceCommand = async (
-  command: string,
-  productList: { name: string }[],
-  inventory?: { name: string; quantity: number }[]
-): Promise<ParsedVoiceCommand> => {
-  // Parse the command
-  const parsedCommand = parseEnhancedVoiceCommand(command, productList);
-  
-  // Validate against inventory if provided
-  if (inventory && inventory.length > 0) {
-    return validateProducts(parsedCommand, inventory);
-  }
-  
-  return parsedCommand;
-};
+}
