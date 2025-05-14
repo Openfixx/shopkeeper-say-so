@@ -1,207 +1,188 @@
-
 import React, { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { motion } from 'framer-motion';
-import { Plus, X, MapPin } from 'lucide-react';
+import { Mic, MicOff, Loader2, CheckCircle2, XCircle, Calendar, MapPin, Tag } from 'lucide-react';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 import { CommandResult } from '@/lib/voice';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
+import { parseEnhancedVoiceCommand } from '@/utils/nlp/enhancedProductParser';
 
-interface VoiceCommandPopupProps {
-  result: CommandResult | null;
-  onConfirm: () => void;
-  onCancel: () => void;
+export interface VoiceCommandPopupProps {
+  result?: CommandResult;
+  onConfirm?: () => void;
+  onCancel?: () => void;
   loading?: boolean;
+  onCommand?: (command: string, products: EnhancedProduct[]) => void;
+  productList?: { name: string }[];
 }
 
-const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({ 
-  result, 
-  onConfirm, 
+export default function VoiceCommandPopup({
+  result,
+  onConfirm,
   onCancel,
-  loading = false 
-}) => {
-  const [location, setLocation] = useState('');
-  
-  // Update location when result changes
-  useEffect(() => {
-    if (!result) {
-      setLocation('');
-      return;
-    }
+  loading = false,
+  onCommand,
+  productList = []
+}: VoiceCommandPopupProps) {
+  const [isListening, setIsListening] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [text, setText] = useState('');
+
+  function handleListen() {
+    setIsListening(true);
+    setText('');
     
-    // Handle null or undefined position
-    if (result.position === null || result.position === undefined) {
-      setLocation('');
-      return;
-    }
-    
-    // Handle position as an object with value property
-    if (typeof result.position === 'object') {
-      // Safely check if 'value' exists in the object
-      const positionObj = result.position as Record<string, any>;
-      if (positionObj && 'value' in positionObj && positionObj.value !== undefined) {
-        setLocation(String(positionObj.value));
+    try {
+      // Check browser support
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        toast.error("Speech recognition is not supported in your browser");
+        setIsListening(false);
         return;
       }
-      setLocation(''); // Default if value property not found
-      return;
+      
+      // Initialize speech recognition
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setText(transcript);
+        setProcessing(true);
+        
+        setTimeout(() => {
+          if (onCommand && productList) {
+            // Process command with enhanced NLP
+            const parseResult = parseEnhancedVoiceCommand(transcript, productList);
+            onCommand(transcript, parseResult.products);
+          }
+          setProcessing(false);
+          setIsListening(false);
+        }, 1000);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        toast.error("Speech recognition error. Please try again.");
+        setIsListening(false);
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+      
+      recognition.start();
+    } catch (error) {
+      console.error("Voice recognition error:", error);
+      toast.error("Voice recognition failed. Please try again.");
+      setIsListening(false);
     }
-    
-    // Handle position as a string
-    if (typeof result.position === 'string') {
-      setLocation(result.position);
-      return;
-    }
-    
-    // Default fallback
-    setLocation('');
-  }, [result]);
-  
-  if (!result) return null;
+  }
 
-  // Extract product name, handling cases where it might be different formats or null
-  const productName = (() => {
-    // Check if productName is null or undefined
-    if (result.productName === null || result.productName === undefined) {
-      return 'Unknown Product';
-    }
-    
-    // Handle productName as an object with value property
-    if (typeof result.productName === 'object') {
-      // Safely check if 'value' exists in the object
-      const productNameObj = result.productName as Record<string, any>;
-      if (productNameObj && 'value' in productNameObj && productNameObj.value !== undefined) {
-        return String(productNameObj.value);
-      }
-      return 'Unknown Product'; // Default if value property not found
-    }
-    
-    // Handle productName as a string
-    return typeof result.productName === 'string' ? result.productName : 'Unknown Product';
-  })();
-
-  // Function to safely extract price value
-  const getPriceValue = () => {
-    // Check if price is null or undefined
-    if (result.price === null || result.price === undefined) {
-      return null;
-    }
-    
-    // Handle price as an object with value property
-    if (typeof result.price === 'object') {
-      // Safely check if 'value' exists in the object
-      const priceObj = result.price as Record<string, any>;
-      if (priceObj && 'value' in priceObj && priceObj.value !== undefined) {
-        return priceObj.value;
-      }
-      return null; // Default if value property not found
-    }
-    
-    // Return price as is if it's not an object
-    return result.price;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md"
-    >
-      <Card className="shadow-lg border-primary/10">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">Confirm Product</h3>
-            <Button variant="ghost" size="sm" onClick={onCancel} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="flex gap-3 items-center">
-            {result.imageUrl && (
-              <div className="relative h-16 w-16 rounded overflow-hidden bg-muted">
-                <img 
-                  src={result.imageUrl} 
-                  alt={productName} 
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Product';
-                  }}
-                />
+  // Display component for recognition result or listening UI
+  if (result) {
+    return (
+      <Card className="overflow-hidden">
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center justify-center">
+            {result.productName && (
+              <div className="mb-4">
+                <h3 className="text-lg font-medium">
+                  {result.productName}
+                </h3>
+                {result.quantity && (
+                  <p className="text-sm text-muted-foreground">
+                    Quantity: {result.quantity.value} {result.quantity.unit}
+                  </p>
+                )}
+                {result.position && (
+                  <p className="text-sm text-muted-foreground">
+                    Location: {result.position}
+                  </p>
+                )}
+                {result.expiry && (
+                  <p className="text-sm text-muted-foreground">
+                    Expiry: {result.expiry}
+                  </p>
+                )}
+                {result.price !== undefined && (
+                  <p className="text-sm text-muted-foreground">
+                    Price: ₹{result.price}
+                  </p>
+                )}
               </div>
             )}
             
-            <div className="flex-1 space-y-1">
-              <p className="font-medium text-base">{productName}</p>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                onClick={onConfirm}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Confirm
+                  </>
+                )}
+              </Button>
               
-              <div className="flex flex-wrap gap-2">
-                {result.quantity && (
-                  <Badge variant="outline" className="bg-primary/10">
-                    {result.quantity.value} {result.quantity.unit}
-                  </Badge>
-                )}
-                
-                {result.price !== null && result.price !== undefined && (
-                  <Badge variant="outline" className="bg-green-500/10">
-                    ₹{getPriceValue()}
-                  </Badge>
-                )}
-                
-                {location && (
-                  <Badge variant="outline" className="bg-blue-500/10">
-                    {location}
-                  </Badge>
-                )}
-              </div>
+              <Button
+                variant="ghost"
+                onClick={onCancel}
+                disabled={loading}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel
+              </Button>
             </div>
-          </div>
-          
-          <div className="space-y-1.5">
-            <Label htmlFor="location" className="text-sm flex items-center">
-              <MapPin className="mr-1 h-3 w-3" />
-              Location (Rack/Shelf)
-            </Label>
-            <Input
-              id="location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Enter shelf or rack number"
-              className="h-8 text-sm"
-            />
-          </div>
-          
-          <div className="pt-2 flex justify-end gap-2">
-            <Button variant="outline" onClick={onCancel} disabled={loading}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                // Update the result object with the location
-                if (result) {
-                  result.position = location;
-                }
-                onConfirm();
-              }} 
-              disabled={loading} 
-              className="flex items-center gap-1"
-            >
-              {loading ? (
-                <span>Processing...</span>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  <span>Add to Inventory</span>
-                </>
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>
-    </motion.div>
-  );
-};
+    );
+  }
 
-export default VoiceCommandPopup;
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center justify-center">
+          <Button
+            onClick={handleListen}
+            disabled={isListening || processing}
+            variant="outline"
+            size="lg"
+            className="h-16 w-16 rounded-full relative"
+          >
+            {isListening ? (
+              <MicOff className="h-6 w-6 text-red-500" />
+            ) : processing ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <Mic className="h-6 w-6 text-primary" />
+            )}
+          </Button>
+          
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {isListening ? "Listening..." : processing ? "Processing..." : "Tap to speak"}
+          </p>
+          
+          {text && !isListening && !processing && (
+            <div className="mt-4 w-full">
+              <p className="text-xs font-medium">Recognized:</p>
+              <p className="mt-1 text-sm bg-muted p-2 rounded">{text}</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

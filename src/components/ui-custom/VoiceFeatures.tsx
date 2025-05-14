@@ -1,9 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mic, StopCircle } from 'lucide-react';
 import VoiceCommandButton from './VoiceCommandButton';
 import VoiceCommandPopup from './VoiceCommandPopup';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { toast } from 'sonner';
+import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 
 // Sample product list for demonstration
 const SAMPLE_PRODUCTS = [
@@ -28,6 +34,16 @@ const SAMPLE_PRODUCTS = [
   { name: "Garlic", id: 19 },
   { name: "Chicken", id: 20 },
 ];
+
+// Define proper props interfaces for components
+interface VoiceCommandButtonProps {
+  onCommand?: (command: string) => void;
+}
+
+interface VoiceCommandPopupProps {
+  onCommand?: (command: string, products: EnhancedProduct[]) => void;
+  productList?: { name: string }[];
+}
 
 export default function VoiceFeatures() {
   const [addedProducts, setAddedProducts] = useState<EnhancedProduct[]>([]);

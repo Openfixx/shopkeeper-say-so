@@ -1,12 +1,17 @@
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 
-const MainLayout: React.FC = () => {
+interface MainLayoutProps {
+  children?: ReactNode;
+}
+
+const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <Layout>
       <Outlet />
+      {children}
     </Layout>
   );
 };
