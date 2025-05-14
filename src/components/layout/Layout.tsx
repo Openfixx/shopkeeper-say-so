@@ -1,12 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { cn } from '@/lib/utils';
 
-const Layout: React.FC = () => {
+interface LayoutProps {
+  children: ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => {
@@ -33,7 +37,7 @@ const Layout: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="min-h-screen"
             >
-              <Outlet />
+              {children}
             </motion.div>
           </AnimatePresence>
         </main>
