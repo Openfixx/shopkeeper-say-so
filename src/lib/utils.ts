@@ -21,3 +21,29 @@ export function safeAccess<T, K extends keyof T>(obj: T | null | undefined, key:
   }
   return obj[key];
 }
+
+// Safe extraction of value from an object that might have a 'value' property
+export function safeExtractValue<T>(obj: any): T | undefined {
+  if (obj === null || obj === undefined) {
+    return undefined;
+  }
+  
+  if (typeof obj === 'object' && 'value' in obj && obj.value !== undefined) {
+    return obj.value as T;
+  }
+  
+  return typeof obj === 'object' ? undefined : obj as T;
+}
+
+// Convert any value to string safely
+export function safeToString(value: any): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  
+  if (typeof value === 'object' && 'value' in value && value.value !== undefined) {
+    return String(value.value);
+  }
+  
+  return String(value);
+}

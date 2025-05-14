@@ -26,50 +26,77 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   
   // Update location when result changes
   useEffect(() => {
-    if (!result || result.position === null || result.position === undefined) {
+    if (!result) {
       setLocation('');
       return;
     }
     
-    if (typeof result.position === 'object' && result.position !== null) {
-      if ('value' in result.position && result.position.value !== undefined) {
-        setLocation(String(result.position.value));
-      }
-    } else if (typeof result.position === 'string') {
-      setLocation(result.position);
-    } else {
-      // Default location if format is not recognized
+    // Handle null or undefined position
+    if (result.position === null || result.position === undefined) {
       setLocation('');
+      return;
     }
+    
+    // Handle position as an object with value property
+    if (typeof result.position === 'object') {
+      // Safely check if 'value' exists in the object
+      if (result.position !== null && 'value' in result.position && result.position.value !== undefined) {
+        setLocation(String(result.position.value));
+        return;
+      }
+      setLocation(''); // Default if value property not found
+      return;
+    }
+    
+    // Handle position as a string
+    if (typeof result.position === 'string') {
+      setLocation(result.position);
+      return;
+    }
+    
+    // Default fallback
+    setLocation('');
   }, [result]);
   
   if (!result) return null;
 
   // Extract product name, handling cases where it might be different formats or null
   const productName = (() => {
-    if (!result.productName) return 'Unknown Product';
-    
-    if (typeof result.productName === 'object' && result.productName !== null) {
-      if ('value' in result.productName && result.productName.value !== undefined) {
-        return String(result.productName.value);
-      }
+    // Check if productName is null or undefined
+    if (result.productName === null || result.productName === undefined) {
+      return 'Unknown Product';
     }
     
+    // Handle productName as an object with value property
+    if (typeof result.productName === 'object') {
+      // Safely check if 'value' exists in the object
+      if (result.productName !== null && 'value' in result.productName && result.productName.value !== undefined) {
+        return String(result.productName.value);
+      }
+      return 'Unknown Product'; // Default if value property not found
+    }
+    
+    // Handle productName as a string
     return typeof result.productName === 'string' ? result.productName : 'Unknown Product';
   })();
 
   // Function to safely extract price value
   const getPriceValue = () => {
+    // Check if price is null or undefined
     if (result.price === null || result.price === undefined) {
       return null;
     }
     
-    if (typeof result.price === 'object' && result.price !== null) {
-      if ('value' in result.price && result.price.value !== undefined) {
+    // Handle price as an object with value property
+    if (typeof result.price === 'object') {
+      // Safely check if 'value' exists in the object
+      if (result.price !== null && 'value' in result.price && result.price.value !== undefined) {
         return result.price.value;
       }
+      return null; // Default if value property not found
     }
     
+    // Return price as is if it's not an object
     return result.price;
   };
 
