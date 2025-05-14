@@ -1,106 +1,137 @@
 
 /**
- * Command intent detection for voice commands
+ * Command Intent Detector
+ * 
+ * This module provides functionality to detect the intent of voice commands
+ * in the context of an inventory/shop management system.
  */
-
-export enum CommandIntent {
-  ADD_PRODUCT = 'add_product',
-  UPDATE_PRODUCT = 'update_product',
-  DELETE_PRODUCT = 'delete_product',
-  REMOVE_PRODUCT = 'remove_product',
-  CREATE_BILL = 'create_bill',
-  GENERATE_BILL = 'generate_bill',
-  SEARCH_PRODUCT = 'search_product',
-  INVENTORY_CHECK = 'inventory_check',
-  NAVIGATION = 'navigation',
-  UNKNOWN = 'unknown'
-}
-
-// Define patterns for each command type
-const commandPatterns = {
-  [CommandIntent.ADD_PRODUCT]: [
-    /\b(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make)\b/i
-  ],
-  [CommandIntent.UPDATE_PRODUCT]: [
-    /\b(update|modify|change|edit|revise|alter|adjust)\b/i
-  ],
-  [CommandIntent.DELETE_PRODUCT]: [
-    /\b(delete|remove|erase|eliminate|discard|get rid of)\b/i
-  ],
-  [CommandIntent.REMOVE_PRODUCT]: [
-    /\b(remove|delete|erase|eliminate|discard|get rid of)\b/i
-  ],
-  [CommandIntent.CREATE_BILL]: [
-    /\b(bill|invoice|receipt|checkout|payment|transaction|sell|sale)\b/i
-  ],
-  [CommandIntent.GENERATE_BILL]: [
-    /\b(generate bill|create bill|make bill|prepare bill|new bill)\b/i
-  ],
-  [CommandIntent.SEARCH_PRODUCT]: [
-    /\b(search|find|look for|locate|where is|get|show|display)\b/i
-  ],
-  [CommandIntent.INVENTORY_CHECK]: [
-    /\b(check|verify|confirm|count|inventory|stock)\b/i
-  ],
-  [CommandIntent.NAVIGATION]: [
-    /\b(go to|navigate to|open|show|display|take me to)\b/i
-  ]
-};
 
 /**
- * Detects the command intent from a voice command string
+ * Enumeration of possible command intents
+ */
+export enum CommandIntent {
+  ADD_PRODUCT = "add_product",
+  UPDATE_PRODUCT = "update_product",
+  REMOVE_PRODUCT = "remove_product",
+  SEARCH_PRODUCT = "search_product",
+  VIEW_INVENTORY = "view_inventory",
+  GENERATE_BILL = "generate_bill",
+  FIND_LOCATION = "find_location",
+  SET_EXPIRY = "set_expiry",
+  SET_PRICE = "set_price",
+  UNKNOWN = "unknown"
+}
+
+/**
+ * Detects the intent of a voice command
+ * 
+ * @param {string} command - The voice command text to analyze
+ * @returns {CommandIntent} The detected intent
  */
 export function detectCommandIntent(command: string): CommandIntent {
-  if (!command) return CommandIntent.UNKNOWN;
+  const lowerCommand = command.toLowerCase();
   
-  const text = command.toLowerCase();
-  
-  // Check for bill/sale related commands first (high priority)
-  if (commandPatterns[CommandIntent.CREATE_BILL].some(pattern => pattern.test(text)) ||
-      commandPatterns[CommandIntent.GENERATE_BILL].some(pattern => pattern.test(text))) {
-    // Make sure it's not just talking about adding a product called "bill"
-    // If it contains words like "for", "create", etc. before "bill", it's likely a billing command
-    if (/create\s+bill|new\s+bill|add\s+to\s+bill|generate\s+bill|make\s+bill|start\s+bill|\bsale\b/i.test(text)) {
-      return CommandIntent.CREATE_BILL;
-    }
-  }
-  
-  // Check for navigation commands
-  if (commandPatterns[CommandIntent.NAVIGATION].some(pattern => pattern.test(text))) {
-    if (/billing|invoice|receipt|checkout|payment|sale/i.test(text)) {
-      return CommandIntent.CREATE_BILL; // Navigation to billing page
-    }
-    if (/product|inventory|stock|item/i.test(text)) {
-      return CommandIntent.SEARCH_PRODUCT; // Navigation to products page
-    }
-  }
-  
-  // Check for search/find commands
-  if (commandPatterns[CommandIntent.SEARCH_PRODUCT].some(pattern => pattern.test(text))) {
-    return CommandIntent.SEARCH_PRODUCT;
-  }
-  
-  // Check for inventory check commands
-  if (commandPatterns[CommandIntent.INVENTORY_CHECK].some(pattern => pattern.test(text))) {
-    return CommandIntent.INVENTORY_CHECK;
-  }
-  
-  // Check for product modification commands
-  if (commandPatterns[CommandIntent.UPDATE_PRODUCT].some(pattern => pattern.test(text))) {
-    return CommandIntent.UPDATE_PRODUCT;
-  }
-  
-  // Check for product deletion commands
-  if (commandPatterns[CommandIntent.DELETE_PRODUCT].some(pattern => pattern.test(text)) ||
-      commandPatterns[CommandIntent.REMOVE_PRODUCT].some(pattern => pattern.test(text))) {
-    return CommandIntent.DELETE_PRODUCT;
-  }
-  
-  // Default to add product if it matches add patterns
-  if (commandPatterns[CommandIntent.ADD_PRODUCT].some(pattern => pattern.test(text))) {
+  // ADD_PRODUCT intent detection
+  if (
+    /\b(add|create|new|put|place|insert|register|record|upload|stock)\b/i.test(lowerCommand) ||
+    /\bneed\s+\d+/i.test(lowerCommand) ||
+    /^\d+\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles)/i.test(lowerCommand)
+  ) {
     return CommandIntent.ADD_PRODUCT;
   }
   
-  // If no patterns match, return unknown
+  // UPDATE_PRODUCT intent detection
+  if (/\b(update|modify|change|edit|revise)\b/i.test(lowerCommand)) {
+    return CommandIntent.UPDATE_PRODUCT;
+  }
+  
+  // REMOVE_PRODUCT intent detection
+  if (/\b(remove|delete|discard|dispose|trash|eliminate|take out|get rid)\b/i.test(lowerCommand)) {
+    return CommandIntent.REMOVE_PRODUCT;
+  }
+  
+  // SEARCH_PRODUCT intent detection
+  if (/\b(search|find|look for|locate|where is|show)\b/i.test(lowerCommand)) {
+    return CommandIntent.SEARCH_PRODUCT;
+  }
+  
+  // VIEW_INVENTORY intent detection
+  if (/\b(list|show|display|view|all|inventory|products|items|goods)\b/i.test(lowerCommand)) {
+    return CommandIntent.VIEW_INVENTORY;
+  }
+  
+  // GENERATE_BILL intent detection
+  if (
+    /\b(bill|invoice|receipt|checkout|total|charge|payment|transaction)\b/i.test(lowerCommand) ||
+    /\btotal\s+so\s+far\b/i.test(lowerCommand) ||
+    /\bwhat's\s+my\s+total\b/i.test(lowerCommand)
+  ) {
+    return CommandIntent.GENERATE_BILL;
+  }
+  
+  // FIND_LOCATION intent detection
+  if (
+    /\b(where|location|place|position|shelf|rack|aisle|row|section|store)\b/i.test(lowerCommand) &&
+    !lowerCommand.includes("add") && 
+    !lowerCommand.includes("put")
+  ) {
+    return CommandIntent.FIND_LOCATION;
+  }
+  
+  // SET_EXPIRY intent detection
+  if (/\b(expiry|expire|expiration|use by|best before)\b/i.test(lowerCommand)) {
+    return CommandIntent.SET_EXPIRY;
+  }
+  
+  // SET_PRICE intent detection
+  if (/\b(price|cost|worth|value|rate)\b/i.test(lowerCommand)) {
+    return CommandIntent.SET_PRICE;
+  }
+  
+  // Default to unknown if no intent is matched
   return CommandIntent.UNKNOWN;
+}
+
+/**
+ * Get additional details about a detected command
+ * based on the intent type
+ * 
+ * @param {string} command - The original command text
+ * @param {CommandIntent} intent - The detected intent
+ * @returns {object} Additional details specific to the intent
+ */
+export function getCommandDetails(command: string, intent: CommandIntent): any {
+  const lowerCommand = command.toLowerCase();
+  
+  switch (intent) {
+    case CommandIntent.ADD_PRODUCT:
+      // Extract product quantity and name
+      const quantityMatch = lowerCommand.match(/(\d+)\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles)/i);
+      const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+      
+      // Try to extract product name after the quantity and unit
+      let productName = "";
+      if (quantityMatch) {
+        const afterQuantity = lowerCommand.substring(lowerCommand.indexOf(quantityMatch[0]) + quantityMatch[0].length);
+        const nameMatch = afterQuantity.match(/\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i);
+        if (nameMatch && nameMatch[1]) {
+          productName = nameMatch[1].trim();
+        }
+      }
+      
+      return { quantity, productName };
+      
+    case CommandIntent.SEARCH_PRODUCT:
+      // Extract the search term
+      const searchMatch = lowerCommand.match(/(?:search|find|look for|where is|show)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i);
+      return { searchTerm: searchMatch ? searchMatch[1].trim() : "" };
+      
+    case CommandIntent.GENERATE_BILL:
+      // Check if there are specific products mentioned for the bill
+      const hasProducts = /\b(?:for|with)\s+([a-zA-Z\s,]+)(?:\s+and|\s*$)/i.test(lowerCommand);
+      return { hasProducts };
+      
+    default:
+      return {};
+  }
 }

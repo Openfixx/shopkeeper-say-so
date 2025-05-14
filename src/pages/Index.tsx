@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,12 +9,13 @@ import { Package2, Barcode, Plus, Search, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import SiriStyleVoiceUI from '@/components/ui-custom/SiriStyleVoiceUI';
 import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
 import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
 import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
 import { CommandResult } from '@/lib/voice';
+import { validateProductDetails } from '@/utils/voiceCommandUtils';
 
 const Index = () => {
   const { user } = useAuth();
@@ -47,7 +49,7 @@ const Index = () => {
               quantity: product.quantity || 1,
               unit: product.unit || 'unit',
               price: product.price || 0,
-              position: 'Default', 
+              position: product.position || 'unspecified', 
               image_url: ''
             });
           }, index * 800);
@@ -77,21 +79,46 @@ const Index = () => {
     }
   };
   
-  const handleConfirmProduct = () => {
+  const handleConfirmProduct = (location?: string) => {
     if (!commandResult) return;
     
     setIsProcessingCommand(true);
     
-    addProduct({
+    // Validate product details
+    const productDetails = {
       name: commandResult.productName,
       quantity: commandResult.quantity?.value || 1,
       unit: commandResult.quantity?.unit || 'unit',
+      position: location || commandResult.position || 'unspecified',
       price: commandResult.price || 0,
-      position: commandResult.position || 'Default',
+      expiry: commandResult.expiry
+    };
+    
+    const validation = validateProductDetails(productDetails);
+    
+    if (!validation.isValid) {
+      toast({
+        title: "Missing Information",
+        description: `Please provide: ${validation.missingFields.join(', ')}`,
+        variant: "destructive"
+      });
+      setIsProcessingCommand(false);
+      return;
+    }
+    
+    addProduct({
+      name: productDetails.name,
+      quantity: productDetails.quantity,
+      unit: productDetails.unit,
+      price: productDetails.price || 0,
+      position: productDetails.position,
       image_url: commandResult.imageUrl || ''
     });
     
-    toast.success(`Added ${commandResult.productName} to inventory`);
+    toast({
+      title: "Product Added",
+      description: `Added ${productDetails.quantity} ${productDetails.unit} of ${productDetails.name} to ${productDetails.position}`
+    });
     
     setIsProcessingCommand(false);
     setCommandResult(null);
@@ -188,7 +215,10 @@ const Index = () => {
           products={multiProducts} 
           onClose={() => setShowMultiProductToast(false)}
           onComplete={() => {
-            toast.success(`Added ${multiProducts.length} products to inventory`);
+            toast({
+              title: "Products Added",
+              description: `Added ${multiProducts.length} products to inventory`
+            });
             navigate('/products');
           }}
         />

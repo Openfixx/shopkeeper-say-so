@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { normalizeUnit } from '@/utils/voiceCommandUtils';
 
 export type CommandResult = {
   productName: string;
@@ -25,8 +26,10 @@ export const useVoiceRecognition = () => {
     
     // Handle direct patterns like "add X of Y" or "add X Y"
     const directAddPatterns = [
-      /add\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?|packs?|boxes?)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
+      /add\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
       /add\s+([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
+      /need\s+(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
+      /(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i,
     ];
     
     for (const pattern of directAddPatterns) {
@@ -46,7 +49,7 @@ export const useVoiceRecognition = () => {
       const firstPart = parts[0].trim();
       
       // Try to match "X kg of Y" pattern in the first part
-      const multiMatch = firstPart.match(/(?:add\s+)?(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|pieces?|pcs|units?)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s*$)/i);
+      const multiMatch = firstPart.match(/(?:add\s+)?(\d+(?:\.\d+)?\s*(?:kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)?)\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s*$)/i);
       
       if (multiMatch && multiMatch[2]) {
         return multiMatch[2].trim();
@@ -62,9 +65,9 @@ export const useVoiceRecognition = () => {
     
     // Last resort: extract product name after removing common command words
     const cleaned = normalizedText
-      .replace(/\badd\b|\bcreate\b|\bget\b|\bupload\b|\bset\b|\bput\b/gi, '')
+      .replace(/\badd\b|\bcreate\b|\bget\b|\bupload\b|\bset\b|\bput\b|\bneed\b/gi, '')
       .replace(/\b(?:to|on|in|rack|shelf)\s+\d+\b/gi, '')
-      .replace(/\b(?:\d+(?:\.\d+)?)\s*(?:kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)\b/gi, '')
+      .replace(/\b(?:\d+(?:\.\d+)?)\s*(?:kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)\b/gi, '')
       .replace(/\b(?:price|for|₹|rs|rupees|expiry|expire|next)\s+\d+\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
@@ -78,9 +81,9 @@ export const useVoiceRecognition = () => {
     return '';
   };
 
-  // Enhanced quantity parser with better regex patterns
+  // Enhanced quantity parser with better regex patterns and word number support
   const parseQuantity = (t: string) => {
-    if (!t) return { value: 1, unit: 'unit' };
+    if (!t) return { value: 1, unit: 'piece' };
     
     // Added support for words like "one", "two", etc.
     const numberWords: Record<string, number> = {
@@ -88,32 +91,60 @@ export const useVoiceRecognition = () => {
       six: 6, seven: 7, eight: 8, nine: 9, ten: 10
     };
 
-    // Try to match number + unit with improved pattern
-    const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)/i);
-    if (m) return { value: parseFloat(m[1]), unit: m[2].toLowerCase() };
+    // Enhanced pattern to match number + unit with improved pattern that includes more units
+    const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen)/i);
+    
+    if (m) {
+      // Normalize the unit using our utility function
+      const normalizedUnit = normalizeUnit(m[2].toLowerCase());
+      return { value: parseFloat(m[1]), unit: normalizedUnit };
+    }
 
     // Try to match word number + unit
-    const wordMatch = t.match(new RegExp(`(${Object.keys(numberWords).join('|')})\\s*(kg|g|ml|l|pieces?|pcs|units?|pack|packs|box|boxes)`, 'i'));
-    if (wordMatch) return { value: numberWords[wordMatch[1].toLowerCase()], unit: wordMatch[2].toLowerCase() };
+    const wordMatch = t.match(new RegExp(`(${Object.keys(numberWords).join('|')})\\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen)`, 'i'));
+    if (wordMatch) {
+      // Normalize the unit using our utility function
+      const normalizedUnit = normalizeUnit(wordMatch[2].toLowerCase());
+      return { value: numberWords[wordMatch[1].toLowerCase()], unit: normalizedUnit };
+    }
 
     // If no specific quantity is found, default to 1 unit
-    return { value: 1, unit: 'unit' };
+    return { value: 1, unit: 'piece' };
   };
 
   // Enhanced position / shelf parser
   const parsePosition = (t: string) => {
     if (!t) return undefined;
     
-    // Match "on/in rack/shelf X" pattern
-    const shelfMatch = t.match(/(?:on|in|at)\s+(rack|shelf)\s*(\d+)/i);
-    if (shelfMatch) return `${shelfMatch[1]} ${shelfMatch[2]}`;
+    // Match "on/in rack/shelf X" pattern with expanded location types
+    const shelfMatch = t.match(/(?:on|in|at|from)\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i);
+    if (shelfMatch) {
+      const numberMap: Record<string, string> = {
+        'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+        'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+      };
+      
+      const locationType = shelfMatch[1];
+      let locationNum = shelfMatch[2];
+      
+      // Convert word numbers to digits if needed
+      if (numberMap[locationNum.toLowerCase()]) {
+        locationNum = numberMap[locationNum.toLowerCase()];
+      }
+      
+      return `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNum}`;
+    }
     
     // Match "place/put/position X at/on/in Y" pattern
     const positionMatch = t.match(/(?:place|put|position|locate)\s+(?:at|on|in)\s+([a-zA-Z0-9\s]+?)(?=\s+and|\s+with|\s+for|$)/i);
     if (positionMatch) return positionMatch[1].trim();
     
+    // Simple location match (e.g. "in the fridge", "from storage")
+    const simpleMatch = t.match(/(?:in|on|at|from)\s+(?:the\s+)?(fridge|storage|counter|shelf|rack)/i);
+    if (simpleMatch) return simpleMatch[1].charAt(0).toUpperCase() + simpleMatch[1].slice(1);
+    
     // Match numbers preceded by position-related words
-    const rackNumberMatch = t.match(/(?:rack|shelf)\s+(\d+)/i);
+    const rackNumberMatch = t.match(/(?:rack|shelf)\s+(\d+|a|b|c|d|e|f)/i);
     if (rackNumberMatch) return `Rack ${rackNumberMatch[1]}`;
     
     return undefined;
@@ -143,8 +174,18 @@ export const useVoiceRecognition = () => {
   const parseExpiry = (t: string) => {
     if (!t) return undefined;
     
-    const m = t.match(/\b(?:expiry|expire|next|valid until|use before)\b\s*(.+?)(?=\s+and|\s+with|\s+for|$)/i);
-    return m ? m[1].trim() : undefined;
+    // Enhanced expiry patterns
+    const patterns = [
+      /\b(?:expiry|expire|expiring|expires|use by|valid until|best before)\b\s*(.+?)(?=\s+and|\s+with|\s+for|$)/i,
+      /\b(?:expiry|expire|expiring|expires)\s+(next\s+\w+|tomorrow|in\s+\d+\s+days|in\s+a\s+\w+|on\s+\d{1,2}(?:st|nd|rd|th)?)/i
+    ];
+
+    for (const pattern of patterns) {
+      const m = t.match(pattern);
+      if (m) return m[1].trim();
+    }
+
+    return undefined;
   };
 
   // Enhanced autocorrect with common grocery items
@@ -282,7 +323,7 @@ export const useVoiceRecognition = () => {
       const correctedName = autoCorrect(rawName);
       console.log('Corrected product name →', correctedName);
       
-      // Parse other properties
+      // Parse other properties with enhanced parsers
       const quantity = parseQuantity(transcript);
       const position = parsePosition(transcript);
       const price = parsePrice(transcript);

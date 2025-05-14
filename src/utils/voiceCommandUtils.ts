@@ -21,6 +21,34 @@ export const VOICE_COMMAND_TYPES = {
   UNKNOWN: 'unknown'
 };
 
+// Define unit synonyms for better parsing
+export const UNIT_SYNONYMS = {
+  kg: ["kilograms", "kilos", "kgs", "kilogram"],
+  g: ["grams", "gram", "gm", "gs"],
+  l: ["liters", "litres", "ltr", "ltrs", "lt", "lts"],
+  ml: ["milliliters", "millilitres", "millilit"],
+  packet: ["pack", "pk", "pkt", "packets", "packs", "sachet", "sachets"],
+  bottle: ["btl", "bott", "bottles", "btls"],
+  can: ["cans", "tin", "tins"],
+  box: ["boxes", "bx", "bxs"],
+  piece: ["pieces", "pc", "pcs", "units", "unit", "item", "items"],
+  dozen: ["dozens", "doz"],
+};
+
+// Function to normalize units based on synonyms
+export const normalizeUnit = (rawUnit: string): string => {
+  if (!rawUnit) return "piece"; // Default unit
+  
+  const lowerUnit = rawUnit.toLowerCase();
+  for (const [standardUnit, synonyms] of Object.entries(UNIT_SYNONYMS)) {
+    if (lowerUnit === standardUnit || synonyms.includes(lowerUnit)) {
+      return standardUnit;
+    }
+  }
+  
+  return lowerUnit; // Return as is if no match found
+};
+
 /**
  * Detect command type from voice input with expanded phrase recognition
  */
@@ -46,7 +74,9 @@ export const detectCommandType = (text: string) => {
     lowerText.includes('start checkout') ||
     lowerText.includes('bill for') ||
     lowerText.includes('billing') ||
-    lowerText.includes('sale')
+    lowerText.includes('sale') ||
+    lowerText.includes('total so far') ||
+    lowerText.includes('what\'s my total')
   ) {
     // Extract items mentioned in the bill command
     const items = extractBillItems(text);
@@ -75,7 +105,9 @@ export const detectCommandType = (text: string) => {
     lowerText.includes('make entry') ||
     lowerText.includes('bring in') ||
     lowerText.includes('stock ') ||
-    lowerText.includes('upload ')
+    lowerText.includes('upload ') ||
+    lowerText.includes('need ') || // Added "need" as in "Need 3 cans of beans"
+    lowerText.match(/^\d+\s+/) // Starts with a number (like "5 sachets of tea")
   ) {
     // Make sure it's not about bill creation
     if (!lowerText.includes('bill') && !lowerText.includes('invoice') && !lowerText.includes('receipt')) {
@@ -247,7 +279,8 @@ const processText = async (text: string) => {
       /put\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
       /record\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
       /save\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
-      /log\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i
+      /log\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i,
+      /need\s+(.+?)(?=\s+to|\s+at|\s+in|\s+on|$)/i  // Added pattern for "need" commands
     ];
     
     for (const pattern of productPatterns) {
@@ -261,25 +294,43 @@ const processText = async (text: string) => {
       }
     }
     
-    // Quantity - expanded patterns
-    const quantityMatch = text.match(/(\d+)\s*(kg|g|ml|l|litre|liter|pieces?|pcs|box|boxes|pack|packs|unit|units|bottle|bottles|carton|bag|bags)/i);
+    // Enhanced quantity pattern to recognize more units and number words
+    const quantityPattern = /(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen|dozens)/i;
+    const quantityMatch = text.match(quantityPattern);
+    
     if (quantityMatch) {
+      // Convert number words to digits
+      const numberMap: Record<string, string> = {
+        'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+        'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
+      };
+      
+      const quantityText = quantityMatch[1].toLowerCase();
+      const quantityValue = numberMap[quantityText] || quantityMatch[1];
+      
       mockedEntities.push({
-        text: quantityMatch[1],
+        text: quantityValue,
         label: 'QUANTITY'
       });
+      
+      // Normalize unit using our synonym function
+      const rawUnit = quantityMatch[2].toLowerCase();
+      const normalizedUnit = normalizeUnit(rawUnit);
+      
       mockedEntities.push({
-        text: quantityMatch[2],
+        text: normalizedUnit,
         label: 'UNIT'
       });
     }
     
     // Position (rack/shelf) - expanded patterns
     const positionPatterns = [
-      /(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-      /on\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-      /in\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
-      /at\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i,
+      /(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i,
+      /on\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i,
+      /in\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i,
+      /at\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i,
+      /from\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i,
+      /(the|in|on|at|from)\s+(fridge|storage|counter|shelf|rack)/i
     ];
     
     for (const pattern of positionPatterns) {
@@ -310,6 +361,23 @@ const processText = async (text: string) => {
           label: 'PRICE'
         });
         break; // Found a match, exit loop
+      }
+    }
+    
+    // Add expiry date extraction
+    const expiryPatterns = [
+      /expir(?:y|ing|es)\s+(next\s+\w+|tomorrow|in\s+\d+\s+days|in\s+a\s+\w+|on\s+\d{1,2}(?:st|nd|rd|th)?)/i,
+      /(?:use|valid)\s+(?:before|until|by)\s+(.+?)(?=\s+and|\s+with|\s+for|$)/i
+    ];
+    
+    for (const pattern of expiryPatterns) {
+      const expiryMatch = text.match(pattern);
+      if (expiryMatch && expiryMatch[1]) {
+        mockedEntities.push({
+          text: expiryMatch[1].trim(),
+          label: 'EXPIRY'
+        });
+        break;
       }
     }
     
@@ -347,7 +415,7 @@ export const extractProductDetailsFromEntities = (entities: any[]): Partial<Prod
         case 'POSITION':
         case 'LOCATION':
           // Extract just the number from position entities like "rack 3"
-          const positionMatch = entity.text.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+          const positionMatch = entity.text.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)\b/i);
           if (positionMatch) {
             // Convert number words to digits if needed
             const numberWords: Record<string, string> = {
@@ -356,7 +424,22 @@ export const extractProductDetailsFromEntities = (entities: any[]): Partial<Prod
             };
             
             const positionNumber = numberWords[positionMatch[1].toLowerCase()] || positionMatch[1];
-            details.position = positionNumber;
+            
+            // Get the location type (shelf, rack, etc.)
+            const locationType = entity.text.match(/(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)/i);
+            if (locationType) {
+              details.position = `${locationType[1]} ${positionNumber}`;
+            } else {
+              details.position = positionNumber;
+            }
+          } else if (entity.text.match(/(fridge|storage|counter|shelf|rack)/i)) {
+            // Handle simple location names without numbers
+            const locMatch = entity.text.match(/(fridge|storage|counter|shelf|rack)/i);
+            if (locMatch) {
+              details.position = locMatch[1].charAt(0).toUpperCase() + locMatch[1].slice(1);
+            } else {
+              details.position = entity.text;
+            }
           } else {
             details.position = entity.text;
           }
@@ -396,7 +479,69 @@ export const extractProductDetails = async (command: string): Promise<ProductDet
     }
   }
   
+  // Set default position if not detected
+  if (!details.position) {
+    details.position = "unspecified";
+  }
+  
   return details as ProductDetails;
+};
+
+/**
+ * Validate product details to ensure they meet requirements
+ */
+export const validateProductDetails = (product: ProductDetails): { isValid: boolean; missingFields: string[] } => {
+  const missingFields: string[] = [];
+  
+  // Check for required fields
+  if (!product.name || product.name.trim() === '') {
+    missingFields.push('product name');
+  }
+  
+  if (product.quantity === undefined || product.quantity <= 0) {
+    missingFields.push('quantity');
+  }
+  
+  if (!product.unit) {
+    missingFields.push('unit');
+  }
+  
+  // Position is now required, with a default of "unspecified"
+  if (!product.position) {
+    missingFields.push('location');
+  }
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+};
+
+/**
+ * Parse and validate a multi-product command
+ */
+export const parseMultiProductCommand = (command: string): ProductDetails[] => {
+  // Split by commas and "and" to handle multiple products
+  const parts = command.split(/,|\s+and\s+/i);
+  const products: ProductDetails[] = [];
+  
+  for (const part of parts) {
+    if (!part.trim()) continue; // Skip empty parts
+    
+    // Process each part to extract product details
+    processText(part.trim()).then(result => {
+      const details = extractProductDetailsFromEntities(result.entities) as ProductDetails;
+      
+      // Set default position if not detected
+      if (!details.position) {
+        details.position = "unspecified";
+      }
+      
+      products.push(details);
+    });
+  }
+  
+  return products;
 };
 
 /**
@@ -416,8 +561,51 @@ export const updateProductDetails = async (
     ...existingDetails,
     quantity: newDetails.quantity || existingDetails.quantity,
     unit: newDetails.unit || existingDetails.unit,
-    position: newDetails.position || existingDetails.position,
+    position: newDetails.position || existingDetails.position || "unspecified",
     price: newDetails.price || existingDetails.price,
     expiry: newDetails.expiry || existingDetails.expiry,
   };
 };
+
+/**
+ * Function to suggest a default location based on product type
+ */
+export const suggestLocationForProduct = (productName: string): string => {
+  productName = productName.toLowerCase();
+  
+  // Define some common product categories and their default locations
+  const categoryLocations: Record<string, string[]> = {
+    "Fridge": [
+      "milk", "cheese", "yogurt", "curd", "butter", "cream", "egg", "juice", "cold", 
+      "fish", "meat", "chicken", "sausage", "bacon", "dairy"
+    ],
+    "Pantry": [
+      "rice", "flour", "sugar", "salt", "spice", "oil", "pasta", "noodle", "cereal",
+      "grain", "pulse", "lentil", "bean", "dal", "masala"
+    ],
+    "Freezer": [
+      "ice cream", "frozen", "pizza", "ice"
+    ],
+    "Shelf A": [
+      "snack", "biscuit", "cookie", "cracker", "chip", "chocolate", "candy", "sweet"
+    ],
+    "Shelf B": [
+      "tea", "coffee", "beverage", "drink", "water", "soda", "soft drink"
+    ],
+    "Shelf C": [
+      "cleaning", "soap", "detergent", "dishwash", "sanitizer", "cleaner"
+    ]
+  };
+  
+  // Check each category to find a match
+  for (const [location, keywords] of Object.entries(categoryLocations)) {
+    for (const keyword of keywords) {
+      if (productName.includes(keyword)) {
+        return location;
+      }
+    }
+  }
+  
+  return "General Storage"; // Default location
+};
+
