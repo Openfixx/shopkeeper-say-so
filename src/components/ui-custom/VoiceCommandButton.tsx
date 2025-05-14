@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
@@ -5,14 +6,24 @@ import { toast } from 'sonner';
 
 export interface VoiceCommandButtonProps {
   onCommand?: (command: string) => void;
+  onVoiceCommand?: (command: string) => void;  // Adding this prop for backward compatibility
   className?: string;
   compact?: boolean;
+  showDialog?: boolean;
+  label?: string;
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined;
+  size?: "default" | "sm" | "lg" | "icon" | null | undefined;
 }
 
 export default function VoiceCommandButton({ 
   onCommand, 
+  onVoiceCommand,
   className = '', 
-  compact = false 
+  compact = false,
+  showDialog = false,
+  label = "Voice Command",
+  variant = "secondary",
+  size = compact ? "sm" : "default"
 }: VoiceCommandButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -21,10 +32,10 @@ export default function VoiceCommandButton({
   return (
     <div className={`${className}`}>
       <Button
-        variant="secondary"
+        variant={variant}
         onClick={startListening}
         disabled={isListening || processing}
-        size={compact ? "sm" : "default"}
+        size={size}
         className="relative flex items-center gap-2"
       >
         {isListening ? (
@@ -40,7 +51,7 @@ export default function VoiceCommandButton({
         ) : (
           <>
             <Mic className="h-4 w-4" />
-            Voice Command
+            {label}
           </>
         )}
       </Button>
@@ -82,6 +93,8 @@ export default function VoiceCommandButton({
         setTimeout(() => {
           if (onCommand) {
             onCommand(transcript);
+          } else if (onVoiceCommand) {
+            onVoiceCommand(transcript);
           }
           setProcessing(false);
         }, 500);
