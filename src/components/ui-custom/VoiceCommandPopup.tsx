@@ -90,7 +90,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                   </Badge>
                 )}
                 
-                {result.price !== undefined && result.price !== null && (
+                {result.price !== null && result.price !== undefined && (
                   <Badge variant="outline" className="bg-green-500/10">
                     ₹{typeof result.price === 'object' ? result.price.value : result.price}
                   </Badge>
