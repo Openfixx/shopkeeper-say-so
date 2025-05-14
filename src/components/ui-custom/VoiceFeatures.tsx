@@ -6,10 +6,11 @@ import { Mic, StopCircle } from 'lucide-react';
 import VoiceCommandButton from './VoiceCommandButton';
 import VoiceCommandPopup from './VoiceCommandPopup';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import { format } from 'date-fns';
 
 // Sample product list for demonstration
 const SAMPLE_PRODUCTS = [
@@ -58,23 +59,49 @@ export default function VoiceFeatures() {
       case CommandIntent.ADD_PRODUCT:
         if (products.length > 0) {
           setAddedProducts(prev => [...prev, ...products]);
-          toast.success(`Added ${products.length} product(s) to inventory`);
+          toast({
+            title: "Success",
+            description: `Added ${products.length} product(s) to inventory`,
+            variant: "default",
+          });
         }
         break;
+      case CommandIntent.CREATE_BILL:
       case CommandIntent.GENERATE_BILL:
-        toast.info("Generating bill...");
+        toast({
+          title: "Info",
+          description: "Generating bill...",
+          variant: "default",
+        });
         break;
       case CommandIntent.SEARCH_PRODUCT:
-        toast.info("Searching products...");
+        toast({
+          title: "Info",
+          description: "Searching products...",
+          variant: "default",
+        });
         break;
       case CommandIntent.UPDATE_PRODUCT:
-        toast.info("Updating product...");
+        toast({
+          title: "Info",
+          description: "Updating product...",
+          variant: "default",
+        });
         break;
+      case CommandIntent.DELETE_PRODUCT:
       case CommandIntent.REMOVE_PRODUCT:
-        toast.info("Removing product...");
+        toast({
+          title: "Info",
+          description: "Removing product...",
+          variant: "default",
+        });
         break;
       default:
-        toast.info("Command recognized: " + intent);
+        toast({
+          title: "Info", 
+          description: "Command recognized: " + intent,
+          variant: "default",
+        });
     }
   };
   
@@ -87,7 +114,11 @@ export default function VoiceFeatures() {
       const parsedProducts = parseMultiProductCommand(command, productNames);
       
       console.log("Legacy parser results:", parsedProducts);
-      toast.info(`Legacy parser detected ${parsedProducts.length} products`);
+      toast({
+        title: "Info",
+        description: `Legacy parser detected ${parsedProducts.length} products`,
+        variant: "default",
+      });
     }
   };
   
@@ -146,7 +177,13 @@ export default function VoiceFeatures() {
                     <div key={index} className="p-2 border rounded flex justify-between items-center">
                       <span className="font-medium">{product.name}</span>
                       <div className="flex items-center gap-4">
-                        {product.expiry && <span className="text-sm">Expires: {product.expiry}</span>}
+                        {product.expiry && (
+                          <span className="text-sm">
+                            Expires: {typeof product.expiry === 'string' 
+                              ? product.expiry 
+                              : format(product.expiry, 'dd MMM yyyy')}
+                          </span>
+                        )}
                         {product.position && <span className="text-sm">Location: {product.position}</span>}
                         <span>
                           {product.quantity} {product.unit}

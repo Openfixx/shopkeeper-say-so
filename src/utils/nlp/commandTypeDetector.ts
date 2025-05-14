@@ -7,7 +7,9 @@ export enum CommandIntent {
   ADD_PRODUCT = 'add_product',
   UPDATE_PRODUCT = 'update_product',
   DELETE_PRODUCT = 'delete_product',
+  REMOVE_PRODUCT = 'remove_product',
   CREATE_BILL = 'create_bill',
+  GENERATE_BILL = 'generate_bill',
   SEARCH_PRODUCT = 'search_product',
   INVENTORY_CHECK = 'inventory_check',
   NAVIGATION = 'navigation',
@@ -25,8 +27,14 @@ const commandPatterns = {
   [CommandIntent.DELETE_PRODUCT]: [
     /\b(delete|remove|erase|eliminate|discard|get rid of)\b/i
   ],
+  [CommandIntent.REMOVE_PRODUCT]: [
+    /\b(remove|delete|erase|eliminate|discard|get rid of)\b/i
+  ],
   [CommandIntent.CREATE_BILL]: [
     /\b(bill|invoice|receipt|checkout|payment|transaction|sell|sale)\b/i
+  ],
+  [CommandIntent.GENERATE_BILL]: [
+    /\b(generate bill|create bill|make bill|prepare bill|new bill)\b/i
   ],
   [CommandIntent.SEARCH_PRODUCT]: [
     /\b(search|find|look for|locate|where is|get|show|display)\b/i
@@ -48,7 +56,8 @@ export function detectCommandIntent(command: string): CommandIntent {
   const text = command.toLowerCase();
   
   // Check for bill/sale related commands first (high priority)
-  if (commandPatterns[CommandIntent.CREATE_BILL].some(pattern => pattern.test(text))) {
+  if (commandPatterns[CommandIntent.CREATE_BILL].some(pattern => pattern.test(text)) ||
+      commandPatterns[CommandIntent.GENERATE_BILL].some(pattern => pattern.test(text))) {
     // Make sure it's not just talking about adding a product called "bill"
     // If it contains words like "for", "create", etc. before "bill", it's likely a billing command
     if (/create\s+bill|new\s+bill|add\s+to\s+bill|generate\s+bill|make\s+bill|start\s+bill|\bsale\b/i.test(text)) {
@@ -82,7 +91,8 @@ export function detectCommandIntent(command: string): CommandIntent {
   }
   
   // Check for product deletion commands
-  if (commandPatterns[CommandIntent.DELETE_PRODUCT].some(pattern => pattern.test(text))) {
+  if (commandPatterns[CommandIntent.DELETE_PRODUCT].some(pattern => pattern.test(text)) ||
+      commandPatterns[CommandIntent.REMOVE_PRODUCT].some(pattern => pattern.test(text))) {
     return CommandIntent.DELETE_PRODUCT;
   }
   
