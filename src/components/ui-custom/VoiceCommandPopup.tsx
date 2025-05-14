@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { Plus, X, MapPin } from 'lucide-react';
 import { CommandResult } from '@/lib/voice';
+import { toast } from '@/components/ui/use-toast';
 
 interface VoiceCommandPopupProps {
   result: CommandResult | null;
@@ -40,8 +41,9 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
     // Handle position as an object with value property
     if (typeof result.position === 'object') {
       // Safely check if 'value' exists in the object
-      if (result.position !== null && 'value' in result.position && result.position.value !== undefined) {
-        setLocation(String(result.position.value));
+      const positionObj = result.position as Record<string, any>;
+      if (positionObj && 'value' in positionObj && positionObj.value !== undefined) {
+        setLocation(String(positionObj.value));
         return;
       }
       setLocation(''); // Default if value property not found
@@ -70,8 +72,9 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
     // Handle productName as an object with value property
     if (typeof result.productName === 'object') {
       // Safely check if 'value' exists in the object
-      if (result.productName !== null && 'value' in result.productName && result.productName.value !== undefined) {
-        return String(result.productName.value);
+      const productNameObj = result.productName as Record<string, any>;
+      if (productNameObj && 'value' in productNameObj && productNameObj.value !== undefined) {
+        return String(productNameObj.value);
       }
       return 'Unknown Product'; // Default if value property not found
     }
@@ -90,8 +93,9 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
     // Handle price as an object with value property
     if (typeof result.price === 'object') {
       // Safely check if 'value' exists in the object
-      if (result.price !== null && 'value' in result.price && result.price.value !== undefined) {
-        return result.price.value;
+      const priceObj = result.price as Record<string, any>;
+      if (priceObj && 'value' in priceObj && priceObj.value !== undefined) {
+        return priceObj.value;
       }
       return null; // Default if value property not found
     }
