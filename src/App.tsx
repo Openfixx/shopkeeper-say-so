@@ -1,108 +1,62 @@
 
-import React, { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/layout/Layout';
-import Login from './pages/Login';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import { Toaster } from 'sonner';
+import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { InventoryProvider } from './context/InventoryContext';
+import { ThemeProvider } from './context/ThemeContext';
+
+// Pages
 import Index from './pages/Index';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Products from './pages/Products';
-import BulkInventory from './pages/BulkInventory';
-import AuthCallback from './pages/AuthCallback';
-import { useAuth } from './context/AuthContext';
-import { Loader2 } from 'lucide-react';
+import AddProduct from './pages/AddProduct';
+import EditProduct from './pages/EditProduct';
+import ProductDetail from './pages/ProductDetail';
+import Billing from './pages/Billing';
+import Settings from './pages/Settings';
+import NotFound from './pages/NotFound';
+import VoiceScreen from './pages/VoiceScreen';
 
-// Lazy-loaded routes for better performance
-const AddProduct = React.lazy(() => import('./pages/AddProduct'));
-const Inventory = React.lazy(() => import('./pages/Inventory'));
-const Reports = React.lazy(() => import('./pages/Reports'));
-const Billing = React.lazy(() => import('./pages/Billing'));
-const Settings = React.lazy(() => import('./pages/Settings'));
-const ShopFinder = React.lazy(() => import('./pages/ShopFinder'));
-
-// Loading fallback for lazy-loaded routes
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center w-full h-screen">
-    <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-  </div>
-);
-
-// Protected route wrapper
-const ProtectedRoute: React.FC<{ children: React.ReactNode; redirectTo?: string }> = ({ 
-  children, 
-  redirectTo = '/login' 
-}) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <LoadingFallback />;
-  }
-  
-  return user ? <>{children}</> : <Navigate to={redirectTo} replace />;
+// Auth route wrapper
+const ProtectedRoute: React.FC<{
+  children: JSX.Element;
+}> = ({ children }) => {
+  return <>{children}</>;
 };
 
-const App: React.FC = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <LoadingFallback />;
-  }
-
+function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-        <Route path="/auth-callback" element={<AuthCallback />} />
-        
-        <Route element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route path="/" element={<Index />} />
-          <Route path="/products" element={<Products />} />
-          
-          <Route path="/products/add" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <AddProduct />
-            </Suspense>
-          } />
-          
-          <Route path="/inventory" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <Inventory />
-            </Suspense>
-          } />
-          
-          <Route path="/bulk-inventory" element={<BulkInventory />} />
-          
-          <Route path="/reports" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <Reports />
-            </Suspense>
-          } />
-          
-          <Route path="/billing" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <Billing />
-            </Suspense>
-          } />
-          
-          <Route path="/settings" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <Settings />
-            </Suspense>
-          } />
-          
-          <Route path="/shop-finder" element={
-            <Suspense fallback={<LoadingFallback />}>
-              <ShopFinder />
-            </Suspense>
-          } />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <InventoryProvider>
+            <Router>
+              <Toaster richColors closeButton position="top-right" />
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/" element={<MainLayout />}>
+                  <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                  <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                  <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+                  <Route path="products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
+                  <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
+                  <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                  <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="voice" element={<ProtectedRoute><VoiceScreen /></ProtectedRoute>} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Router>
+          </InventoryProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
-};
+}
 
 export default App;

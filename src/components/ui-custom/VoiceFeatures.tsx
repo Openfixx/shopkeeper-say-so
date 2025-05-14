@@ -2,113 +2,182 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import VoiceInput from '@/components/VoiceInput';
-import VoiceProductRecognition from '@/components/ui-custom/VoiceProductRecognition';
-import { Mic, Languages, Zap, Wand2 } from 'lucide-react';
-import { useInventory } from '@/context/InventoryContext';
-import { ProductEntity } from '@/utils/nlp/productVoiceParser';
+import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
 import { toast } from 'sonner';
+import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 
-const VoiceFeatures: React.FC = () => {
-  const { addProduct } = useInventory();
-  const [activeTab, setActiveTab] = useState('product-recognition');
+// Sample product list for demonstration
+const SAMPLE_PRODUCTS = [
+  { name: "Rice", id: 1 },
+  { name: "Milk", id: 2 },
+  { name: "Bread", id: 3 },
+  { name: "Sugar", id: 4 },
+  { name: "Salt", id: 5 },
+  { name: "Flour", id: 6 },
+  { name: "Oil", id: 7 },
+  { name: "Eggs", id: 8 },
+  { name: "Butter", id: 9 },
+  { name: "Cheese", id: 10 },
+  { name: "Coca-Cola", id: 11 },
+  { name: "Pepsi", id: 12 },
+  { name: "Apple", id: 13 },
+  { name: "Banana", id: 14 },
+  { name: "Orange", id: 15 },
+  { name: "Potato", id: 16 },
+  { name: "Tomato", id: 17 },
+  { name: "Onion", id: 18 },
+  { name: "Garlic", id: 19 },
+  { name: "Chicken", id: 20 },
+];
+
+export default function VoiceFeatures() {
+  const [addedProducts, setAddedProducts] = useState<EnhancedProduct[]>([]);
   
-  const handleProductsRecognized = (products: ProductEntity[]) => {
-    console.log("Products recognized:", products);
-  };
-  
-  const handleAddToInventory = (products: ProductEntity[]) => {
-    products.forEach(product => {
-      addProduct({
-        name: product.name,
-        quantity: product.quantity || 1,
-        unit: product.unit || 'pcs',
-        price: 0, // Default price
-        position: product.variant?.type || 'Default',
-        image_url: '',
-      });
-    });
+  const handleCommand = (command: string, products: EnhancedProduct[]) => {
+    console.log("Voice command received:", command);
+    console.log("Processed products:", products);
     
-    toast.success(`Added ${products.length} products to inventory`);
+    const intent = detectCommandIntent(command);
+    
+    switch (intent) {
+      case CommandIntent.ADD_PRODUCT:
+        if (products.length > 0) {
+          setAddedProducts(prev => [...prev, ...products]);
+          toast.success(`Added ${products.length} product(s) to inventory`);
+        }
+        break;
+      case CommandIntent.GENERATE_BILL:
+        toast.info("Generating bill...");
+        break;
+      case CommandIntent.SEARCH_PRODUCT:
+        toast.info("Searching products...");
+        break;
+      case CommandIntent.UPDATE_PRODUCT:
+        toast.info("Updating product...");
+        break;
+      case CommandIntent.REMOVE_PRODUCT:
+        toast.info("Removing product...");
+        break;
+      default:
+        toast.info("Command recognized: " + intent);
+    }
   };
-
+  
+  const handleLegacyCommand = (command: string) => {
+    console.log("Legacy command received:", command);
+    
+    // Using the old parser for comparison
+    if (command.includes(',') || /\band\b/i.test(command)) {
+      const productNames = SAMPLE_PRODUCTS.map(p => ({ name: p.name }));
+      const parsedProducts = parseMultiProductCommand(command, productNames);
+      
+      console.log("Legacy parser results:", parsedProducts);
+      toast.info(`Legacy parser detected ${parsedProducts.length} products`);
+    }
+  };
+  
   return (
-    <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="product-recognition" className="flex items-center gap-1">
-            <Wand2 className="h-4 w-4" /> Product Recognition
-          </TabsTrigger>
-          <TabsTrigger value="basic-voice" className="flex items-center gap-1">
-            <Mic className="h-4 w-4" /> Basic Voice
-          </TabsTrigger>
-          <TabsTrigger value="language-features" className="flex items-center gap-1">
-            <Languages className="h-4 w-4" /> Language Features
-          </TabsTrigger>
+    <div className="space-y-8">
+      <Tabs defaultValue="enhanced" className="w-full">
+        <TabsList className="grid grid-cols-2">
+          <TabsTrigger value="enhanced">Enhanced Voice Input</TabsTrigger>
+          <TabsTrigger value="legacy">Legacy Voice Input</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="product-recognition" className="space-y-4">
-          <VoiceProductRecognition 
-            onProductsRecognized={handleProductsRecognized} 
-            onAddToInventory={handleAddToInventory}
-          />
+        <TabsContent value="enhanced" className="pt-4">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <VoiceInputWithLocation
+                onCommand={handleCommand}
+                productList={SAMPLE_PRODUCTS.map(p => ({ name: p.name }))}
+              />
+            </div>
+            
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-medium mb-3">Voice Command Support</h3>
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium">Enhanced features now support:</p>
+                  <ul className="list-disc pl-6 space-y-1">
+                    <li>Product location extraction (e.g., "Add milk from the fridge")</li>
+                    <li>Expiry date parsing (e.g., "Rice expiring next month")</li>
+                    <li>Multiple product commands (e.g., "Add rice, sugar, and milk")</li>
+                    <li>Bill command variations (e.g., "Generate bill with 10% discount")</li>
+                    <li>Price extraction (e.g., "Rice for ₹100")</li>
+                    <li>Product variants (e.g., "Red apple", "Organic milk")</li>
+                  </ul>
+                  
+                  <div className="mt-4">
+                    <p className="font-medium">Try these commands:</p>
+                    <ol className="list-decimal pl-6 space-y-1">
+                      <li>"Add 5 kg rice from the top shelf expiring next month"</li>
+                      <li>"Add 2 liters milk from the fridge valid until next Friday"</li>
+                      <li>"Add 3 red apples and 2 kg sugar for ₹80"</li>
+                      <li>"Generate bill with 10% discount"</li>
+                      <li>"Place 5 organic bananas in section 3"</li>
+                    </ol>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
           
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-medium mb-2">Advanced Product Recognition</h3>
-              <p className="text-sm text-muted-foreground">
-                This feature uses natural language processing to extract product details from voice commands, 
-                including quantities, units, and variants. Try saying "Add 2 kg rice, 3 bottles of olive oil, 
-                and 1 dozen large eggs".
-              </p>
-              <div className="mt-4">
-                <h4 className="text-sm font-medium">Supported features:</h4>
-                <ul className="mt-1 text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                  <li>Multi-product recognition ("Add rice, sugar, and milk")</li>
-                  <li>Quantities and units ("2 kg rice", "3 bottles oil")</li>
-                  <li>Product variants ("large eggs", "organic milk")</li>
-                  <li>Fuzzy matching for spelling mistakes</li>
-                  <li>Clarification for ambiguous products</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+          {addedProducts.length > 0 && (
+            <Card className="mt-6">
+              <CardContent className="p-4">
+                <h3 className="font-medium mb-3">Added Products</h3>
+                <div className="space-y-2">
+                  {addedProducts.map((product, index) => (
+                    <div key={index} className="p-2 border rounded flex justify-between items-center">
+                      <span className="font-medium">{product.name}</span>
+                      <div className="flex items-center gap-4">
+                        {product.expiry && <span className="text-sm">Expires: {product.expiry}</span>}
+                        {product.position && <span className="text-sm">Location: {product.position}</span>}
+                        <span>
+                          {product.quantity} {product.unit}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         
-        <TabsContent value="basic-voice">
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-medium mb-4">Basic Voice Commands</h3>
-              <VoiceInput className="max-w-md mx-auto" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="language-features">
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-medium mb-2">Language Processing Features</h3>
-              <p className="text-sm text-muted-foreground">
-                This section demonstrates NLP capabilities including:
-              </p>
-              <ul className="mt-2 text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                <li>Named Entity Recognition (NER) for product information</li>
-                <li>Intent classification for voice commands</li>
-                <li>Levenshtein distance for fuzzy matching</li>
-                <li>Entity extraction for structured data</li>
-              </ul>
-              
-              <div className="border-t mt-4 pt-4">
-                <p className="text-sm text-muted-foreground">
-                  Note: These features work locally in the browser without requiring a backend server.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="legacy" className="pt-4">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <VoiceInput onCommand={handleLegacyCommand} />
+            </div>
+            
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-medium mb-3">Legacy Voice Command Support</h3>
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium">Basic features support:</p>
+                  <ul className="list-disc pl-6 space-y-1">
+                    <li>Simple product detection</li>
+                    <li>Basic quantity extraction</li>
+                    <li>Multiple product commands with limited accuracy</li>
+                  </ul>
+                  
+                  <div className="mt-4">
+                    <p className="font-medium">Try these commands:</p>
+                    <ol className="list-decimal pl-6 space-y-1">
+                      <li>"Add 5 kg rice"</li>
+                      <li>"Add 2 liters milk"</li>
+                      <li>"Add 3 apples and 2 kg sugar"</li>
+                    </ol>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
-};
-
-export default VoiceFeatures;
+}
