@@ -26,22 +26,19 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   
   // Update location when result changes
   useEffect(() => {
-    if (result?.position) {
-      // If position is an object with a value, use that value
-      if (
-        typeof result.position === 'object' && 
-        result.position !== null && 
-        'value' in result.position && 
-        result.position?.value
-      ) {
-        setLocation(result.position.value);
-      } 
-      // If position is a string, use it directly
-      else if (typeof result.position === 'string') {
-        setLocation(result.position);
+    if (!result || result.position === null || result.position === undefined) {
+      setLocation('');
+      return;
+    }
+    
+    if (typeof result.position === 'object' && result.position !== null) {
+      if ('value' in result.position && result.position.value !== undefined) {
+        setLocation(String(result.position.value));
       }
+    } else if (typeof result.position === 'string') {
+      setLocation(result.position);
     } else {
-      // Default location if none is provided
+      // Default location if format is not recognized
       setLocation('');
     }
   }, [result]);
@@ -49,16 +46,32 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   if (!result) return null;
 
   // Extract product name, handling cases where it might be different formats or null
-  const productName = 
-    result.productName 
-      ? (
-          typeof result.productName === 'object' && 
-          result.productName !== null &&
-          'value' in result.productName 
-            ? result.productName?.value || 'Unknown Product' 
-            : result.productName
-        ) 
-      : 'Unknown Product';
+  const productName = (() => {
+    if (!result.productName) return 'Unknown Product';
+    
+    if (typeof result.productName === 'object' && result.productName !== null) {
+      if ('value' in result.productName && result.productName.value !== undefined) {
+        return String(result.productName.value);
+      }
+    }
+    
+    return typeof result.productName === 'string' ? result.productName : 'Unknown Product';
+  })();
+
+  // Function to safely extract price value
+  const getPriceValue = () => {
+    if (result.price === null || result.price === undefined) {
+      return null;
+    }
+    
+    if (typeof result.price === 'object' && result.price !== null) {
+      if ('value' in result.price && result.price.value !== undefined) {
+        return result.price.value;
+      }
+    }
+    
+    return result.price;
+  };
 
   return (
     <motion.div
@@ -102,14 +115,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                 
                 {result.price !== null && result.price !== undefined && (
                   <Badge variant="outline" className="bg-green-500/10">
-                    ₹{
-                      typeof result.price === 'object' && 
-                      result.price !== null && 
-                      'value' in result.price && 
-                      result.price?.value !== undefined
-                        ? result.price.value 
-                        : result.price
-                    }
+                    ₹{getPriceValue()}
                   </Badge>
                 )}
                 
