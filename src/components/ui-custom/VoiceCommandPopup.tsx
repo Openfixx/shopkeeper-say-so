@@ -28,7 +28,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   useEffect(() => {
     if (result?.position) {
       // If position is an object with a value, use that value
-      if (typeof result.position === 'object' && result.position.value) {
+      if (typeof result.position === 'object' && 'value' in result.position && result.position.value) {
         setLocation(result.position.value);
       } 
       // If position is a string, use it directly
@@ -45,7 +45,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
 
   // Extract product name, handling cases where it might be different formats or null
   const productName = result.productName ? 
-    (typeof result.productName === 'object' ? 
+    (typeof result.productName === 'object' && 'value' in result.productName ? 
       result.productName.value || 'Unknown Product' : 
       result.productName) : 
     'Unknown Product';
@@ -92,7 +92,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
                 
                 {result.price !== null && result.price !== undefined && (
                   <Badge variant="outline" className="bg-green-500/10">
-                    ₹{typeof result.price === 'object' ? result.price.value : result.price}
+                    ₹{typeof result.price === 'object' && 'value' in result.price ? result.price.value : result.price}
                   </Badge>
                 )}
                 
