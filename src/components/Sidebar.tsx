@@ -1,147 +1,166 @@
-
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { 
-  Package2, 
-  Receipt, 
+  Home, 
+  Package, 
+  ShoppingCart, 
   Settings, 
-  Home,
-  PlusCircle,
-  Moon,
-  Sun,
-  Globe,
-  Mic
+  Mic, 
+  Menu, 
+  X 
 } from 'lucide-react';
-import { useTheme } from '@/context/ThemeContext';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface SidebarProps {
-  isMobile?: boolean;
-  onClose?: () => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) => {
-  const { user } = useAuth();
-  const { t, setLanguage, language } = useLanguage();
+const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
+  const location = useLocation();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  if (!user) {
-    return null;
-  }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const handleClick = () => {
-    if (isMobile && onClose) {
-      onClose();
-    }
+  const handleLogout = async () => {
+    await logout();
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
-  const toggleLanguage = () => {
-    setLanguage(language === 'en' ? 'hi' : 'en');
-  };
+  const routes = [
+    {
+      path: '/',
+      name: 'Dashboard',
+      icon: Home,
+    },
+    {
+      path: '/products',
+      name: 'Products',
+      icon: Package,
+    },
+    {
+      path: '/billing',
+      name: 'Billing',
+      icon: ShoppingCart,
+    },
+    {
+      path: '/settings',
+      name: 'Settings',
+      icon: Settings,
+    },
+    {
+      path: '/voice',
+      name: 'Voice',
+      icon: Mic,
+    },
+  ];
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
-    <aside className="h-full flex flex-col bg-card border-r">
-      <div className="p-4">
-        <h2 className="text-lg font-semibold mb-6">{t('inventory')}</h2>
-        
-        <nav className="space-y-1">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
+    <>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-0 md:hidden"
           >
-            <Home className="h-4 w-4 mr-3" />
-            {t('dashboard')}
-          </NavLink>
-          
-          <NavLink
-            to="/products"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
-          >
-            <Package2 className="h-4 w-4 mr-3" />
-            {t('products')}
-          </NavLink>
-          
-          <NavLink
-            to="/products/add"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
-          >
-            <PlusCircle className="h-4 w-4 mr-3" />
-            {t('addProduct')}
-          </NavLink>
-          
-          <NavLink
-            to="/billing"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
-          >
-            <Receipt className="h-4 w-4 mr-3" />
-            {t('billing')}
-          </NavLink>
-
-          <NavLink
-            to="/voice"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
-          >
-            <Mic className="h-4 w-4 mr-3" />
-            Voice Features
-          </NavLink>
-          
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-accent/50'
-              }`
-            }
-            onClick={handleClick}
-          >
-            <Settings className="h-4 w-4 mr-3" />
-            {t('settings')}
-          </NavLink>
-        </nav>
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64">
+          <ScrollArea className="h-screen">
+            <div className="py-4 text-center">
+              <h1 className="font-bold text-2xl">Inventory App</h1>
+              <p className="text-sm text-muted-foreground">
+                {user?.email || 'Guest'}
+              </p>
+            </div>
+            <div className="py-4">
+              {routes.map((route) => (
+                <Link
+                  key={route.path}
+                  to={route.path}
+                  className={cn(
+                    'flex items-center space-x-2 px-4 py-2 rounded-md hover:bg-secondary',
+                    location.pathname === route.path
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                  onClick={() => setOpen(false)}
+                >
+                  <route.icon className="h-4 w-4" />
+                  <span>{route.name}</span>
+                </Link>
+              ))}
+            </div>
+            <div className="mt-auto py-4 px-4">
+              <Button variant="outline" className="w-full mb-2" onClick={toggleTheme}>
+                {theme === 'light' ? 'Dark' : 'Light'} Mode
+              </Button>
+              <Button variant="destructive" className="w-full" onClick={handleLogout}>
+                Logout
+              </Button>
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+      <div
+        className={cn(
+          'hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-64 bg-gray-50 dark:bg-gray-900 border-r dark:border-gray-800',
+          open ? 'md:block' : 'md:hidden'
+        )}
+      >
+        <ScrollArea className="h-screen">
+          <div className="py-4 text-center">
+            <h1 className="font-bold text-2xl">Inventory App</h1>
+            <p className="text-sm text-muted-foreground">
+              {user?.email || 'Guest'}
+            </p>
+          </div>
+          <div className="py-4">
+            {routes.map((route) => (
+              <Link
+                key={route.path}
+                to={route.path}
+                className={cn(
+                  'flex items-center space-x-2 px-4 py-2 rounded-md hover:bg-secondary',
+                  location.pathname === route.path
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                <route.icon className="h-4 w-4" />
+                <span>{route.name}</span>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-auto py-4 px-4">
+            <Button variant="outline" className="w-full mb-2" onClick={toggleTheme}>
+              {theme === 'light' ? 'Dark' : 'Light'} Mode
+            </Button>
+            <Button variant="destructive" className="w-full" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
+        </ScrollArea>
       </div>
-      
-      <div className="mt-auto p-4 border-t flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={toggleLanguage}>
-          <Globe className="h-4 w-4" />
-          <span className="ml-2">{language === 'en' ? 'हिन्दी' : 'English'}</span>
-        </Button>
-        
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-      </div>
-    </aside>
+    </>
   );
 };
 

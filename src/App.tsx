@@ -20,13 +20,7 @@ import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import VoiceScreen from './pages/VoiceScreen';
-
-// Auth route wrapper
-const ProtectedRoute: React.FC<{
-  children: JSX.Element;
-}> = ({ children }) => {
-  return <>{children}</>;
-};
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (

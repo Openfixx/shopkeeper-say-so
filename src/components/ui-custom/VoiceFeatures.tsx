@@ -1,12 +1,9 @@
-
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
-import { toast } from 'sonner';
-import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
-import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Mic, StopCircle } from 'lucide-react';
+import VoiceCommandButton from './VoiceCommandButton';
+import VoiceCommandPopup from './VoiceCommandPopup';
 
 // Sample product list for demonstration
 const SAMPLE_PRODUCTS = [
@@ -89,7 +86,7 @@ export default function VoiceFeatures() {
         <TabsContent value="enhanced" className="pt-4">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <VoiceInputWithLocation
+              <VoiceCommandPopup
                 onCommand={handleCommand}
                 productList={SAMPLE_PRODUCTS.map(p => ({ name: p.name }))}
               />
@@ -150,7 +147,9 @@ export default function VoiceFeatures() {
         <TabsContent value="legacy" className="pt-4">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <VoiceInput onCommand={handleLegacyCommand} />
+              <VoiceCommandButton
+                onCommand={handleLegacyCommand}
+              />
             </div>
             
             <Card>
