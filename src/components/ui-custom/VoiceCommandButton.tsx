@@ -29,42 +29,6 @@ export default function VoiceCommandButton({
   const [processing, setProcessing] = useState(false);
   const [text, setText] = useState('');
 
-  return (
-    <div className={`${className}`}>
-      <Button
-        variant={variant}
-        onClick={startListening}
-        disabled={isListening || processing}
-        size={size}
-        className="relative flex items-center gap-2"
-      >
-        {isListening ? (
-          <>
-            <MicOff className="h-4 w-4" />
-            Listening...
-          </>
-        ) : processing ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <Mic className="h-4 w-4" />
-            {label}
-          </>
-        )}
-      </Button>
-      
-      {text && !isListening && !processing && (
-        <div className="mt-2 text-sm">
-          <p className="font-medium">Recognized: </p>
-          <p className="bg-muted p-2 rounded">{text}</p>
-        </div>
-      )}
-    </div>
-  );
-
   function startListening() {
     setIsListening(true);
     setText('');
@@ -117,4 +81,40 @@ export default function VoiceCommandButton({
       setIsListening(false);
     }
   }
+
+  return (
+    <div className={`${className}`}>
+      <Button
+        variant={variant}
+        onClick={startListening}
+        disabled={isListening || processing}
+        size={size}
+        className="relative flex items-center gap-2"
+      >
+        {isListening ? (
+          <>
+            <MicOff className="h-4 w-4" />
+            Listening...
+          </>
+        ) : processing ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Mic className="h-4 w-4" />
+            {label}
+          </>
+        )}
+      </Button>
+      
+      {text && !isListening && !processing && (
+        <div className="mt-2 text-sm">
+          <p className="font-medium">Recognized: </p>
+          <p className="bg-muted p-2 rounded">{text}</p>
+        </div>
+      )}
+    </div>
+  );
 }
