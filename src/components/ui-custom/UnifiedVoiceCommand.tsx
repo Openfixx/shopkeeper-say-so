@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -12,8 +11,9 @@ import VoiceCommandPopup from './VoiceCommandPopup';
 import { CommandResult } from '@/lib/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import { addMultipleProductsToInventory } from '@/lib/supabase';
 
 interface UnifiedVoiceCommandProps {
   className?: string;
@@ -122,67 +122,46 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     setIsAddingToInventory(true);
     
     try {
-      let addedCount = 0;
-      const errors = [];
-      
       console.log('Adding multiple products:', extractedProducts);
       
-      // Add all products with a small delay between each to ensure proper state updates
-      for (const [index, product] of extractedProducts.entries()) {
-        try {
-          await new Promise<void>((resolve) => {
-            setTimeout(async () => {
-              const productData = {
-                name: product.name,
-                quantity: product.quantity || 1,
-                unit: product.unit || 'unit',
-                price: product.price || 0,
-                position: product.position || 'Default', 
-                image_url: ''
-              };
-              
-              console.log(`Adding product ${index + 1}:`, productData);
-              
-              // Add to in-memory state
-              addProduct(productData);
-              
-              // Try to save to Supabase
-              try {
-                const { error } = await supabase
-                  .from('inventory')
-                  .insert({
-                    product_name: product.name,
-                    quantity: product.quantity || 1,
-                    price: product.price || 0,
-                    image_url: ''
-                  });
-                
-                if (error) {
-                  console.error(`Supabase error for product ${product.name}:`, error);
-                  errors.push(`${product.name}: ${error.message}`);
-                }
-              } catch (supabaseError) {
-                console.error(`Supabase save error for ${product.name}:`, supabaseError);
-                errors.push(product.name);
-              }
-              
-              addedCount++;
-              resolve();
-            }, index * 400); // Reduced delay for better UX
-          });
-        } catch (productError) {
-          console.error("Error adding product:", productError);
-          errors.push(product.name);
-        }
-      }
+      // Use the new batch function from supabase.ts
+      const { results, errors } = await addMultipleProductsToInventory(extractedProducts);
       
-      // Show success/error message based on results
       if (errors.length === 0) {
-        toast.success(`Added ${addedCount} products to inventory`);
-      } else if (errors.length < extractedProducts.length) {
-        toast.warning(`Added ${addedCount} products, but failed to save ${errors.length} to the database`);
+        // All products were added successfully
+        toast.success(`Added ${extractedProducts.length} products to inventory`);
+        
+        // Add all products to local state too
+        extractedProducts.forEach(product => {
+          addProduct({
+            name: product.name,
+            quantity: product.quantity || 1,
+            unit: product.unit || 'unit',
+            price: product.price || 0,
+            position: product.position || 'Default',
+            image_url: product.image_url || ''
+          });
+        });
+      } else if (results.length > 0) {
+        // Some products were added
+        toast.warning(`Added ${results.length} products, but failed to add ${errors.length} products`);
+        
+        // Add successful products to local state
+        extractedProducts
+          .filter(p => !errors.find(e => e.product === p.name))
+          .forEach(product => {
+            addProduct({
+              name: product.name,
+              quantity: product.quantity || 1,
+              unit: product.unit || 'unit',
+              price: product.price || 0,
+              position: product.position || 'Default',
+              image_url: product.image_url || ''
+            });
+          });
       } else {
-        toast.error("Failed to add products to the database, but added to local inventory");
+        // No products were added
+        toast.error(`Failed to add products: ${errors.map(e => e.error).join(', ')}`);
       }
       
       setIsAddingToInventory(false);
@@ -197,7 +176,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     }
   };
 
-  const handleConfirmProduct = async () => {
+  const handleConfirmProduct = async (location?: string) => {
     if (!commandResult) return;
     
     setIsAddingToInventory(true);
@@ -212,35 +191,26 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           quantity: commandResult.quantity?.value || 1,
           unit: commandResult.quantity?.unit || 'unit',
           price: commandResult.price || 0,
-          position: commandResult.position || 'Default',
+          position: location || commandResult.position || 'Default',
           image_url: commandResult.imageUrl || ''
         };
         
         console.log('Adding single product:', productData);
         
-        // Add to in-memory state
-        addProduct(productData);
-        
-        // Try to save to Supabase
         try {
-          const { error } = await supabase
-            .from('inventory')
-            .insert({
-              product_name: productData.name,
-              quantity: productData.quantity,
-              price: productData.price || 0,
-              image_url: productData.image_url || ''
-            });
-            
-          if (error) {
-            console.error("Supabase insertion error:", error);
-            toast.warning(`Product added locally but not saved to database: ${error.message}`);
-          } else {
-            toast.success(`Added ${productData.name} to inventory`);
-          }
-        } catch (supabaseError) {
-          console.error("Supabase save error:", supabaseError);
-          toast.warning("Product added locally but not saved to database");
+          // Use the saveVoiceProduct function
+          const result = await saveVoiceProduct(productData);
+          
+          // Add to in-memory state
+          addProduct(productData);
+          
+          toast.success(`Added ${productData.name} to inventory`);
+        } catch (error: any) {
+          console.error("Database error:", error);
+          toast.warning(`Product added locally but database save failed: ${error.message}`);
+          
+          // Still add to local state
+          addProduct(productData);
         }
         
         setIsAddingToInventory(false);
@@ -294,8 +264,8 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     }
   };
 
+  // Compact version for header or sidebar
   if (compact) {
-    // Compact version for header or sidebar
     return (
       <div className={`${className}`}>
         <Button

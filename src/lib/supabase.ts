@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
 
@@ -38,20 +39,63 @@ export interface VoiceProduct {
 }
 
 export const saveVoiceProduct = async (product: VoiceProduct) => {
-  const { data, error } = await supabase
-    .from('products')
-    .upsert({
-      name: product.name,
-      image_url: product.image_url || '',
-      created_at: new Date().toISOString()
-    })
-    .select();
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First ensure the product exists in the products table
+    const { data: existingProduct, error: findError } = await supabase
+      .from('products')
+      .select()
+      .ilike('name', product.name)
+      .maybeSingle();
+    
+    let productId = existingProduct?.id;
+    
+    // If product doesn't exist, create it first
+    if (!existingProduct) {
+      const { data: newProduct, error: productError } = await supabase
+        .from('products')
+        .insert({
+          name: product.name,
+          image_url: product.image_url || '',
+          user_id: user?.id
+        })
+        .select()
+        .single();
+      
+      if (productError) {
+        console.error('Failed to create product:', productError);
+        throw productError;
+      }
+      
+      productId = newProduct.id;
+    }
+    
+    // Now add to inventory with the valid product_id reference
+    const { data, error } = await supabase
+      .from('inventory')
+      .insert({
+        product_name: product.name,
+        quantity: product.quantity,
+        price: product.price || 0,
+        expiry_date: null,
+        image_url: product.image_url,
+        product_id: productId,
+        user_id: user?.id
+      })
+      .select();
 
-  if (error) {
-    console.error('Voice product save failed:', error);
+    if (error) {
+      console.error('Voice product save failed:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in saveVoiceProduct:', error);
     throw error;
   }
-  return data;
 };
 
 export const getProductByName = async (name: string) => {
@@ -84,19 +128,146 @@ export const addInventoryFromVoice = async (
   product: VoiceProduct,
   options?: { price?: number; expiry?: string }
 ) => {
-  const { data, error } = await supabase
-    .from('inventory')
-    .insert({
-      product_name: product.name,
-      quantity: product.quantity,
-      price: options?.price || 0,
-      expiry_date: options?.expiry || null,
-      image_url: product.image_url
-    })
-    .select();
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First ensure the product exists in the products table
+    const { data: existingProduct, error: findError } = await supabase
+      .from('products')
+      .select('id')
+      .ilike('name', product.name)
+      .maybeSingle();
 
-  if (error) throw error;
-  return data;
+    let productId = existingProduct?.id;
+    
+    // If product doesn't exist, create it first
+    if (!existingProduct) {
+      const { data: newProduct, error: productError } = await supabase
+        .from('products')
+        .insert({
+          name: product.name,
+          image_url: product.image_url || '',
+          user_id: user?.id
+        })
+        .select('id')
+        .single();
+        
+      if (productError) {
+        console.error('Failed to create product:', productError);
+        throw new Error(`Failed to create product: ${productError.message}`);
+      }
+      
+      productId = newProduct.id;
+    }
+    
+    // Now add to inventory with the valid product_id reference
+    const { data, error } = await supabase
+      .from('inventory')
+      .insert({
+        product_name: product.name,
+        quantity: product.quantity,
+        price: options?.price || product.price || 0,
+        expiry_date: options?.expiry || null,
+        image_url: product.image_url,
+        product_id: productId,
+        user_id: user?.id
+      })
+      .select();
+
+    if (error) {
+      console.error('Inventory addition failed:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in addInventoryFromVoice:', error);
+    throw error;
+  }
+};
+
+// ▼▼▼ BATCH OPERATIONS FOR MULTI-PRODUCT COMMANDS ▼▼▼
+export const addMultipleProductsToInventory = async (products: VoiceProduct[]) => {
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    const results = [];
+    const errors = [];
+    
+    // Process each product sequentially to ensure proper error handling
+    for (const product of products) {
+      try {
+        // First ensure the product exists in products table
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .ilike('name', product.name)
+          .maybeSingle();
+          
+        let productId = existingProduct?.id;
+        
+        // If product doesn't exist, create it first
+        if (!existingProduct) {
+          const { data: newProduct, error: productError } = await supabase
+            .from('products')
+            .insert({
+              name: product.name,
+              image_url: product.image_url || '',
+              user_id: user.id
+            })
+            .select('id')
+            .single();
+            
+          if (productError) {
+            console.error(`Failed to create product ${product.name}:`, productError);
+            errors.push({ product: product.name, error: productError.message });
+            continue; // Skip to next product
+          }
+          
+          productId = newProduct.id;
+        }
+        
+        // Now add to inventory with valid product reference
+        const { data, error } = await supabase
+          .from('inventory')
+          .insert({
+            product_name: product.name,
+            quantity: product.quantity,
+            price: product.price || 0,
+            expiry_date: null,
+            image_url: product.image_url,
+            product_id: productId,
+            user_id: user.id,
+            position: product.position || 'General Storage'
+          })
+          .select();
+          
+        if (error) {
+          console.error(`Failed to add ${product.name} to inventory:`, error);
+          errors.push({ product: product.name, error: error.message });
+          continue;
+        }
+        
+        results.push(data[0]);
+        
+      } catch (productError) {
+        console.error(`Error processing ${product.name}:`, productError);
+        errors.push({ product: product.name, error: productError.message });
+      }
+    }
+    
+    return { results, errors };
+    
+  } catch (error) {
+    console.error('Error in addMultipleProductsToInventory:', error);
+    throw error;
+  }
 };
 
 // ▼▼▼ UTILITY FUNCTIONS ▼▼▼
@@ -119,7 +290,7 @@ const createMockClient = () => {
   } as unknown as ReturnType<typeof createClient>;
 };
 
-// ▼▼▼ TYPE DEFINITIONS (keep your existing types) ▼▼▼
+// ▼▼▼ TYPE DEFINITIONS ▼▼▼
 export type DbProduct = {
   id: string;
   name: string;
@@ -130,6 +301,7 @@ export type DbProduct = {
   position?: string;
   price?: number;
   expiry?: string;
+  user_id?: string;
 };
 
 export type DbInventoryItem = {
@@ -140,6 +312,9 @@ export type DbInventoryItem = {
   expiry_date?: string;
   image_url?: string;
   created_at: string;
+  product_id?: string;
+  user_id?: string;
+  position?: string;
 };
 
 // Add missing bill-related types

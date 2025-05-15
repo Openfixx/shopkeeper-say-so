@@ -13,6 +13,8 @@ export interface InventoryItem {
   image_url?: string;
   created_at: string;
   user_id?: string;
+  product_id?: string;
+  position?: string;
 }
 
 // 1. Add new product (with image caching)
@@ -53,7 +55,7 @@ export const addProduct = async (
   
   // Return product with parsed id and standard properties
   return {
-    id: data?.name || name, // Fallback to name if no id exists
+    id: data?.id || name, // Use actual ID from the database
     name: data?.name || name,
     description: '',
     quantity: 0,
@@ -73,26 +75,65 @@ export const addProduct = async (
 export const addInventoryItem = async (
   item: Omit<InventoryItem, 'id' | 'created_at' | 'user_id'>
 ) => {
-  // Get the current user
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Add user_id to the item
-  const itemWithUser = {
-    ...item,
-    user_id: user?.id
-  };
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First ensure the referenced product exists
+    let productId = item.product_id;
+    
+    if (!productId) {
+      // Look up product by name
+      const { data: existingProduct } = await supabase
+        .from('products')
+        .select('id')
+        .ilike('name', item.product_name)
+        .maybeSingle();
+        
+      if (existingProduct) {
+        productId = existingProduct.id;
+      } else {
+        // Create the product first
+        const { data: newProduct, error: productError } = await supabase
+          .from('products')
+          .insert({
+            name: item.product_name,
+            image_url: item.image_url || '',
+            user_id: user?.id
+          })
+          .select('id')
+          .single();
+          
+        if (productError) {
+          throw new Error(`Failed to create product: ${productError.message}`);
+        }
+        
+        productId = newProduct.id;
+      }
+    }
+    
+    // Add user_id and product_id to the item
+    const itemWithUser = {
+      ...item,
+      user_id: user?.id,
+      product_id: productId
+    };
 
-  const { data, error } = await supabase
-    .from('inventory')
-    .insert(itemWithUser)
-    .select();
+    const { data, error } = await supabase
+      .from('inventory')
+      .insert(itemWithUser)
+      .select();
 
-  if (error) {
-    console.error('Error adding inventory item:', error);
+    if (error) {
+      console.error('Error adding inventory item:', error);
+      throw error;
+    }
+    
+    return data[0];
+  } catch (error) {
+    console.error('Error in addInventoryItem:', error);
     throw error;
   }
-  
-  return data[0];
 };
 
 // 3. Get all inventory items with product info
@@ -131,26 +172,76 @@ export const addMultipleProducts = async (products: Array<{
   image_url?: string;
   hindi_name?: string;
   expiry_date?: string;
+  position?: string;
 }>) => {
-  // Get the current user
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Add user_id to each product
-  const productsWithUser = products.map(product => ({
-    ...product,
-    user_id: user?.id
-  }));
-  
-  // Insert all products in a single request
-  const { data, error } = await supabase
-    .from('inventory')
-    .insert(productsWithUser)
-    .select();
-  
-  if (error) {
-    console.error('Error adding multiple products:', error);
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const results = [];
+    const errors = [];
+    
+    // Process each product sequentially to handle foreign key constraints
+    for (const product of products) {
+      try {
+        // First check if product exists in products table
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .ilike('name', product.product_name)
+          .maybeSingle();
+          
+        let productId = existingProduct?.id;
+        
+        // If product doesn't exist, create it first
+        if (!existingProduct) {
+          const { data: newProduct, error: productError } = await supabase
+            .from('products')
+            .insert({
+              name: product.product_name,
+              image_url: product.image_url || '',
+              user_id: user?.id
+            })
+            .select('id')
+            .single();
+            
+          if (productError) {
+            console.error(`Failed to create product ${product.product_name}:`, productError);
+            errors.push({ product: product.product_name, error: productError.message });
+            continue; // Skip to next product
+          }
+          
+          productId = newProduct.id;
+        }
+        
+        // Now add to inventory with the valid product ID
+        const { data, error } = await supabase
+          .from('inventory')
+          .insert({
+            ...product,
+            product_id: productId,
+            user_id: user?.id
+          })
+          .select();
+          
+        if (error) {
+          console.error(`Failed to add ${product.product_name} to inventory:`, error);
+          errors.push({ product: product.product_name, error: error.message });
+          continue;
+        }
+        
+        results.push(data[0]);
+        
+      } catch (productError) {
+        console.error(`Error processing ${product.product_name}:`, productError);
+        errors.push({ product: product.product_name, error: String(productError) });
+      }
+    }
+    
+    return { results, errors };
+    
+  } catch (error) {
+    console.error('Error in addMultipleProducts:', error);
     throw error;
   }
-  
-  return data;
 };

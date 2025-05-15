@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,7 +29,7 @@ export default function VoiceCommandButton({
   const [processing, setProcessing] = useState(false);
   const [text, setText] = useState('');
 
-  function startListening() {
+  const startListening = () => {
     setIsListening(true);
     setText('');
     
@@ -87,7 +87,7 @@ export default function VoiceCommandButton({
     <div className={`${className}`}>
       <Button
         variant={variant}
-        onClick={() => startListening()}  // Wrap in function to avoid event object issues
+        onClick={startListening}
         disabled={isListening || processing}
         size={size}
         className="relative flex items-center gap-2"

@@ -13,7 +13,7 @@ import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 
 interface VoiceCommandPopupProps {
   result: CommandResult | null;
-  onConfirm: () => void;
+  onConfirm: (location?: string) => void;
   onCancel: () => void;
   loading?: boolean;
   multiProductMode?: boolean;
@@ -29,7 +29,7 @@ export default function VoiceCommandPopup({
   loading = false,
   multiProductMode = false,
   multiProducts = [],
-  productList,
+  productList = [],
   onCommand
 }: VoiceCommandPopupProps) {
   const [locations, setLocations] = useState<Record<number, string>>({});
@@ -53,6 +53,17 @@ export default function VoiceCommandPopup({
       return (locations[index] && locations[index].trim() !== '') || 
              (p.position && p.position.trim() !== '' && p.position !== 'General Storage');
     });
+  };
+
+  const handleConfirm = () => {
+    // For single product, pass the location
+    if (!multiProductMode && result) {
+      const locationInput = document.getElementById('location') as HTMLInputElement;
+      const location = locationInput ? locationInput.value : undefined;
+      onConfirm(location);
+    } else {
+      onConfirm();
+    }
   };
 
   return (
@@ -178,7 +189,7 @@ export default function VoiceCommandPopup({
             Cancel
           </Button>
           <Button 
-            onClick={onConfirm} 
+            onClick={handleConfirm} 
             disabled={loading || (multiProductMode && !allLocationsProvided())}
           >
             {loading ? (
