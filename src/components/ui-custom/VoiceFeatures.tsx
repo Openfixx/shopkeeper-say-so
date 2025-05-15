@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Mic, StopCircle } from 'lucide-react';
 import VoiceCommandButton from './VoiceCommandButton';
 import VoiceCommandPopup from './VoiceCommandPopup';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
@@ -47,10 +48,13 @@ interface VoiceCommandPopupProps {
 
 export default function VoiceFeatures() {
   const [addedProducts, setAddedProducts] = useState<EnhancedProduct[]>([]);
+  const [processingCommand, setProcessingCommand] = useState(false);
   
   const handleCommand = (command: string, products: EnhancedProduct[]) => {
     console.log("Voice command received:", command);
     console.log("Processed products:", products);
+    
+    setProcessingCommand(true);
     
     const intent = detectCommandIntent(command);
     
@@ -62,6 +66,35 @@ export default function VoiceFeatures() {
             title: "Success",
             description: `Added ${products.length} product(s) to inventory`,
             variant: "default",
+          });
+        } else if (command.includes(',') || /\band\b/i.test(command)) {
+          // Handle multi-product commands using the enhanced parser
+          const productNames = SAMPLE_PRODUCTS.map(p => ({ name: p.name }));
+          const parsedProducts = parseMultiProductCommand(command, productNames);
+          
+          if (parsedProducts.length > 0) {
+            // Convert to EnhancedProduct format
+            const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
+              name: p.name,
+              quantity: p.quantity || 1,
+              unit: p.unit || 'piece',
+              position: p.position || 'General Storage',
+              price: p.price || 0,
+              confidence: 1.0
+            }));
+            
+            setAddedProducts(prev => [...prev, ...enhancedProducts]);
+            toast({
+              title: "Success",
+              description: `Added ${enhancedProducts.length} products using multi-product parser`,
+              variant: "default",
+            });
+          }
+        } else {
+          toast({
+            title: "Warning",
+            description: "No products detected in command",
+            variant: "destructive",
           });
         }
         break;
@@ -87,8 +120,8 @@ export default function VoiceFeatures() {
           variant: "default",
         });
         break;
-      case CommandIntent.DELETE_PRODUCT:
       case CommandIntent.REMOVE_PRODUCT:
+      case CommandIntent.DELETE_PRODUCT:
         toast({
           title: "Info",
           description: "Removing product...",
@@ -102,6 +135,8 @@ export default function VoiceFeatures() {
           variant: "default",
         });
     }
+    
+    setProcessingCommand(false);
   };
   
   const handleLegacyCommand = (command: string) => {
@@ -119,6 +154,15 @@ export default function VoiceFeatures() {
         variant: "default",
       });
     }
+  };
+
+  const handleProductClear = () => {
+    setAddedProducts([]);
+    toast({
+      title: "Info",
+      description: "Cleared product list",
+      variant: "default",
+    });
   };
   
   return (
@@ -147,9 +191,9 @@ export default function VoiceFeatures() {
                 <div className="space-y-2 text-sm">
                   <p className="font-medium">Enhanced features now support:</p>
                   <ul className="list-disc pl-6 space-y-1">
+                    <li>Multiple product commands (e.g., "Add rice, sugar, and milk")</li>
                     <li>Product location extraction (e.g., "Add milk from the fridge")</li>
                     <li>Expiry date parsing (e.g., "Rice expiring next month")</li>
-                    <li>Multiple product commands (e.g., "Add rice, sugar, and milk")</li>
                     <li>Bill command variations (e.g., "Generate bill with 10% discount")</li>
                     <li>Price extraction (e.g., "Rice for ₹100")</li>
                     <li>Product variants (e.g., "Red apple", "Organic milk")</li>
@@ -158,8 +202,8 @@ export default function VoiceFeatures() {
                   <div className="mt-4">
                     <p className="font-medium">Try these commands:</p>
                     <ol className="list-decimal pl-6 space-y-1">
-                      <li>"Add 5 kg rice from the top shelf expiring next month"</li>
-                      <li>"Add 2 liters milk from the fridge valid until next Friday"</li>
+                      <li>"Add 5 kg rice, 2 kg sugar, and 3 liters milk"</li>
+                      <li>"Add 2 packets biscuits and 1 kg sugar from rack 3"</li>
                       <li>"Add 3 red apples and 2 kg sugar for ₹80"</li>
                       <li>"Generate bill with 10% discount"</li>
                       <li>"Place 5 organic bananas in section 3"</li>
@@ -172,22 +216,31 @@ export default function VoiceFeatures() {
           
           {addedProducts.length > 0 && (
             <Card className="mt-6">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">Added Products</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleProductClear}
+                >
+                  Clear All
+                </Button>
+              </CardHeader>
               <CardContent className="p-4">
-                <h3 className="font-medium mb-3">Added Products</h3>
                 <div className="space-y-2">
                   {addedProducts.map((product, index) => (
-                    <div key={index} className="p-2 border rounded flex justify-between items-center">
+                    <div key={index} className="p-3 border rounded flex justify-between items-center bg-card">
                       <span className="font-medium">{product.name}</span>
                       <div className="flex items-center gap-4">
                         {product.expiry && (
                           <span className="text-sm">
                             Expires: {typeof product.expiry === 'string' 
                               ? product.expiry 
-                              : format(product.expiry, 'dd MMM yyyy')}
+                              : format(new Date(product.expiry), 'dd MMM yyyy')}
                           </span>
                         )}
                         {product.position && <span className="text-sm">Location: {product.position}</span>}
-                        <span>
+                        <span className="px-2 py-1 bg-accent rounded-md text-sm">
                           {product.quantity} {product.unit}
                         </span>
                       </div>

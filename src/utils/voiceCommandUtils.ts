@@ -1,4 +1,3 @@
-
 // Define the ProductDetails interface
 interface ProductDetails {
   name: string;
@@ -520,28 +519,170 @@ export const validateProductDetails = (product: ProductDetails): { isValid: bool
 /**
  * Parse and validate a multi-product command
  */
-export const parseMultiProductCommand = (command: string): ProductDetails[] => {
-  // Split by commas and "and" to handle multiple products
-  const parts = command.split(/,|\s+and\s+/i);
-  const products: ProductDetails[] = [];
+export const parseMultiProductCommand = (command: string, productList: { name: string }[] = []): { 
+  products: ProductDetails[],
+  needsClarification: boolean,
+  clarificationQuestion?: string,
+  clarificationOptions?: string[],
+  detectedLocation?: string
+} => {
+  console.log(`Parsing multi-product command: "${command}"`);
+  // First, detect overall location that might apply to all products
+  const locationMatch = command.match(/(?:on|in|at|from)\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i);
+  let generalLocation = '';
   
-  for (const part of parts) {
-    if (!part.trim()) continue; // Skip empty parts
-    
-    // Process each part to extract product details
-    processText(part.trim()).then(result => {
-      const details = extractProductDetailsFromEntities(result.entities) as ProductDetails;
-      
-      // Set default position if not detected
-      if (!details.position) {
-        details.position = "unspecified";
-      }
-      
-      products.push(details);
-    });
+  if (locationMatch) {
+    const locationType = locationMatch[1];
+    const locationNumber = locationMatch[2];
+    generalLocation = `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNumber}`;
+    console.log(`Detected general location: ${generalLocation}`);
   }
   
-  return products;
+  // Split by commas, "and", or other common separators to handle multiple products
+  // More comprehensive splitting pattern to catch different ways people separate items
+  const parts = command.split(/,|\sand\s|\salso\s|\sthen\s|\splus\s|\salong\s\with\s|\stogether\s\with\s/i);
+  const products: ProductDetails[] = [];
+  let needsClarification = false;
+  let clarificationQuestion = '';
+  let clarificationOptions: string[] = [];
+  
+  console.log(`Command split into ${parts.length} parts:`, parts);
+  
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue; // Skip empty parts
+    
+    console.log(`Processing part: "${trimmedPart}"`);
+    
+    // Enhanced regex pattern to extract quantity, unit, and product name
+    // This pattern now handles various unit formats and positions
+    const productMatch = trimmedPart.match(/(?:(?:add|put|need|place|insert)\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)?\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen|dozens)?\s*(?:of\s+)?([a-zA-Z\s]+?)(?:\s+(?:on|in|at|from|price|for|at|₹|rs|rupees|expiring|valid)\s+|$)/i);
+    
+    // Alternative pattern for when product is mentioned first (e.g., "rice 5kg")
+    const reverseProductMatch = trimmedPart.match(/([a-zA-Z\s]+?)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen|dozens)/i);
+    
+    if (productMatch) {
+      console.log(`Standard pattern match:`, productMatch);
+      // Convert number words to digits
+      const numberWords: Record<string, number> = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+      };
+      
+      let quantity = 1; // Default quantity
+      if (productMatch[1]) {
+        quantity = numberWords[productMatch[1].toLowerCase()] || parseInt(productMatch[1]);
+      }
+      
+      let unit = productMatch[2] ? normalizeUnit(productMatch[2]) : 'piece'; // Default unit
+      let productName = productMatch[3].trim().toLowerCase();
+      
+      // Check if we need clarification on the product name
+      if (productName && productList && productList.length > 0) {
+        const exactMatch = productList.find(p => 
+          p.name.toLowerCase() === productName.toLowerCase()
+        );
+        
+        if (!exactMatch) {
+          // Find similar products for suggestions
+          const similarProducts = productList
+            .filter(p => p.name.toLowerCase().includes(productName.toLowerCase()) || 
+                         productName.toLowerCase().includes(p.name.toLowerCase()))
+            .map(p => p.name)
+            .slice(0, 5); // Limit to 5 suggestions
+          
+          if (similarProducts.length > 0) {
+            needsClarification = true;
+            clarificationQuestion = `Did you mean ${similarProducts[0]} or something else?`;
+            clarificationOptions = similarProducts;
+          }
+        }
+      }
+      
+      // Extract specific location if mentioned in this part
+      const partLocationMatch = trimmedPart.match(/(?:on|in|at|from)\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|b|c|d|e|f)/i);
+      let productLocation = generalLocation; // Default to the general location
+      
+      if (partLocationMatch) {
+        const locationType = partLocationMatch[1];
+        const locationNumber = partLocationMatch[2];
+        productLocation = `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNumber}`;
+      }
+      
+      // Extract price if mentioned
+      const priceMatch = trimmedPart.match(/(?:price|cost|₹|rs|rupees)\s*(\d+)/i);
+      const price = priceMatch ? parseInt(priceMatch[1]) : undefined;
+      
+      // Extract expiry if mentioned
+      const expiryMatch = trimmedPart.match(/(?:expiring|valid until|best before)\s+(.+?)(?=\s+and|\s+with|\s+for|$)/i);
+      const expiry = expiryMatch ? expiryMatch[1].trim() : undefined;
+      
+      products.push({
+        name: productName,
+        quantity: quantity,
+        unit: unit,
+        position: productLocation,
+        price: price,
+        expiry: expiry,
+        image: undefined
+      });
+      
+    } else if (reverseProductMatch) {
+      console.log(`Reverse pattern match:`, reverseProductMatch);
+      // Handle "rice 5kg" format
+      const productName = reverseProductMatch[1].trim().toLowerCase();
+      
+      // Convert number words to digits
+      const numberWords: Record<string, number> = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+      };
+      
+      const quantityText = reverseProductMatch[2].toLowerCase();
+      const quantity = numberWords[quantityText] || parseInt(reverseProductMatch[2]);
+      
+      const unit = reverseProductMatch[3] ? normalizeUnit(reverseProductMatch[3]) : 'piece';
+      
+      products.push({
+        name: productName,
+        quantity: quantity,
+        unit: unit,
+        position: generalLocation,
+        image: undefined
+      });
+      
+    } else {
+      console.log(`No pattern match for part: "${trimmedPart}"`);
+      // Try to extract just a product name as a fallback
+      // Remove common command words first
+      const cleanPart = trimmedPart
+        .replace(/^(add|put|need|place|insert|update)/i, '')
+        .trim();
+      
+      if (cleanPart) {
+        // Check if it's just a product name without quantity/unit
+        if (!/\d/.test(cleanPart)) { // No numbers in the string
+          products.push({
+            name: cleanPart.toLowerCase(),
+            quantity: 1, // Default quantity
+            unit: 'piece', // Default unit
+            position: generalLocation,
+            image: undefined
+          });
+        }
+      }
+    }
+  }
+  
+  console.log(`Extracted ${products.length} products:`, products);
+  
+  return {
+    products,
+    needsClarification,
+    clarificationQuestion,
+    clarificationOptions,
+    detectedLocation: generalLocation
+  };
 };
 
 /**
@@ -608,4 +749,3 @@ export const suggestLocationForProduct = (productName: string): string => {
   
   return "General Storage"; // Default location
 };
-

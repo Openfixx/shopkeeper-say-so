@@ -24,6 +24,16 @@ export enum CommandIntent {
   UNKNOWN = "unknown"
 }
 
+// Intent detection patterns
+const INTENT_PATTERNS = {
+  ADD_PRODUCT: /(add|put|need|place|insert|register|record|upload|stock)\s.*?\d+|^\d+\s+(kg|g|ml|l|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen|dozens)/i,
+  UPDATE_PRODUCT: /(update|modify|change|edit|revise)\b/i,
+  REMOVE_PRODUCT: /(remove|delete|discard|dispose|trash|eliminate|take out|get rid)\b/i,
+  SEARCH_PRODUCT: /(search|find|look for|locate|where is|show)\b/i,
+  VIEW_INVENTORY: /(list|show|display|view|all|inventory|products|items|goods)\b/i,
+  GENERATE_BILL: /(bill|invoice|receipt|checkout|total|charge|payment|transaction|total so far|what's my total)\b/i
+};
+
 /**
  * Detects the intent of a voice command
  * 
@@ -33,9 +43,9 @@ export enum CommandIntent {
 export function detectCommandIntent(command: string): CommandIntent {
   const lowerCommand = command.toLowerCase();
   
-  // ADD_PRODUCT intent detection
+  // ADD_PRODUCT intent detection with expanded patterns
   if (
-    /\b(add|create|new|put|place|insert|register|record|upload|stock)\b/i.test(lowerCommand) ||
+    INTENT_PATTERNS.ADD_PRODUCT.test(lowerCommand) ||
     /\bneed\s+\d+/i.test(lowerCommand) ||
     /^\d+\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles)/i.test(lowerCommand)
   ) {
@@ -43,31 +53,27 @@ export function detectCommandIntent(command: string): CommandIntent {
   }
   
   // UPDATE_PRODUCT intent detection
-  if (/\b(update|modify|change|edit|revise)\b/i.test(lowerCommand)) {
+  if (INTENT_PATTERNS.UPDATE_PRODUCT.test(lowerCommand)) {
     return CommandIntent.UPDATE_PRODUCT;
   }
   
   // REMOVE_PRODUCT intent detection
-  if (/\b(remove|delete|discard|dispose|trash|eliminate|take out|get rid)\b/i.test(lowerCommand)) {
+  if (INTENT_PATTERNS.REMOVE_PRODUCT.test(lowerCommand)) {
     return CommandIntent.REMOVE_PRODUCT;
   }
   
   // SEARCH_PRODUCT intent detection
-  if (/\b(search|find|look for|locate|where is|show)\b/i.test(lowerCommand)) {
+  if (INTENT_PATTERNS.SEARCH_PRODUCT.test(lowerCommand)) {
     return CommandIntent.SEARCH_PRODUCT;
   }
   
   // VIEW_INVENTORY intent detection
-  if (/\b(list|show|display|view|all|inventory|products|items|goods)\b/i.test(lowerCommand)) {
+  if (INTENT_PATTERNS.VIEW_INVENTORY.test(lowerCommand)) {
     return CommandIntent.VIEW_INVENTORY;
   }
   
-  // GENERATE_BILL intent detection
-  if (
-    /\b(bill|invoice|receipt|checkout|total|charge|payment|transaction)\b/i.test(lowerCommand) ||
-    /\btotal\s+so\s+far\b/i.test(lowerCommand) ||
-    /\bwhat's\s+my\s+total\b/i.test(lowerCommand)
-  ) {
+  // GENERATE_BILL intent detection with expanded patterns
+  if (INTENT_PATTERNS.GENERATE_BILL.test(lowerCommand)) {
     return CommandIntent.GENERATE_BILL;
   }
   
@@ -108,7 +114,7 @@ export function getCommandDetails(command: string, intent: CommandIntent): any {
   switch (intent) {
     case CommandIntent.ADD_PRODUCT:
       // Extract product quantity and name
-      const quantityMatch = lowerCommand.match(/(\d+)\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles)/i);
+      const quantityMatch = lowerCommand.match(/(\d+)\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen)/i);
       const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
       
       // Try to extract product name after the quantity and unit
@@ -129,6 +135,7 @@ export function getCommandDetails(command: string, intent: CommandIntent): any {
       return { searchTerm: searchMatch ? searchMatch[1].trim() : "" };
       
     case CommandIntent.GENERATE_BILL:
+    case CommandIntent.CREATE_BILL:
       // Check if there are specific products mentioned for the bill
       const hasProducts = /\b(?:for|with)\s+([a-zA-Z\s,]+)(?:\s+and|\s*$)/i.test(lowerCommand);
       return { hasProducts };

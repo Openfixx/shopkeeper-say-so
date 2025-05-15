@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
 import { parseEnhancedVoiceCommand, EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 import { format } from 'date-fns';
 
 interface VoiceInputWithLocationProps {
@@ -28,7 +29,7 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
   const handleListen = async () => {
     try {
       setIsListening(true);
-      toast.info("Listening... Try commands like 'Add 2 kg rice from the top shelf expiring next month'");
+      toast.info("Listening... Try commands like 'Add 2 kg rice and 3 kg sugar from the top shelf'");
       
       // Check if browser supports speech recognition
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -78,23 +79,59 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
       const intent = detectCommandIntent(command);
       
       if (intent === CommandIntent.ADD_PRODUCT) {
-        // Parse the command with our enhanced parser
-        const result = parseEnhancedVoiceCommand(command, productList);
+        // Check if command has multiple products (using commas or "and")
+        const isMultiProduct = command.includes(',') || /\s+and\s+/i.test(command);
         
-        setProducts(result.products);
-        setDetectedLocation(result.detectedLocation);
-        
-        if (result.needsClarification) {
-          setNeedsClarification(true);
-          setClarificationOptions(result.clarificationOptions || []);
-          toast.info(result.clarificationQuestion || "Did you mean one of these?");
+        if (isMultiProduct) {
+          // Use multi-product parser
+          const multiProducts = parseMultiProductCommand(command, productList);
+          
+          if (multiProducts.length > 0) {
+            // Convert to EnhancedProduct format
+            const enhancedProducts: EnhancedProduct[] = multiProducts.map(p => ({
+              name: p.name || '',
+              quantity: p.quantity || 1,
+              unit: p.unit || 'piece',
+              position: p.position || 'General Storage',
+              price: p.price || undefined,
+              confidence: 1.0
+            }));
+            
+            setProducts(enhancedProducts);
+            
+            // Extract general location if available
+            if (multiProducts[0].position) {
+              setDetectedLocation(multiProducts[0].position);
+            }
+            
+            setNeedsClarification(false);
+            
+            // Pass the structured data back to the parent component
+            if (onCommand && enhancedProducts.length > 0) {
+              onCommand(command, enhancedProducts);
+            }
+          } else {
+            toast.warning("Could not identify products in the command");
+          }
         } else {
-          setNeedsClarification(false);
-        }
-        
-        // Pass the structured data back to the parent component
-        if (onCommand && result.products.length > 0) {
-          onCommand(command, result.products);
+          // Parse the command with our enhanced parser for single product
+          const result = parseEnhancedVoiceCommand(command, productList);
+          
+          setProducts(result.products);
+          setDetectedLocation(result.detectedLocation);
+          
+          if (result.needsClarification) {
+            setNeedsClarification(true);
+            setClarificationOptions(result.clarificationOptions || []);
+            toast.info(result.clarificationQuestion || "Did you mean one of these?");
+          } else {
+            setNeedsClarification(false);
+          }
+          
+          // Pass the structured data back to the parent component
+          if (onCommand && result.products.length > 0) {
+            onCommand(command, result.products);
+          }
         }
       } else if (intent !== CommandIntent.UNKNOWN) {
         toast.info(`Detected command intent: ${intent}`);
@@ -223,7 +260,7 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
                 {product.expiry && (
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="h-4 w-4 text-blue-500" />
-                    <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(product.expiry, 'dd MMM yyyy')}</span>
+                    <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(new Date(product.expiry), 'dd MMM yyyy')}</span>
                   </div>
                 )}
                 
@@ -256,8 +293,8 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
             <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
             <p>Click "Start Voice Command" to add products with voice</p>
             <p className="text-sm mt-2">Try saying:</p>
-            <p className="text-xs mt-1 font-medium">"Add 5 kg basmati rice from the top shelf expiring next month"</p>
-            <p className="text-xs mt-1 font-medium">"Add 2 liters milk from the fridge and 3 loaves of bread"</p>
+            <p className="text-xs mt-1 font-medium">"Add 5 kg rice, 3 kg sugar, and 2 liters milk"</p>
+            <p className="text-xs mt-1 font-medium">"Add 2 packets biscuits from rack 3"</p>
           </div>
         )}
       </CardContent>
