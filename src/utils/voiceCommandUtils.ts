@@ -29,6 +29,15 @@ const PRODUCT_LOCATIONS = {
   'snack': 'Shelf 2'
 };
 
+// Voice command types for billing
+export const VOICE_COMMAND_TYPES = {
+  CREATE_BILL: 'create_bill',
+  ADD_PRODUCT: 'add_product',
+  REMOVE_PRODUCT: 'remove_product',
+  SEARCH_PRODUCT: 'search_product',
+  UNKNOWN: 'unknown'
+};
+
 /**
  * Validate product details
  */
@@ -175,7 +184,7 @@ export const parseMultipleProducts = (command: string, productList: { name: stri
 /**
  * Normalize unit name to standard format
  */
-function normalizeUnit(unit: string): string {
+export const normalizeUnit = (unit: string): string => {
   const lowerUnit = unit.toLowerCase();
   
   // Common unit mappings
@@ -216,4 +225,112 @@ function normalizeUnit(unit: string): string {
   };
   
   return unitMap[lowerUnit] || unit;
-}
+};
+
+// Additional functions needed by other files:
+
+/**
+ * Extract bill items from a voice command
+ */
+export const extractBillItems = (command: string) => {
+  // We'll use our existing parser and convert the result to the format expected by BillingDialog
+  const products = parseMultipleProducts(command);
+  return products.map(product => ({
+    name: product.name,
+    quantity: product.quantity
+  }));
+};
+
+/**
+ * Process billing voice command
+ */
+export const processBillingVoiceCommand = (command: string) => {
+  const commandType = detectCommandType(command);
+  return {
+    type: commandType.type,
+    items: extractBillItems(command)
+  };
+};
+
+/**
+ * Detect command type
+ */
+export const detectCommandType = (command: string) => {
+  const lowerCommand = command.toLowerCase();
+  
+  // Check for billing patterns
+  if (/bill|invoice|checkout|receipt|payment|total|calculate|finalize|complete|sale|purchase/i.test(lowerCommand)) {
+    return {
+      type: VOICE_COMMAND_TYPES.CREATE_BILL,
+      data: {
+        items: extractBillItems(command)
+      }
+    };
+  }
+  
+  // Check for add product patterns
+  if (/add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock/i.test(lowerCommand)) {
+    return {
+      type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
+      data: {
+        items: extractBillItems(command)
+      }
+    };
+  }
+  
+  // Check for remove product patterns
+  if (/remove|delete|take out|eliminate|get rid|discard|cancel|dispose|trash|erase/i.test(lowerCommand)) {
+    return {
+      type: VOICE_COMMAND_TYPES.REMOVE_PRODUCT,
+      data: {
+        items: extractBillItems(command)
+      }
+    };
+  }
+  
+  // Check for search product patterns
+  if (/search|find|look for|locate|where is|show me|check|query|get|fetch/i.test(lowerCommand)) {
+    return {
+      type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
+      data: {
+        items: extractBillItems(command)
+      }
+    };
+  }
+  
+  // Default to unknown
+  return {
+    type: VOICE_COMMAND_TYPES.UNKNOWN,
+    data: null
+  };
+};
+
+/**
+ * Extract product details from a voice command
+ * This function is used by AddProduct.tsx and tests
+ */
+export const extractProductDetails = (command: string) => {
+  const products = parseMultipleProducts(command);
+  return products.length > 0 ? products[0] : null;
+};
+
+/**
+ * Identify shelves from a voice command
+ * This function is used by RackMapping.tsx
+ */
+export const identifyShelves = (command: string) => {
+  const shelfMatch = command.match(/(rack|shelf|section|aisle|row|cabinet|drawer|bin|box|fridge|storage|counter)\s*(\d+|[a-z])/i);
+  
+  if (shelfMatch) {
+    const shelfType = shelfMatch[1].charAt(0).toUpperCase() + shelfMatch[1].slice(1).toLowerCase();
+    const shelfNumber = shelfMatch[2];
+    
+    return {
+      type: shelfType,
+      number: shelfNumber,
+      label: `${shelfType} ${shelfNumber}`
+    };
+  }
+  
+  return null;
+};

@@ -12,7 +12,9 @@ export enum CommandIntent {
   SEARCH_PRODUCT = "SEARCH_PRODUCT",
   UPDATE_PRODUCT = "UPDATE_PRODUCT",
   CREATE_BILL = "CREATE_BILL",
+  GENERATE_BILL = "GENERATE_BILL", // Added for backward compatibility
   DELETE_PRODUCT = "DELETE_PRODUCT",
+  REMOVE_PRODUCT = "REMOVE_PRODUCT", // Added for backward compatibility
   SHOW_INVENTORY = "SHOW_INVENTORY",
   CALCULATE_TOTAL = "CALCULATE_TOTAL",
   UNKNOWN = "UNKNOWN"
@@ -35,7 +37,15 @@ const intentKeywords = {
     "remove", "delete", "take out", "eliminate", "get rid", "discard", "cancel",
     "dispose", "trash", "erase"
   ],
+  [CommandIntent.REMOVE_PRODUCT]: [
+    "remove", "delete", "take out", "eliminate", "get rid", "discard", "cancel",
+    "dispose", "trash", "erase"
+  ],
   [CommandIntent.CREATE_BILL]: [
+    "bill", "invoice", "checkout", "receipt", "payment", "total", "calculate",
+    "finalize", "complete", "sale", "purchase"
+  ],
+  [CommandIntent.GENERATE_BILL]: [
     "bill", "invoice", "checkout", "receipt", "payment", "total", "calculate",
     "finalize", "complete", "sale", "purchase"
   ],
@@ -104,12 +114,14 @@ export const getCommandExamples = (intent: CommandIntent): string[] => {
         "Modify sugar location to shelf 3"
       ];
     case CommandIntent.DELETE_PRODUCT:
+    case CommandIntent.REMOVE_PRODUCT:
       return [
         "Remove rice",
         "Delete expired milk",
         "Take out old bread"
       ];
     case CommandIntent.CREATE_BILL:
+    case CommandIntent.GENERATE_BILL:
       return [
         "Create bill",
         "Generate invoice",
