@@ -42,7 +42,7 @@ export default function VoiceCommandButton({
       }
       
       // Initialize speech recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
       const recognition = new SpeechRecognition();
       
       recognition.lang = 'en-US';
@@ -50,6 +50,7 @@ export default function VoiceCommandButton({
       recognition.interimResults = false;
       
       recognition.onresult = (event) => {
+        // Safely extract the transcript without directly rendering the event object
         const transcript = event.results[0][0].transcript;
         setText(transcript);
         setProcessing(true);
@@ -86,7 +87,7 @@ export default function VoiceCommandButton({
     <div className={`${className}`}>
       <Button
         variant={variant}
-        onClick={startListening}
+        onClick={() => startListening()}  // Wrap in function to avoid event object issues
         disabled={isListening || processing}
         size={size}
         className="relative flex items-center gap-2"

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 
 interface VoiceCommandPopupProps {
-  result: CommandResult;
+  result: CommandResult | null;
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
@@ -32,6 +32,29 @@ export default function VoiceCommandPopup({
   productList,
   onCommand
 }: VoiceCommandPopupProps) {
+  const [locations, setLocations] = useState<Record<number, string>>({});
+
+  const updateLocation = (index: number, location: string) => {
+    setLocations(prev => ({
+      ...prev,
+      [index]: location
+    }));
+    
+    // Update the multiProducts array if it exists
+    if (multiProducts && multiProducts[index]) {
+      multiProducts[index].position = location;
+    }
+  };
+
+  const allLocationsProvided = () => {
+    if (!multiProductMode || multiProducts.length === 0) return true;
+    
+    return multiProducts.every((p, index) => {
+      return (locations[index] && locations[index].trim() !== '') || 
+             (p.position && p.position.trim() !== '' && p.position !== 'General Storage');
+    });
+  };
+
   return (
     <Dialog open={true} onOpenChange={() => onCancel()}>
       <DialogContent className="sm:max-w-md">
@@ -50,24 +73,35 @@ export default function VoiceCommandPopup({
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
               {multiProducts.map((product, index) => (
                 <Card key={index} className="overflow-hidden">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="h-12 w-12 bg-muted rounded-md flex items-center justify-center">
-                      <PackageIcon className="h-6 w-6 text-muted-foreground" />
+                  <CardContent className="p-3 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 bg-muted rounded-md flex items-center justify-center">
+                        <PackageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{product.name}</div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>
+                            Quantity: {product.quantity} {product.unit || 'piece'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{product.name}</div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          Quantity: {product.quantity} {product.unit}
-                        </span>
-                        {product.position && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{product.position}</span>
-                          </div>
-                        )}
-                      </div>
+                    <div>
+                      <label htmlFor={`location-${index}`} className="block text-sm font-medium mb-1">
+                        Location*
+                      </label>
+                      <Input
+                        id={`location-${index}`}
+                        type="text"
+                        value={locations[index] || product.position || ''}
+                        onChange={(e) => updateLocation(index, e.target.value)}
+                        placeholder="e.g., Shelf 3, Rack 2"
+                        className="w-full"
+                        required
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -132,16 +166,21 @@ export default function VoiceCommandPopup({
             </div>
           )}
           
-          <div className="text-xs text-muted-foreground mt-4">
-            <p>Heard: <span className="italic">"{result?.rawText}"</span></p>
-          </div>
+          {result?.rawText && (
+            <div className="text-xs text-muted-foreground mt-4">
+              <p>Heard: <span className="italic">"{result.rawText}"</span></p>
+            </div>
+          )}
         </div>
         
         <DialogFooter className="flex sm:justify-between gap-2">
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={loading}>
+          <Button 
+            onClick={onConfirm} 
+            disabled={loading || (multiProductMode && !allLocationsProvided())}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
