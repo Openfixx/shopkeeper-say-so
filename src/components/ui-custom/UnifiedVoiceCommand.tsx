@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { toast } from 'sonner';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
-import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
+import { parseMultipleProducts, VoiceProduct } from '@/utils/voiceCommandUtils';
 import VoiceCommandPopup from './VoiceCommandPopup';
 import { CommandResult } from '@/lib/voice';
 import { useInventory } from '@/context/InventoryContext';
@@ -23,7 +24,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
   const [processing, setProcessing] = useState(false);
   const [processedText, setProcessedText] = useState('');
   const [extractedProduct, setExtractedProduct] = useState<{name: string, quantity?: number, unit?: string} | null>(null);
-  const [extractedProducts, setExtractedProducts] = useState<MultiProduct[]>([]);
+  const [extractedProducts, setExtractedProducts] = useState<VoiceProduct[]>([]);
   const [waveformActive, setWaveformActive] = useState(false);
   const [isMultiCommand, setIsMultiCommand] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
@@ -42,57 +43,33 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
       setTimeout(() => {
         const rawText = result.rawText;
         setProcessedText(rawText);
+        console.log('Raw voice input:', rawText);
         
-        // Check if it's a multi-product command
-        const isMulti = rawText.includes(',') || /\\band\\b/i.test(rawText);
-        setIsMultiCommand(isMulti);
+        // Process multi-product commands
+        const productNames = products.map(p => ({ name: p.name }));
+        const parsedProducts = parseMultipleProducts(rawText, productNames);
         
-        if (isMulti) {
-          // Use the multi-product parser
-          const productNames = products.map(p => ({ name: p.name }));
-          const parsedProducts = parseMultiProductCommand(rawText, productNames);
-          setExtractedProducts(parsedProducts);
-          
-          // For UI display, use the first product and update the commandResult
-          if (parsedProducts.length > 0) {
-            const firstProduct = parsedProducts[0];
-            setExtractedProduct({
-              name: firstProduct.name,
-              quantity: firstProduct.quantity,
-              unit: firstProduct.unit
-            });
-            
-            // Update the commandResult with the first product info
-            if (result && parsedProducts[0]) {
-              result.productName = parsedProducts[0].name;
-              result.quantity = { 
-                value: parsedProducts[0].quantity || 1, 
-                unit: parsedProducts[0].unit || 'unit' 
-              };
-              result.position = parsedProducts[0].position || '';
-              if (parsedProducts[0].price !== undefined) {
-                result.price = parsedProducts[0].price;
-              }
-            }
-          }
-        } else {
-          // Process as single product command - extract clean product name
-          const cleanProductName = rawText
-            .replace(/^(add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload)\s+/i, '')
-            .replace(/^\d+(\.\d+)?\s+(kg|g|ml|l|litre|litres|liter|liters|pack|packs|piece|pieces|pcs|units?|boxes|box|dozen|carton|bag|bags|bottle|bottles)\s+/i, '')
-            .replace(/\s+(at|in|on)\s+(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s+\d+/i, '')
-            .replace(/\s+(for|at|price|cost)\s+(\d+|₹\d+|rs\d+)/i, '')
-            .trim();
-          
+        console.log('Parsed products:', parsedProducts);
+        setExtractedProducts(parsedProducts);
+        setIsMultiCommand(parsedProducts.length > 1);
+        
+        // For UI display and single-product workflow, use the first product
+        if (parsedProducts.length > 0) {
+          const firstProduct = parsedProducts[0];
           setExtractedProduct({
-            name: cleanProductName,
-            quantity: result.quantity?.value,
-            unit: result.quantity?.unit
+            name: firstProduct.name,
+            quantity: firstProduct.quantity,
+            unit: firstProduct.unit
           });
           
-          // Update the productName in the result
+          // Update the commandResult with the first product info
           if (result) {
-            result.productName = cleanProductName;
+            result.productName = firstProduct.name;
+            result.quantity = { 
+              value: firstProduct.quantity || 1, 
+              unit: firstProduct.unit || 'unit' 
+            };
+            result.position = firstProduct.position || '';
           }
         }
         
@@ -113,51 +90,72 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     setIsAddingToInventory(true);
     
     try {
-      // Add all products with a delay
       let addedCount = 0;
+      const errors = [];
       
+      console.log('Adding multiple products:', extractedProducts);
+      
+      // Add all products with a small delay between each to ensure proper state updates
       for (const [index, product] of extractedProducts.entries()) {
         try {
-          setTimeout(async () => {
-            const productData = {
-              name: product.name,
-              quantity: product.quantity || 1,
-              unit: product.unit || 'unit',
-              price: product.price || 0,
-              position: product.position || 'Default', 
-              image_url: ''
-            };
-            
-            // Add to in-memory state
-            addProduct(productData);
-            
-            // Also save directly to Supabase
-            try {
-              await supabase
-                .from('inventory')
-                .insert({
-                  product_name: product.name,
-                  quantity: product.quantity || 1,
-                  price: product.price || 0,
-                  image_url: '',
-                  hindi_name: ''
-                });
-            } catch (supabaseError) {
-              console.error("Supabase save error:", supabaseError);
-            }
-            
-            addedCount++;
-            if (addedCount === extractedProducts.length) {
-              toast.success(`Added ${addedCount} products to inventory`);
-              setIsAddingToInventory(false);
-              setShowPopup(false);
-              reset();
-            }
-          }, index * 800);
+          await new Promise<void>((resolve) => {
+            setTimeout(async () => {
+              const productData = {
+                name: product.name,
+                quantity: product.quantity || 1,
+                unit: product.unit || 'unit',
+                price: product.price || 0,
+                position: product.position || 'Default', 
+                image_url: ''
+              };
+              
+              console.log(`Adding product ${index + 1}:`, productData);
+              
+              // Add to in-memory state
+              addProduct(productData);
+              
+              // Try to save to Supabase
+              try {
+                const { error } = await supabase
+                  .from('inventory')
+                  .insert({
+                    product_name: product.name,
+                    quantity: product.quantity || 1,
+                    price: product.price || 0,
+                    image_url: ''
+                  });
+                
+                if (error) {
+                  console.error(`Supabase error for product ${product.name}:`, error);
+                  errors.push(`${product.name}: ${error.message}`);
+                }
+              } catch (supabaseError) {
+                console.error(`Supabase save error for ${product.name}:`, supabaseError);
+                errors.push(product.name);
+              }
+              
+              addedCount++;
+              resolve();
+            }, index * 400); // Reduced delay for better UX
+          });
         } catch (productError) {
           console.error("Error adding product:", productError);
+          errors.push(product.name);
         }
       }
+      
+      // Show success/error message based on results
+      if (errors.length === 0) {
+        toast.success(`Added ${addedCount} products to inventory`);
+      } else if (errors.length < extractedProducts.length) {
+        toast.warning(`Added ${addedCount} products, but failed to save ${errors.length} to the database`);
+      } else {
+        toast.error("Failed to add products to the database, but added to local inventory");
+      }
+      
+      setIsAddingToInventory(false);
+      setShowPopup(false);
+      reset();
     } catch (error) {
       toast.error("Failed to add products.");
       console.error("Error adding products:", error);
@@ -176,7 +174,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
       if (isMultiCommand) {
         handleAddMultiProducts();
       } else {
-        // Prepare product data
+        // For single product case
         const productData = {
           name: commandResult.productName || 'Unknown Product',
           quantity: commandResult.quantity?.value || 1,
@@ -186,25 +184,31 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           image_url: commandResult.imageUrl || ''
         };
         
+        console.log('Adding single product:', productData);
+        
         // Add to in-memory state
         addProduct(productData);
         
-        // Also save directly to Supabase
+        // Try to save to Supabase
         try {
-          await supabase
+          const { error } = await supabase
             .from('inventory')
             .insert({
               product_name: productData.name,
               quantity: productData.quantity,
               price: productData.price || 0,
-              image_url: productData.image_url || '',
-              hindi_name: ''
+              image_url: productData.image_url || ''
             });
             
-          toast.success(`Added ${productData.name} to inventory and saved to database`);
+          if (error) {
+            console.error("Supabase insertion error:", error);
+            toast.warning(`Product added locally but not saved to database: ${error.message}`);
+          } else {
+            toast.success(`Added ${productData.name} to inventory`);
+          }
         } catch (supabaseError) {
           console.error("Supabase save error:", supabaseError);
-          toast.error("Failed to save to database, but added locally");
+          toast.warning("Product added locally but not saved to database");
         }
         
         setIsAddingToInventory(false);
@@ -286,12 +290,15 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
             onConfirm={handleConfirmProduct}
             onCancel={handleCancelProduct}
             loading={isAddingToInventory}
+            multiProductMode={isMultiCommand}
+            multiProducts={extractedProducts}
           />
         )}
       </div>
     );
   }
 
+  // Full version for main screens
   return (
     <div className={`relative ${className}`}>
       <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-violet-500/10 to-indigo-500/10 backdrop-blur-md">
@@ -349,6 +356,8 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           onConfirm={handleConfirmProduct}
           onCancel={handleCancelProduct}
           loading={isAddingToInventory}
+          multiProductMode={isMultiCommand}
+          multiProducts={extractedProducts}
         />
       )}
     </div>

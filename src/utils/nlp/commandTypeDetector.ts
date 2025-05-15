@@ -1,146 +1,128 @@
 
 /**
- * Command Intent Detector
+ * Command Type Detection
  * 
- * This module provides functionality to detect the intent of voice commands
- * in the context of an inventory/shop management system.
+ * This module detects the intent of voice commands, such as adding products,
+ * searching, creating bills, etc.
  */
 
-/**
- * Enumeration of possible command intents
- */
+// Define the command intent types
 export enum CommandIntent {
-  ADD_PRODUCT = "add_product",
-  UPDATE_PRODUCT = "update_product",
-  REMOVE_PRODUCT = "remove_product",
-  DELETE_PRODUCT = "delete_product",
-  SEARCH_PRODUCT = "search_product",
-  VIEW_INVENTORY = "view_inventory",
-  GENERATE_BILL = "generate_bill",
-  CREATE_BILL = "create_bill",
-  FIND_LOCATION = "find_location",
-  SET_EXPIRY = "set_expiry",
-  SET_PRICE = "set_price",
-  UNKNOWN = "unknown"
+  ADD_PRODUCT = "ADD_PRODUCT",
+  SEARCH_PRODUCT = "SEARCH_PRODUCT",
+  UPDATE_PRODUCT = "UPDATE_PRODUCT",
+  CREATE_BILL = "CREATE_BILL",
+  DELETE_PRODUCT = "DELETE_PRODUCT",
+  SHOW_INVENTORY = "SHOW_INVENTORY",
+  CALCULATE_TOTAL = "CALCULATE_TOTAL",
+  UNKNOWN = "UNKNOWN"
 }
 
-// Intent detection patterns
-const INTENT_PATTERNS = {
-  ADD_PRODUCT: /(add|put|need|place|insert|register|record|upload|stock)\s.*?\d+|^\d+\s+(kg|g|ml|l|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen|dozens)/i,
-  UPDATE_PRODUCT: /(update|modify|change|edit|revise)\b/i,
-  REMOVE_PRODUCT: /(remove|delete|discard|dispose|trash|eliminate|take out|get rid)\b/i,
-  SEARCH_PRODUCT: /(search|find|look for|locate|where is|show)\b/i,
-  VIEW_INVENTORY: /(list|show|display|view|all|inventory|products|items|goods)\b/i,
-  GENERATE_BILL: /(bill|invoice|receipt|checkout|total|charge|payment|transaction|total so far|what's my total)\b/i
+// Keywords for each intent
+const intentKeywords = {
+  [CommandIntent.ADD_PRODUCT]: [
+    "add", "create", "insert", "put", "register", "include", "log", "record",
+    "enter", "save", "store", "place", "set up", "new", "make", "bring", "stock"
+  ],
+  [CommandIntent.SEARCH_PRODUCT]: [
+    "search", "find", "look for", "locate", "where is", "show me", "check",
+    "query", "get", "fetch"
+  ],
+  [CommandIntent.UPDATE_PRODUCT]: [
+    "update", "modify", "change", "edit", "alter", "adjust", "revise", "amend"
+  ],
+  [CommandIntent.DELETE_PRODUCT]: [
+    "remove", "delete", "take out", "eliminate", "get rid", "discard", "cancel",
+    "dispose", "trash", "erase"
+  ],
+  [CommandIntent.CREATE_BILL]: [
+    "bill", "invoice", "checkout", "receipt", "payment", "total", "calculate",
+    "finalize", "complete", "sale", "purchase"
+  ],
+  [CommandIntent.SHOW_INVENTORY]: [
+    "inventory", "show all", "list", "display", "view", "see", "all products",
+    "stock", "items"
+  ],
+  [CommandIntent.CALCULATE_TOTAL]: [
+    "total", "sum", "amount", "value", "price", "cost", "calculate", "add up"
+  ]
 };
 
 /**
- * Detects the intent of a voice command
- * 
- * @param {string} command - The voice command text to analyze
- * @returns {CommandIntent} The detected intent
+ * Detect command intent from a given text
+ * @param command - The command text to analyze
+ * @returns The detected CommandIntent
  */
-export function detectCommandIntent(command: string): CommandIntent {
+export const detectCommandIntent = (command: string): CommandIntent => {
   const lowerCommand = command.toLowerCase();
   
-  // ADD_PRODUCT intent detection with expanded patterns
-  if (
-    INTENT_PATTERNS.ADD_PRODUCT.test(lowerCommand) ||
-    /\bneed\s+\d+/i.test(lowerCommand) ||
-    /^\d+\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles)/i.test(lowerCommand)
-  ) {
+  // Check each intent by looking for keywords
+  for (const [intent, keywords] of Object.entries(intentKeywords)) {
+    for (const keyword of keywords) {
+      // Match whole words only
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      if (regex.test(lowerCommand)) {
+        return intent as CommandIntent;
+      }
+    }
+  }
+  
+  // Special case for ADD_PRODUCT: if there's a quantity pattern, it's likely adding products
+  const hasQuantityPattern = /\b\d+\s*(kg|g|l|ml|pcs|piece|box|packet|bottle)\b/i.test(lowerCommand);
+  if (hasQuantityPattern) {
     return CommandIntent.ADD_PRODUCT;
   }
   
-  // UPDATE_PRODUCT intent detection
-  if (INTENT_PATTERNS.UPDATE_PRODUCT.test(lowerCommand)) {
-    return CommandIntent.UPDATE_PRODUCT;
-  }
-  
-  // REMOVE_PRODUCT intent detection
-  if (INTENT_PATTERNS.REMOVE_PRODUCT.test(lowerCommand)) {
-    return CommandIntent.REMOVE_PRODUCT;
-  }
-  
-  // SEARCH_PRODUCT intent detection
-  if (INTENT_PATTERNS.SEARCH_PRODUCT.test(lowerCommand)) {
-    return CommandIntent.SEARCH_PRODUCT;
-  }
-  
-  // VIEW_INVENTORY intent detection
-  if (INTENT_PATTERNS.VIEW_INVENTORY.test(lowerCommand)) {
-    return CommandIntent.VIEW_INVENTORY;
-  }
-  
-  // GENERATE_BILL intent detection with expanded patterns
-  if (INTENT_PATTERNS.GENERATE_BILL.test(lowerCommand)) {
-    return CommandIntent.GENERATE_BILL;
-  }
-  
-  // FIND_LOCATION intent detection
-  if (
-    /\b(where|location|place|position|shelf|rack|aisle|row|section|store)\b/i.test(lowerCommand) &&
-    !lowerCommand.includes("add") && 
-    !lowerCommand.includes("put")
-  ) {
-    return CommandIntent.FIND_LOCATION;
-  }
-  
-  // SET_EXPIRY intent detection
-  if (/\b(expiry|expire|expiration|use by|best before)\b/i.test(lowerCommand)) {
-    return CommandIntent.SET_EXPIRY;
-  }
-  
-  // SET_PRICE intent detection
-  if (/\b(price|cost|worth|value|rate)\b/i.test(lowerCommand)) {
-    return CommandIntent.SET_PRICE;
-  }
-  
-  // Default to unknown if no intent is matched
   return CommandIntent.UNKNOWN;
-}
+};
 
 /**
- * Get additional details about a detected command
- * based on the intent type
- * 
- * @param {string} command - The original command text
- * @param {CommandIntent} intent - The detected intent
- * @returns {object} Additional details specific to the intent
+ * Get suggested command examples for a specific intent
+ * @param intent - The CommandIntent to get examples for
+ * @returns Array of example commands
  */
-export function getCommandDetails(command: string, intent: CommandIntent): any {
-  const lowerCommand = command.toLowerCase();
-  
+export const getCommandExamples = (intent: CommandIntent): string[] => {
   switch (intent) {
     case CommandIntent.ADD_PRODUCT:
-      // Extract product quantity and name
-      const quantityMatch = lowerCommand.match(/(\d+)\s+(kg|g|l|ml|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units|dozen)/i);
-      const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
-      
-      // Try to extract product name after the quantity and unit
-      let productName = "";
-      if (quantityMatch) {
-        const afterQuantity = lowerCommand.substring(lowerCommand.indexOf(quantityMatch[0]) + quantityMatch[0].length);
-        const nameMatch = afterQuantity.match(/\s+(?:of\s+)?([a-zA-Z\s]+)(?:\s+(?:to|on|in|for|at|price|₹|\d)|\s*$)/i);
-        if (nameMatch && nameMatch[1]) {
-          productName = nameMatch[1].trim();
-        }
-      }
-      
-      return { quantity, productName };
-      
+      return [
+        "Add 5 kg rice",
+        "Add 2 bottles of oil and 3 packets of biscuits",
+        "Put 3 kg sugar on rack 2",
+        "Add 10 apples and 5 bananas in fridge"
+      ];
     case CommandIntent.SEARCH_PRODUCT:
-      // Extract the search term
-      const searchMatch = lowerCommand.match(/(?:search|find|look for|where is|show)\s+(?:for\s+)?(.+?)(?:\s+in|\s+on|\s+at|$)/i);
-      return { searchTerm: searchMatch ? searchMatch[1].trim() : "" };
-      
-    case CommandIntent.GENERATE_BILL:
+      return [
+        "Find sugar",
+        "Where is rice",
+        "Search for milk",
+        "Locate apples"
+      ];
+    case CommandIntent.UPDATE_PRODUCT:
+      return [
+        "Update rice quantity to 10 kg",
+        "Change oil price to 120",
+        "Modify sugar location to shelf 3"
+      ];
+    case CommandIntent.DELETE_PRODUCT:
+      return [
+        "Remove rice",
+        "Delete expired milk",
+        "Take out old bread"
+      ];
     case CommandIntent.CREATE_BILL:
-      // Check if there are specific products mentioned for the bill
-      const hasProducts = /\b(?:for|with)\s+([a-zA-Z\s,]+)(?:\s+and|\s*$)/i.test(lowerCommand);
-      return { hasProducts };
-      
+      return [
+        "Create bill",
+        "Generate invoice",
+        "Checkout items",
+        "Complete sale"
+      ];
+    case CommandIntent.SHOW_INVENTORY:
+      return [
+        "Show inventory",
+        "List all products",
+        "View stock"
+      ];
     default:
-      return {};
+      return ["Try saying 'Add 5 kg rice'"];
   }
-}
+};

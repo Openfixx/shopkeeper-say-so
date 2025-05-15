@@ -7,8 +7,8 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
-import { parseEnhancedVoiceCommand, EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { parseMultipleProducts, VoiceProduct } from '@/utils/voiceCommandUtils';
 import { format } from 'date-fns';
 
 interface VoiceInputWithLocationProps {
@@ -78,60 +78,40 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
       // Detect command intent
       const intent = detectCommandIntent(command);
       
+      // Check if it's an ADD_PRODUCT intent
       if (intent === CommandIntent.ADD_PRODUCT) {
-        // Check if command has multiple products (using commas or "and")
-        const isMultiProduct = command.includes(',') || /\s+and\s+/i.test(command);
+        console.log('Processing ADD_PRODUCT command:', command);
         
-        if (isMultiProduct) {
-          // Use multi-product parser
-          const multiProducts = parseMultiProductCommand(command, productList);
+        // Use our multi-product parser
+        const parsedProducts = parseMultipleProducts(command, productList);
+        console.log('Parsed products:', parsedProducts);
+        
+        if (parsedProducts.length > 0) {
+          // Convert to EnhancedProduct format for consistency with the rest of the app
+          const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
+            name: p.name || '',
+            quantity: p.quantity || 1,
+            unit: p.unit || 'piece',
+            position: p.position || 'General Storage',
+            price: p.price || undefined,
+            confidence: 1.0
+          }));
           
-          if (multiProducts.length > 0) {
-            // Convert to EnhancedProduct format
-            const enhancedProducts: EnhancedProduct[] = multiProducts.map(p => ({
-              name: p.name || '',
-              quantity: p.quantity || 1,
-              unit: p.unit || 'piece',
-              position: p.position || 'General Storage',
-              price: p.price || undefined,
-              confidence: 1.0
-            }));
-            
-            setProducts(enhancedProducts);
-            
-            // Extract general location if available
-            if (multiProducts[0].position) {
-              setDetectedLocation(multiProducts[0].position);
-            }
-            
-            setNeedsClarification(false);
-            
-            // Pass the structured data back to the parent component
-            if (onCommand && enhancedProducts.length > 0) {
-              onCommand(command, enhancedProducts);
-            }
-          } else {
-            toast.warning("Could not identify products in the command");
+          setProducts(enhancedProducts);
+          
+          // Extract general location if available from the first product
+          if (parsedProducts[0]?.position) {
+            setDetectedLocation(parsedProducts[0].position);
           }
-        } else {
-          // Parse the command with our enhanced parser for single product
-          const result = parseEnhancedVoiceCommand(command, productList);
           
-          setProducts(result.products);
-          setDetectedLocation(result.detectedLocation);
-          
-          if (result.needsClarification) {
-            setNeedsClarification(true);
-            setClarificationOptions(result.clarificationOptions || []);
-            toast.info(result.clarificationQuestion || "Did you mean one of these?");
-          } else {
-            setNeedsClarification(false);
-          }
+          setNeedsClarification(false);
           
           // Pass the structured data back to the parent component
-          if (onCommand && result.products.length > 0) {
-            onCommand(command, result.products);
+          if (onCommand && enhancedProducts.length > 0) {
+            onCommand(command, enhancedProducts);
           }
+        } else {
+          toast.warning("Could not identify products in the command");
         }
       } else if (intent !== CommandIntent.UNKNOWN) {
         toast.info(`Detected command intent: ${intent}`);

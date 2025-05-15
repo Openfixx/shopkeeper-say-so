@@ -12,6 +12,7 @@ export interface InventoryItem {
   expiry_date?: string;
   image_url?: string;
   created_at: string;
+  user_id?: string;
 }
 
 // 1. Add new product (with image caching)
@@ -19,6 +20,9 @@ export const addProduct = async (
   name: string, 
   imageFile: File
 ): Promise<Product> => {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
   // Upload image to storage
   const fileName = `${name}-${Date.now()}.jpg`;
   const { data: uploadData, error: uploadError } = await supabase.storage
@@ -37,7 +41,8 @@ export const addProduct = async (
     .from('products')
     .insert({ 
       name: name.toLowerCase(), 
-      image_url: urlData.publicUrl 
+      image_url: urlData.publicUrl,
+      user_id: user?.id // Add user_id for RLS
     })
     .select()
     .single();
@@ -60,20 +65,33 @@ export const addProduct = async (
     created_at: data?.created_at || now,
     createdAt: data?.created_at || now,
     updatedAt: now, // Use the current timestamp instead of trying to access data.updated_at
-    userId: 'demo-user', // Default user ID
+    userId: user?.id || 'demo-user', // Use actual user ID or fallback
   };
 };
 
 // 2. Add inventory item
 export const addInventoryItem = async (
-  item: Omit<InventoryItem, 'id' | 'created_at'>
+  item: Omit<InventoryItem, 'id' | 'created_at' | 'user_id'>
 ) => {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Add user_id to the item
+  const itemWithUser = {
+    ...item,
+    user_id: user?.id
+  };
+
   const { data, error } = await supabase
     .from('inventory')
-    .insert(item)
+    .insert(itemWithUser)
     .select();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error adding inventory item:', error);
+    throw error;
+  }
+  
   return data[0];
 };
 
@@ -103,4 +121,36 @@ export const generateBill = (items: { name: string; price: number }[]) => {
     items: billItems,
     total
   };
+};
+
+// 5. Add multiple products at once
+export const addMultipleProducts = async (products: Array<{
+  product_name: string;
+  quantity: number;
+  price: number;
+  image_url?: string;
+  hindi_name?: string;
+  expiry_date?: string;
+}>) => {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Add user_id to each product
+  const productsWithUser = products.map(product => ({
+    ...product,
+    user_id: user?.id
+  }));
+  
+  // Insert all products in a single request
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert(productsWithUser)
+    .select();
+  
+  if (error) {
+    console.error('Error adding multiple products:', error);
+    throw error;
+  }
+  
+  return data;
 };

@@ -5,7 +5,11 @@ import { CommandResult } from '@/lib/voice';
 import { toast } from '@/hooks/use-toast';
 import VoiceCommandConfirmation from './VoiceCommandConfirmation';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
+import { VoiceProduct } from '@/utils/voiceCommandUtils';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Box, MapPin, Tag } from 'lucide-react';
 
 interface VoiceCommandPopupProps {
   result: CommandResult | null;
@@ -14,6 +18,8 @@ interface VoiceCommandPopupProps {
   loading?: boolean;
   onCommand?: (command: string, products: EnhancedProduct[]) => void;
   productList?: { name: string }[];
+  multiProductMode?: boolean;
+  multiProducts?: VoiceProduct[];
 }
 
 const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
@@ -22,28 +28,40 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   onCancel,
   loading = false,
   onCommand,
-  productList = []
+  productList = [],
+  multiProductMode = false,
+  multiProducts = []
 }) => {
   const [open, setOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [command, setCommand] = useState('');
+  const [showMultiProductDialog, setShowMultiProductDialog] = useState(false);
   
   useEffect(() => {
     if (result) {
       setOpen(true);
+      
+      if (multiProductMode && multiProducts && multiProducts.length > 1) {
+        setShowMultiProductDialog(true);
+      } else {
+        setShowMultiProductDialog(false);
+      }
     } else {
       setOpen(false);
+      setShowMultiProductDialog(false);
     }
-  }, [result]);
+  }, [result, multiProductMode, multiProducts]);
   
   const handleConfirm = (location: string) => {
     onConfirm(location);
     setOpen(false);
+    setShowMultiProductDialog(false);
   };
   
   const handleCancel = () => {
     onCancel();
     setOpen(false);
+    setShowMultiProductDialog(false);
   };
 
   const handleListen = async () => {
@@ -80,46 +98,10 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
         const transcript = event.results[0][0].transcript;
         setCommand(transcript);
         
-        // Process the command to extract products
-        const isMultiProduct = transcript.includes(',') || /\s+and\s+/i.test(transcript);
-        
-        try {
-          // Parse multi-product command
-          const parsed = parseMultiProductCommand(transcript, productList);
-          
-          // Convert to EnhancedProduct format for consistency
-          const enhancedProducts: EnhancedProduct[] = parsed.map(p => ({
-            name: p.name,
-            quantity: p.quantity,
-            unit: p.unit,
-            position: p.position,
-            price: p.price,
-            confidence: 1.0
-          }));
-          
-          // Pass to parent component
-          if (onCommand && enhancedProducts.length > 0) {
-            onCommand(transcript, enhancedProducts);
-            
-            toast({
-              title: "Success",
-              description: `Processed ${enhancedProducts.length} product(s) from your command`,
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Warning",
-              description: "Could not identify any products in your command",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
-          console.error("Error processing command:", error);
-          toast({
-            title: "Error", 
-            description: "Failed to process command",
-            variant: "destructive",
-          });
+        // Pass to parent component for processing
+        if (onCommand) {
+          const emptyEnhancedProducts: EnhancedProduct[] = [];
+          onCommand(transcript, emptyEnhancedProducts);
         }
       };
       
@@ -149,33 +131,86 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
     }
   };
   
-  // Check if result has all required fields
-  const validateResult = (result: CommandResult | null): boolean => {
-    if (!result) return false;
-    
-    const missingFields = [];
-    
-    if (!result.productName || result.productName.trim() === '') {
-      missingFields.push('product name');
-    }
-    
-    if (!result.quantity || !result.quantity.value) {
-      missingFields.push('quantity');
-    }
-    
-    if (missingFields.length > 0) {
-      toast({
-        title: "Missing information",
-        description: `Please provide: ${missingFields.join(', ')}`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    return true;
-  };
+  // Multi-Product Dialog
+  if (showMultiProductDialog && multiProducts && multiProducts.length > 0) {
+    return (
+      <AlertDialog open={true}>
+        <AlertDialogContent className="sm:max-w-md max-h-[90vh]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl">Multiple Products Detected</AlertDialogTitle>
+            <AlertDialogDescription>
+              We detected {multiProducts.length} products in your voice command.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <ScrollArea className="h-[50vh] mt-2 pr-3">
+            <div className="space-y-3">
+              {multiProducts.map((product, index) => (
+                <div key={index} className="border rounded-md p-3 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Box className="h-4 w-4 mr-2 text-indigo-500" />
+                      <span className="font-medium">{product.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline">{product.quantity || 1} {product.unit || 'piece'}</Badge>
+                    </div>
+                  </div>
+                  
+                  {product.position && (
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <MapPin className="h-3 w-3 text-amber-500" />
+                      <span className="text-muted-foreground">{product.position}</span>
+                    </div>
+                  )}
+                  
+                  {product.price !== undefined && (
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <Tag className="h-3 w-3 text-green-500" />
+                      <span className="text-muted-foreground">₹{product.price}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          
+          <AlertDialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => onConfirm()}
+              className="w-full sm:w-auto"
+              disabled={loading}
+            >
+              {loading ? "Adding Products..." : `Add ${multiProducts.length} Products`}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
   
-  // Show the voice command button if we have the onCommand prop
+  // Check if result has all required fields for standard view
+  if (result && !showMultiProductDialog) {
+    // Regular single product confirmation
+    return (
+      <VoiceCommandConfirmation
+        open={open}
+        result={result}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        loading={loading}
+      />
+    );
+  }
+  
+  // Show the voice command button if we have the onCommand prop and no result yet
   if (onCommand && !result) {
     return (
       <div className="w-full">
@@ -212,21 +247,7 @@ const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
     );
   }
   
-  // If result is invalid, don't show the dialog
-  if (result && !validateResult(result)) {
-    onCancel();
-    return null;
-  }
-  
-  return (
-    <VoiceCommandConfirmation
-      open={open}
-      result={result}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-      loading={loading}
-    />
-  );
+  return null;
 };
 
 // Helper component for the icon
