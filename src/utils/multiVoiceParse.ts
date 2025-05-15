@@ -117,19 +117,7 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
   
   console.log("Parsing command:", command);
 
-  // Clean up the command string - broader pattern matching for various command phrases
-  const cleanedCommand = command
-    .replace(/add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload/gi, '')
-    .trim();
-
-  // Split input by commas, "and", or other separators to handle various speaking patterns
-  const parts = cleanedCommand.split(/,|\sand\s|also|plus|along with|together with|with|as well as|besides|additionally|moreover/i);
-  console.log("Parts after splitting:", parts);
-
-  const fuse = new Fuse(productList, fuseOptions);
-  const results: MultiProduct[] = [];
-  
-  // Extract the general location that might apply to all products
+  // Extract general location that might apply to all products
   const generalLocationMatch = command.match(/(at|in|on)\s+(shelf|rack|position|section|aisle|row|cabinet|drawer|bin|box)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
   let generalLocation: string | undefined;
   
@@ -144,33 +132,60 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
     }
     
     generalLocation = `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNumber}`;
+    console.log("Extracted general location:", generalLocation);
   }
 
-  for (const part of parts) {
-    console.log("Processing part:", part);
-    const trimmedPart = part.trim();
-    if (!trimmedPart) continue; // Skip empty parts
-    
-    // First try to match the standard pattern: quantity + unit + product + price
-    // e.g., "5 kg rice", "3 packets of biscuits for ₹30"
+  // Clean up the command string - broader pattern matching for various command phrases
+  const cleanedCommand = command
+    .replace(/add|create|insert|put|register|include|log|record|enter|save|store|place|set up|new|make|bring|stock|upload/gi, '')
+    .trim();
+
+  // Enhanced splitting to handle more complex patterns
+  // We'll split on commas, "and", or when we detect a clear product boundary
+  const productDelimiterPattern = /,|\sand\s|also|plus|along with|together with|with|as well as|besides|additionally|moreover|\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)\s+of\s+/i;
+  
+  // First split by common separators
+  let parts = cleanedCommand.split(productDelimiterPattern);
+  
+  // Clean up the split results
+  parts = parts
+    .map(part => part && part.trim())
+    .filter(Boolean)
+    .filter(part => !(/^(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)$/i.test(part)));
+  
+  console.log("Parts after splitting:", parts);
+
+  const fuse = new Fuse(productList, fuseOptions);
+  const results: MultiProduct[] = [];
+
+  // Process each potential product
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    console.log(`Processing part ${i + 1}:`, part);
+
+    // Handle number words at the beginning of a part
+    const numberWordMatch = part.match(/^(one|two|three|four|five|six|seven|eight|nine|ten)\s+/i);
+    if (numberWordMatch) {
+      const numValue = wordToNumber(numberWordMatch[1]);
+      if (numValue !== undefined) {
+        parts[i] = part.replace(numberWordMatch[0], `${numValue} `);
+      }
+    }
+
+    // Try different parsing patterns
     const standardPattern = /(\d+|one|two|three|four|five)\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|unit|units|box|boxes|dozen|carton)\s*(?:of\s+)?([a-z\s]+?)(?:\s+(?:for|at|₹|rs|rupees|price|cost|worth|valued at)\s*(\d+))?$/i;
-    
-    // Alternative pattern for product first: product + quantity + unit
-    // e.g., "rice 5 kg", "milk 2 liters"
     const alternativePattern = /([a-z\s]+?)\s+(\d+|one|two|three|four|five)\s*(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|unit|units|box|boxes|dozen|carton)(?:\s+(?:for|at|₹|rs|rupees|price|cost|worth|valued at)\s*(\d+))?$/i;
-    
-    // Simple pattern for just product name (defaults will be applied)
     const simplePattern = /([a-z\s]+)$/i;
     
-    let productMatch = trimmedPart.match(standardPattern);
+    let productMatch = parts[i].match(standardPattern);
     let isAlternativePattern = false;
     
     if (!productMatch) {
-      productMatch = trimmedPart.match(alternativePattern);
+      productMatch = parts[i].match(alternativePattern);
       isAlternativePattern = !!productMatch;
       
       if (!productMatch) {
-        productMatch = trimmedPart.match(simplePattern);
+        productMatch = parts[i].match(simplePattern);
       }
     }
     
@@ -223,7 +238,7 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
       }
       
       // Extract position specific to this part if mentioned
-      let position = extractPosition(trimmedPart) || generalLocation;
+      let position = extractPosition(parts[i]) || generalLocation;
       
       // If no position was found, suggest one based on product type
       if (!position && name) {
@@ -243,10 +258,10 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
     } else {
       // Fallback for when no pattern matches
       // Try to extract at least a product name
-      console.log("No pattern match, trying fallback extraction");
+      console.log("No pattern match, trying fallback extraction for part:", parts[i]);
       
       // Remove any command words and try to get just the product name
-      const cleanName = extractProductName(trimmedPart);
+      const cleanName = extractProductName(parts[i]);
       
       if (cleanName) {
         // Try to find this product in the product list

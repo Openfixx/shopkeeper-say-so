@@ -1,3 +1,4 @@
+
 import Fuse from 'fuse.js';
 
 // Product interface for parsed voice commands
@@ -84,9 +85,6 @@ export const parseMultipleProducts = (command: string, productList: { name: stri
   // Clean up the command
   const cleanedCommand = command.replace(/^(add|create|insert|put|place)\s+/i, '').trim();
   
-  // Split by common delimiters (comma, and, plus)
-  const productSegments = cleanedCommand.split(/,|\s+and\s+|\s+plus\s+|\s+also\s+/i);
-  
   // Extract location that might apply to all products
   let generalLocation: string | undefined;
   const locationMatch = command.match(/(on|at|in)\s+(rack|shelf|box|cabinet|fridge|freezer|section|aisle)\s+(\w+)/i);
@@ -95,6 +93,9 @@ export const parseMultipleProducts = (command: string, productList: { name: stri
     const [, , locationType, locationNumber] = locationMatch;
     generalLocation = `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNumber}`;
   }
+  
+  // Split by common delimiters (comma, and, plus)
+  const productSegments = cleanedCommand.split(/,|\s+and\s+|\s+plus\s+|\s+also\s+/i);
   
   // Process each segment as a product with quantity and unit
   productSegments.forEach(segment => {

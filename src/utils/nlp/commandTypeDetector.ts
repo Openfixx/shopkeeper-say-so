@@ -1,85 +1,84 @@
 
 /**
- * Command Type Detection
- * 
- * This module detects the intent of voice commands, such as adding products,
- * searching, creating bills, etc.
+ * Command type detection module
  */
 
-// Define the command intent types
+// Define various command intent types
 export enum CommandIntent {
-  ADD_PRODUCT = "ADD_PRODUCT",
-  SEARCH_PRODUCT = "SEARCH_PRODUCT",
-  UPDATE_PRODUCT = "UPDATE_PRODUCT",
-  CREATE_BILL = "CREATE_BILL",
-  GENERATE_BILL = "GENERATE_BILL", // Added for backward compatibility
-  DELETE_PRODUCT = "DELETE_PRODUCT",
-  REMOVE_PRODUCT = "REMOVE_PRODUCT", // Added for backward compatibility
-  SHOW_INVENTORY = "SHOW_INVENTORY",
-  CALCULATE_TOTAL = "CALCULATE_TOTAL",
-  UNKNOWN = "UNKNOWN"
+  ADD_PRODUCT = 'add_product',
+  UPDATE_PRODUCT = 'update_product',
+  SEARCH_PRODUCT = 'search_product',
+  DELETE_PRODUCT = 'delete_product',
+  UNKNOWN = 'unknown',
+  CREATE_BILL = 'create_bill',
+  GENERATE_BILL = 'generate_bill', // Added for VoiceFeatures.tsx
+  REMOVE_PRODUCT = 'remove_product' // Added for VoiceFeatures.tsx
 }
 
-// Keywords for each intent
-const intentKeywords = {
+// Keywords associated with each command intent
+const INTENT_KEYWORDS: Record<CommandIntent, string[]> = {
   [CommandIntent.ADD_PRODUCT]: [
-    "add", "create", "insert", "put", "register", "include", "log", "record",
-    "enter", "save", "store", "place", "set up", "new", "make", "bring", "stock"
-  ],
-  [CommandIntent.SEARCH_PRODUCT]: [
-    "search", "find", "look for", "locate", "where is", "show me", "check",
-    "query", "get", "fetch"
+    'add', 'create', 'new', 'insert', 'put', 'register', 'include', 'log',
+    'record', 'enter', 'save', 'store', 'place', 'set up', 'make', 'bring'
   ],
   [CommandIntent.UPDATE_PRODUCT]: [
-    "update", "modify", "change", "edit", "alter", "adjust", "revise", "amend"
+    'update', 'modify', 'change', 'edit', 'alter', 'adjust', 'revise', 'amend',
+    'correct', 'fix', 'set'
+  ],
+  [CommandIntent.SEARCH_PRODUCT]: [
+    'search', 'find', 'look', 'locate', 'where', 'show', 'check', 'get',
+    'fetch', 'list', 'display'
   ],
   [CommandIntent.DELETE_PRODUCT]: [
-    "remove", "delete", "take out", "eliminate", "get rid", "discard", "cancel",
-    "dispose", "trash", "erase"
+    'delete', 'remove', 'eliminate', 'discard', 'trash', 'erase', 'get rid',
+    'drop', 'clear'
   ],
-  [CommandIntent.REMOVE_PRODUCT]: [
-    "remove", "delete", "take out", "eliminate", "get rid", "discard", "cancel",
-    "dispose", "trash", "erase"
-  ],
+  [CommandIntent.UNKNOWN]: [],
   [CommandIntent.CREATE_BILL]: [
-    "bill", "invoice", "checkout", "receipt", "payment", "total", "calculate",
-    "finalize", "complete", "sale", "purchase"
+    'bill', 'invoice', 'checkout', 'payment', 'buy', 'purchase', 'total',
+    'calculate', 'finalize'
   ],
-  [CommandIntent.GENERATE_BILL]: [
-    "bill", "invoice", "checkout", "receipt", "payment", "total", "calculate",
-    "finalize", "complete", "sale", "purchase"
+  [CommandIntent.GENERATE_BILL]: [ // Added for VoiceFeatures.tsx
+    'generate bill', 'make bill', 'create bill', 'prepare bill', 'produce bill'
   ],
-  [CommandIntent.SHOW_INVENTORY]: [
-    "inventory", "show all", "list", "display", "view", "see", "all products",
-    "stock", "items"
-  ],
-  [CommandIntent.CALCULATE_TOTAL]: [
-    "total", "sum", "amount", "value", "price", "cost", "calculate", "add up"
+  [CommandIntent.REMOVE_PRODUCT]: [ // Added for VoiceFeatures.tsx
+    'remove product', 'delete product', 'take out product', 'eliminate product'
   ]
 };
 
 /**
- * Detect command intent from a given text
- * @param command - The command text to analyze
- * @returns The detected CommandIntent
+ * Detects command intent from a voice command string
+ * 
+ * @param command The voice command to analyze
+ * @returns The detected CommandIntent enum value
  */
 export const detectCommandIntent = (command: string): CommandIntent => {
+  if (!command) return CommandIntent.UNKNOWN;
+  
   const lowerCommand = command.toLowerCase();
   
-  // Check each intent by looking for keywords
-  for (const [intent, keywords] of Object.entries(intentKeywords)) {
+  // Check for multi-word patterns first (more specific patterns)
+  if (/generate\s+bill|make\s+bill|create\s+bill|prepare\s+bill/i.test(lowerCommand)) {
+    return CommandIntent.GENERATE_BILL;
+  }
+  
+  if (/remove\s+product|delete\s+product|take\s+out\s+product/i.test(lowerCommand)) {
+    return CommandIntent.REMOVE_PRODUCT;
+  }
+  
+  // Check for each intent type by looking for keywords
+  for (const [intent, keywords] of Object.entries(INTENT_KEYWORDS)) {
     for (const keyword of keywords) {
-      // Match whole words only
-      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      // Match whole words only using word boundaries
+      const regex = new RegExp(`\\b${keyword.replace(/\s+/g, '\\s+')}\\b`, 'i');
       if (regex.test(lowerCommand)) {
         return intent as CommandIntent;
       }
     }
   }
   
-  // Special case for ADD_PRODUCT: if there's a quantity pattern, it's likely adding products
-  const hasQuantityPattern = /\b\d+\s*(kg|g|l|ml|pcs|piece|box|packet|bottle)\b/i.test(lowerCommand);
-  if (hasQuantityPattern) {
+  // If no intent is detected but we have quantity patterns, assume ADD_PRODUCT
+  if (/\b\d+\s+(kg|g|l|ml|pcs|box|pack|dozen|bottle)\b/i.test(lowerCommand)) {
     return CommandIntent.ADD_PRODUCT;
   }
   
@@ -87,54 +86,41 @@ export const detectCommandIntent = (command: string): CommandIntent => {
 };
 
 /**
- * Get suggested command examples for a specific intent
- * @param intent - The CommandIntent to get examples for
- * @returns Array of example commands
+ * Extracts possible product names from a command
+ * Simple implementation that focuses on the first noun phrase after command keywords
  */
-export const getCommandExamples = (intent: CommandIntent): string[] => {
-  switch (intent) {
-    case CommandIntent.ADD_PRODUCT:
-      return [
-        "Add 5 kg rice",
-        "Add 2 bottles of oil and 3 packets of biscuits",
-        "Put 3 kg sugar on rack 2",
-        "Add 10 apples and 5 bananas in fridge"
-      ];
-    case CommandIntent.SEARCH_PRODUCT:
-      return [
-        "Find sugar",
-        "Where is rice",
-        "Search for milk",
-        "Locate apples"
-      ];
-    case CommandIntent.UPDATE_PRODUCT:
-      return [
-        "Update rice quantity to 10 kg",
-        "Change oil price to 120",
-        "Modify sugar location to shelf 3"
-      ];
-    case CommandIntent.DELETE_PRODUCT:
-    case CommandIntent.REMOVE_PRODUCT:
-      return [
-        "Remove rice",
-        "Delete expired milk",
-        "Take out old bread"
-      ];
-    case CommandIntent.CREATE_BILL:
-    case CommandIntent.GENERATE_BILL:
-      return [
-        "Create bill",
-        "Generate invoice",
-        "Checkout items",
-        "Complete sale"
-      ];
-    case CommandIntent.SHOW_INVENTORY:
-      return [
-        "Show inventory",
-        "List all products",
-        "View stock"
-      ];
-    default:
-      return ["Try saying 'Add 5 kg rice'"];
+export const extractPotentialProductNames = (command: string): string[] => {
+  const words = command.toLowerCase().split(/\s+/);
+  const potentialNames: string[] = [];
+  
+  // Skip command words and look for potential product names
+  let skipCount = 0;
+  for (const word of words) {
+    if (isCommandWord(word)) {
+      skipCount++;
+      continue;
+    }
+    
+    if (skipCount > 0) {
+      // Simple approach: take a few words after command words
+      // In a more advanced implementation, use NLP to identify noun phrases
+      const phrase = words.slice(skipCount, skipCount + 3).join(' ');
+      if (phrase) potentialNames.push(phrase);
+      break;
+    }
   }
+  
+  return potentialNames;
+};
+
+/**
+ * Helper function to check if a word is a common command word
+ */
+const isCommandWord = (word: string): boolean => {
+  const commandWords = [
+    'add', 'create', 'new', 'update', 'modify', 'change', 'search',
+    'find', 'where', 'delete', 'remove', 'get', 'show', 'list'
+  ];
+  
+  return commandWords.includes(word);
 };

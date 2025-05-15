@@ -13,6 +13,7 @@ import { CommandResult } from '@/lib/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 
 interface UnifiedVoiceCommandProps {
   className?: string;
@@ -45,17 +46,48 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
         setProcessedText(rawText);
         console.log('Raw voice input:', rawText);
         
-        // Process multi-product commands
+        // Use both parsers to get the best results
         const productNames = products.map(p => ({ name: p.name }));
-        const parsedProducts = parseMultipleProducts(rawText, productNames);
         
-        console.log('Parsed products:', parsedProducts);
-        setExtractedProducts(parsedProducts);
-        setIsMultiCommand(parsedProducts.length > 1);
+        // Try the enhanced multi-product parser first
+        const enhancedParsedProducts = parseMultiProductCommand(rawText, productNames);
+        console.log('Enhanced parsed products:', enhancedParsedProducts);
+        
+        // Convert to VoiceProduct format
+        const convertedProducts: VoiceProduct[] = enhancedParsedProducts.map(p => ({
+          name: p.name,
+          quantity: p.quantity || 1,
+          unit: p.unit || 'piece',
+          position: p.position || 'Default',
+          price: p.price
+        }));
+        
+        // If enhanced parser didn't find anything useful, fall back to the original parser
+        const finalProducts = convertedProducts.length > 0 
+          ? convertedProducts 
+          : parseMultipleProducts(rawText, productNames);
+        
+        console.log('Final parsed products:', finalProducts);
+        setExtractedProducts(finalProducts);
+        setIsMultiCommand(finalProducts.length > 1);
+        
+        // Extract general location to apply to all products if not already specified
+        const locationMatch = rawText.match(/(on|at|in)\s+(rack|shelf|box|cabinet|fridge|freezer|section|aisle)\s+(\w+)/i);
+        if (locationMatch && finalProducts.length > 0) {
+          const [, , locationType, locationNumber] = locationMatch;
+          const generalLocation = `${locationType.charAt(0).toUpperCase() + locationType.slice(1)} ${locationNumber}`;
+          
+          // Apply to all products that don't have a specific location
+          finalProducts.forEach(product => {
+            if (!product.position || product.position === 'Default' || product.position === 'General Storage') {
+              product.position = generalLocation;
+            }
+          });
+        }
         
         // For UI display and single-product workflow, use the first product
-        if (parsedProducts.length > 0) {
-          const firstProduct = parsedProducts[0];
+        if (finalProducts.length > 0) {
+          const firstProduct = finalProducts[0];
           setExtractedProduct({
             name: firstProduct.name,
             quantity: firstProduct.quantity,
