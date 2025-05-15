@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,10 +72,10 @@ const RackMapping: React.FC<RackMappingProps> = ({ products, onSelectProduct }) 
         setRackImage(imageUrl);
         
         // Analyze the rack image for shelves
-        const { shelfCoordinates: coords } = identifyShelves(imageUrl);
-        setShelfCoordinates(coords);
+        const result = identifyShelves(imageUrl);
+        setShelfCoordinates(result.shelfCoordinates);
         
-        toast.success(`Rack image uploaded with ${coords.length} shelves identified`);
+        toast.success(`Rack image uploaded with ${result.shelfCoordinates.length} shelves identified`);
       };
       reader.readAsDataURL(file);
     }
@@ -99,10 +98,10 @@ const RackMapping: React.FC<RackMappingProps> = ({ products, onSelectProduct }) 
           setRackImage(imageUrl);
           
           // Analyze the rack image for shelves
-          const { shelfCoordinates: coords } = identifyShelves(imageUrl);
-          setShelfCoordinates(coords);
+          const result = identifyShelves(imageUrl);
+          setShelfCoordinates(result.shelfCoordinates);
           
-          toast.success(`Rack image captured with ${coords.length} shelves identified`);
+          toast.success(`Rack image captured with ${result.shelfCoordinates.length} shelves identified`);
         };
         reader.readAsDataURL(file);
       }
