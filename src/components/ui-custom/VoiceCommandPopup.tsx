@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PackageIcon, Loader2, MapPin } from 'lucide-react';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 
 interface VoiceCommandPopupProps {
   result: CommandResult;
@@ -17,6 +18,8 @@ interface VoiceCommandPopupProps {
   loading?: boolean;
   multiProductMode?: boolean;
   multiProducts?: VoiceProduct[];
+  productList?: { name: string }[];
+  onCommand?: (command: string, products: EnhancedProduct[]) => void;
 }
 
 export default function VoiceCommandPopup({ 
@@ -25,7 +28,9 @@ export default function VoiceCommandPopup({
   onCancel, 
   loading = false,
   multiProductMode = false,
-  multiProducts = []
+  multiProducts = [],
+  productList,
+  onCommand
 }: VoiceCommandPopupProps) {
   return (
     <Dialog open={true} onOpenChange={() => onCancel()}>
@@ -72,7 +77,7 @@ export default function VoiceCommandPopup({
             // Single product display
             <div className="space-y-4">
               <div className="text-center">
-                {result.imageUrl && (
+                {result?.imageUrl && (
                   <div className="w-32 h-32 mx-auto rounded-lg overflow-hidden mb-4">
                     <AspectRatio ratio={1/1} className="bg-muted">
                       <img 
@@ -84,16 +89,16 @@ export default function VoiceCommandPopup({
                   </div>
                 )}
                 
-                <h3 className="text-lg font-semibold">{result.productName}</h3>
+                <h3 className="text-lg font-semibold">{result?.productName}</h3>
                 
-                {result.quantity && (
+                {result?.quantity && (
                   <div className="flex items-center justify-center gap-2 mt-1">
                     <span>{result.quantity.value}</span>
                     <Badge variant="outline">{result.quantity.unit}</Badge>
                   </div>
                 )}
                 
-                {result.position && (
+                {result?.position && (
                   <div className="flex items-center justify-center gap-1 mt-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
                     <span>{result.position}</span>
@@ -108,7 +113,7 @@ export default function VoiceCommandPopup({
                 <Input
                   id="quantity"
                   type="number"
-                  defaultValue={result.quantity?.value.toString() || "1"}
+                  defaultValue={result?.quantity?.value.toString() || "1"}
                   className="w-full"
                 />
                 
@@ -118,7 +123,7 @@ export default function VoiceCommandPopup({
                 <Input
                   id="location"
                   type="text"
-                  defaultValue={result.position || ""}
+                  defaultValue={result?.position || ""}
                   placeholder="e.g., Shelf 3, Rack 2"
                   className="w-full"
                   required
@@ -128,7 +133,7 @@ export default function VoiceCommandPopup({
           )}
           
           <div className="text-xs text-muted-foreground mt-4">
-            <p>Heard: <span className="italic">"{result.rawText}"</span></p>
+            <p>Heard: <span className="italic">"{result?.rawText}"</span></p>
           </div>
         </div>
         
