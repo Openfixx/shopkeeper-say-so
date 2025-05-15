@@ -4,19 +4,24 @@ import { Button } from '@/components/ui/button';
 import { CommandResult } from '@/lib/voice';
 import { toast } from '@/components/ui/use-toast';
 import VoiceCommandConfirmation from './VoiceCommandConfirmation';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 
 interface VoiceCommandPopupProps {
   result: CommandResult | null;
   onConfirm: (location?: string) => void;
   onCancel: () => void;
   loading?: boolean;
+  onCommand?: (command: string, products: EnhancedProduct[]) => void;
+  productList?: { name: string }[];
 }
 
 const VoiceCommandPopup: React.FC<VoiceCommandPopupProps> = ({
   result,
   onConfirm,
   onCancel,
-  loading = false
+  loading = false,
+  onCommand,
+  productList
 }) => {
   const [open, setOpen] = useState(false);
   

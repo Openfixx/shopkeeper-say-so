@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,8 +65,8 @@ export default function VoiceFeatures() {
           });
         }
         break;
-      case CommandIntent.CREATE_BILL:
       case CommandIntent.GENERATE_BILL:
+      case CommandIntent.CREATE_BILL:
         toast({
           title: "Info",
           description: "Generating bill...",
@@ -134,8 +133,11 @@ export default function VoiceFeatures() {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <VoiceCommandPopup
-                onCommand={handleCommand}
+                result={null}
+                onConfirm={() => {}}
+                onCancel={() => {}}
                 productList={SAMPLE_PRODUCTS.map(p => ({ name: p.name }))}
+                onCommand={handleCommand}
               />
             </div>
             
