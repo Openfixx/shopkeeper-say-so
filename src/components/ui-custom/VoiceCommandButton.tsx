@@ -1,122 +1,115 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Mic } from 'lucide-react';
+import { useVoiceRecognition } from '@/hooks/use-voice-recognition';
+import { useVoiceStore } from '@/store/voiceStore';
+import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useInventory } from '@/context/InventoryContext';
 
-export interface VoiceCommandButtonProps {
-  onCommand?: (command: string) => void;
-  onVoiceCommand?: (command: string) => void;  // Adding this prop for backward compatibility
-  className?: string;
-  compact?: boolean;
-  showDialog?: boolean;
-  label?: string;
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined;
-  size?: "default" | "sm" | "lg" | "icon" | null | undefined;
-}
+const VoiceCommandButton: React.FC = () => {
+  const { isListening, isProcessing, startListening, stopListening } = useVoiceRecognition();
+  const { products, clearProducts } = useVoiceStore();
+  const { addProduct } = useInventory();
+  const [open, setOpen] = React.useState(false);
+  const [locations, setLocations] = React.useState<Record<string, string>>({});
 
-export default function VoiceCommandButton({ 
-  onCommand, 
-  onVoiceCommand,
-  className = '', 
-  compact = false,
-  showDialog = false,
-  label = "Voice Command",
-  variant = "secondary",
-  size = compact ? "sm" : "default"
-}: VoiceCommandButtonProps) {
-  const [isListening, setIsListening] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [text, setText] = useState('');
-
-  const startListening = () => {
-    setIsListening(true);
-    setText('');
-    
-    try {
-      // Check browser support
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        toast.error("Speech recognition is not supported in your browser");
-        setIsListening(false);
-        return;
-      }
+  React.useEffect(() => {
+    if (products.length > 0) {
+      setOpen(true);
       
-      // Initialize speech recognition
-      // @ts-ignore - TypeScript doesn't have built-in types for webkitSpeechRecognition
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.lang = 'en-US';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      
-      recognition.onresult = (event: any) => {
-        // Safely extract the transcript without directly rendering the event object
-        const transcript = event.results[0][0].transcript;
-        setText(transcript);
-        setProcessing(true);
-        
-        setTimeout(() => {
-          if (onCommand) {
-            onCommand(transcript);
-          } else if (onVoiceCommand) {
-            onVoiceCommand(transcript);
-          }
-          setProcessing(false);
-        }, 500);
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        toast.error("Speech recognition error. Please try again.");
-        setIsListening(false);
-      };
-      
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      
-      recognition.start();
-    } catch (error) {
-      console.error("Voice recognition error:", error);
-      toast.error("Voice recognition failed. Please try again.");
-      setIsListening(false);
+      // Initialize locations
+      const initialLocations: Record<string, string> = {};
+      products.forEach(product => {
+        initialLocations[product.name] = product.position || '';
+      });
+      setLocations(initialLocations);
     }
-  }
+  }, [products]);
+
+  const handleAddProducts = () => {
+    products.forEach(product => {
+      addProduct({
+        name: product.name,
+        quantity: product.quantity,
+        unit: product.unit,
+        price: product.price || 0,
+        position: locations[product.name] || 'unspecified',
+        image_url: product.image_url || ''
+      });
+    });
+    
+    clearProducts();
+    setOpen(false);
+  };
 
   return (
-    <div className={`${className}`}>
+    <>
       <Button
-        variant={variant}
+        variant="outline"
+        size="icon"
+        className="relative h-10 w-10 rounded-full"
         onClick={startListening}
-        disabled={isListening || processing}
-        size={size}
-        className="relative flex items-center gap-2"
+        disabled={isListening || isProcessing}
       >
-        {isListening ? (
-          <>
-            <MicOff className="h-4 w-4" />
-            Listening...
-          </>
-        ) : processing ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <Mic className="h-4 w-4" />
-            {label}
-          </>
+        <Mic className="h-4 w-4" />
+        {isListening && (
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
+          </span>
         )}
       </Button>
       
-      {text && !isListening && !processing && (
-        <div className="mt-2 text-sm">
-          <p className="font-medium">Recognized: </p>
-          <p className="bg-muted p-2 rounded">{text}</p>
-        </div>
-      )}
-    </div>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Confirm product locations</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4">
+            <p className="text-muted-foreground text-sm mb-4">
+              Please specify the location for each product
+            </p>
+            
+            {products.map((product, index) => (
+              <Card key={`${product.name}-${index}`} className="mb-3">
+                <CardContent className="pt-4">
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {product.quantity} {product.unit}
+                      </p>
+                    </div>
+                    <div className="grid w-full items-center gap-1.5">
+                      <Label htmlFor={`location-${index}`}>Location</Label>
+                      <Input
+                        id={`location-${index}`}
+                        placeholder="Rack 1, Shelf 2, etc."
+                        value={locations[product.name] || ''}
+                        onChange={(e) => setLocations({
+                          ...locations,
+                          [product.name]: e.target.value
+                        })}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <DrawerFooter>
+            <Button onClick={handleAddProducts}>
+              Add {products.length} {products.length === 1 ? 'Product' : 'Products'}
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
-}
+};
+
+export default VoiceCommandButton;

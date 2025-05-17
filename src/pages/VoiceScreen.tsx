@@ -4,18 +4,29 @@ import VoiceFeatures from '@/components/ui-custom/VoiceFeatures';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mic, Brain, FileText } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
 
 const VoiceScreen: React.FC = () => {
+  const isMobile = useIsMobile();
+  
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 px-4 sm:px-6">
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-2xl flex items-center gap-2">
-            <Mic className="h-5 w-5" /> Voice & NLP Features
-          </CardTitle>
-          <CardDescription>
-            Advanced speech recognition, text-to-speech, and natural language processing capabilities
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <Mic className="h-5 w-5" /> Voice & NLP Features
+              </CardTitle>
+              <CardDescription>
+                Advanced speech recognition, text-to-speech, and natural language processing capabilities
+              </CardDescription>
+            </div>
+            {isMobile && (
+              <VoiceCommandButton />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="features" className="w-full">

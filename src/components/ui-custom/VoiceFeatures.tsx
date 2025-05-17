@@ -1,290 +1,199 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Mic, StopCircle } from 'lucide-react';
-import VoiceCommandButton from './VoiceCommandButton';
-import VoiceCommandPopup from './VoiceCommandPopup';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { toast } from '@/hooks/use-toast';
-import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
-import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
-import { format } from 'date-fns';
+import { Mic, MessageSquareText, Brain, AlertCircle, CheckCircle2 } from 'lucide-react';
+import SiriStyleVoiceUI from './SiriStyleVoiceUI';
+import { Badge } from '@/components/ui/badge';
 
-// Sample product list for demonstration
-const SAMPLE_PRODUCTS = [
-  { name: "Rice", id: 1 },
-  { name: "Milk", id: 2 },
-  { name: "Bread", id: 3 },
-  { name: "Sugar", id: 4 },
-  { name: "Salt", id: 5 },
-  { name: "Flour", id: 6 },
-  { name: "Oil", id: 7 },
-  { name: "Eggs", id: 8 },
-  { name: "Butter", id: 9 },
-  { name: "Cheese", id: 10 },
-  { name: "Coca-Cola", id: 11 },
-  { name: "Pepsi", id: 12 },
-  { name: "Apple", id: 13 },
-  { name: "Banana", id: 14 },
-  { name: "Orange", id: 15 },
-  { name: "Potato", id: 16 },
-  { name: "Tomato", id: 17 },
-  { name: "Onion", id: 18 },
-  { name: "Garlic", id: 19 },
-  { name: "Chicken", id: 20 },
-];
-
-// Define proper props interfaces for components
-interface VoiceCommandButtonProps {
-  onCommand?: (command: string) => void;
-}
-
-interface VoiceCommandPopupProps {
-  onCommand?: (command: string, products: EnhancedProduct[]) => void;
-  productList?: { name: string }[];
-}
-
-export default function VoiceFeatures() {
-  const [addedProducts, setAddedProducts] = useState<EnhancedProduct[]>([]);
-  const [processingCommand, setProcessingCommand] = useState(false);
-  
-  const handleCommand = (command: string, products: EnhancedProduct[]) => {
-    console.log("Voice command received:", command);
-    console.log("Processed products:", products);
-    
-    setProcessingCommand(true);
-    
-    const intent = detectCommandIntent(command);
-    
-    switch (intent) {
-      case CommandIntent.ADD_PRODUCT:
-        if (products.length > 0) {
-          setAddedProducts(prev => [...prev, ...products]);
-          toast({
-            title: "Success",
-            description: `Added ${products.length} product(s) to inventory`,
-            variant: "default",
-          });
-        } else if (command.includes(',') || /\band\b/i.test(command)) {
-          // Handle multi-product commands using the enhanced parser
-          const productNames = SAMPLE_PRODUCTS.map(p => ({ name: p.name }));
-          const parsedProducts = parseMultiProductCommand(command, productNames);
-          
-          if (parsedProducts.length > 0) {
-            // Convert to EnhancedProduct format
-            const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
-              name: p.name,
-              quantity: p.quantity || 1,
-              unit: p.unit || 'piece',
-              position: p.position || 'General Storage',
-              price: p.price || 0,
-              confidence: 1.0
-            }));
-            
-            setAddedProducts(prev => [...prev, ...enhancedProducts]);
-            toast({
-              title: "Success",
-              description: `Added ${enhancedProducts.length} products using multi-product parser`,
-              variant: "default",
-            });
-          }
-        } else {
-          toast({
-            title: "Warning",
-            description: "No products detected in command",
-            variant: "destructive",
-          });
-        }
-        break;
-      case CommandIntent.GENERATE_BILL:
-      case CommandIntent.CREATE_BILL:
-        toast({
-          title: "Info",
-          description: "Generating bill...",
-          variant: "default",
-        });
-        break;
-      case CommandIntent.SEARCH_PRODUCT:
-        toast({
-          title: "Info",
-          description: "Searching products...",
-          variant: "default",
-        });
-        break;
-      case CommandIntent.UPDATE_PRODUCT:
-        toast({
-          title: "Info",
-          description: "Updating product...",
-          variant: "default",
-        });
-        break;
-      case CommandIntent.REMOVE_PRODUCT:
-      case CommandIntent.DELETE_PRODUCT:
-        toast({
-          title: "Info",
-          description: "Removing product...",
-          variant: "default",
-        });
-        break;
-      default:
-        toast({
-          title: "Info", 
-          description: "Command recognized: " + intent,
-          variant: "default",
-        });
-    }
-    
-    setProcessingCommand(false);
-  };
-  
-  const handleLegacyCommand = (command: string) => {
-    console.log("Legacy command received:", command);
-    
-    // Using the old parser for comparison
-    if (command.includes(',') || /\band\b/i.test(command)) {
-      const productNames = SAMPLE_PRODUCTS.map(p => ({ name: p.name }));
-      const parsedProducts = parseMultiProductCommand(command, productNames);
-      
-      console.log("Legacy parser results:", parsedProducts);
-      toast({
-        title: "Info",
-        description: `Legacy parser detected ${parsedProducts.length} products`,
-        variant: "default",
-      });
-    }
-  };
-
-  const handleProductClear = () => {
-    setAddedProducts([]);
-    toast({
-      title: "Info",
-      description: "Cleared product list",
-      variant: "default",
-    });
-  };
+const VoiceFeatures: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('tutorial');
   
   return (
-    <div className="space-y-8">
-      <Tabs defaultValue="enhanced" className="w-full">
-        <TabsList className="grid grid-cols-2">
-          <TabsTrigger value="enhanced">Enhanced Voice Input</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Voice Input</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="enhanced" className="pt-4">
-          <div className="grid md:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <div>
-              <VoiceCommandPopup
-                result={null}
-                onConfirm={() => {}}
-                onCancel={() => {}}
-                productList={SAMPLE_PRODUCTS.map(p => ({ name: p.name }))}
-                onCommand={handleCommand}
-              />
+              <CardTitle>Voice Commands</CardTitle>
+              <CardDescription>Add products to your inventory using voice commands</CardDescription>
             </div>
-            
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-medium mb-3">Voice Command Support</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="font-medium">Enhanced features now support:</p>
-                  <ul className="list-disc pl-6 space-y-1">
-                    <li>Multiple product commands (e.g., "Add rice, sugar, and milk")</li>
-                    <li>Product location extraction (e.g., "Add milk from the fridge")</li>
-                    <li>Expiry date parsing (e.g., "Rice expiring next month")</li>
-                    <li>Bill command variations (e.g., "Generate bill with 10% discount")</li>
-                    <li>Price extraction (e.g., "Rice for ₹100")</li>
-                    <li>Product variants (e.g., "Red apple", "Organic milk")</li>
-                  </ul>
-                  
-                  <div className="mt-4">
-                    <p className="font-medium">Try these commands:</p>
-                    <ol className="list-decimal pl-6 space-y-1">
-                      <li>"Add 5 kg rice, 2 kg sugar, and 3 liters milk"</li>
-                      <li>"Add 2 packets biscuits and 1 kg sugar from rack 3"</li>
-                      <li>"Add 3 red apples and 2 kg sugar for ₹80"</li>
-                      <li>"Generate bill with 10% discount"</li>
-                      <li>"Place 5 organic bananas in section 3"</li>
-                    </ol>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Badge variant="outline" className="ml-2">
+              <Brain className="h-3 w-3 mr-1" />
+              Offline
+            </Badge>
           </div>
-          
-          {addedProducts.length > 0 && (
-            <Card className="mt-6">
-              <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Added Products</CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleProductClear}
-                >
-                  Clear All
-                </Button>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {addedProducts.map((product, index) => (
-                    <div key={index} className="p-3 border rounded flex justify-between items-center bg-card">
-                      <span className="font-medium">{product.name}</span>
-                      <div className="flex items-center gap-4">
-                        {product.expiry && (
-                          <span className="text-sm">
-                            Expires: {typeof product.expiry === 'string' 
-                              ? product.expiry 
-                              : format(new Date(product.expiry), 'dd MMM yyyy')}
-                          </span>
-                        )}
-                        {product.position && <span className="text-sm">Location: {product.position}</span>}
-                        <span className="px-2 py-1 bg-accent rounded-md text-sm">
-                          {product.quantity} {product.unit}
-                        </span>
-                      </div>
+        </CardHeader>
+        
+        <CardContent>
+          <Tabs defaultValue="tutorial" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid grid-cols-3">
+              <TabsTrigger value="tutorial" className="text-xs sm:text-sm">
+                <MessageSquareText className="h-4 w-4 mr-1 hidden sm:inline" />
+                Tutorial
+              </TabsTrigger>
+              <TabsTrigger value="try" className="text-xs sm:text-sm">
+                <Mic className="h-4 w-4 mr-1 hidden sm:inline" />
+                Try It
+              </TabsTrigger>
+              <TabsTrigger value="examples" className="text-xs sm:text-sm">
+                <CheckCircle2 className="h-4 w-4 mr-1 hidden sm:inline" />
+                Examples
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="tutorial" className="space-y-4">
+              <div className="mt-4 space-y-4">
+                <h3 className="text-lg font-medium">How to use voice commands</h3>
+                
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="item-1">
+                    <AccordionTrigger>Adding products</AccordionTrigger>
+                    <AccordionContent>
+                      Say "Add [quantity] [unit] [product name]" to add a product to your inventory.
+                      <br /><br />
+                      <strong>Examples:</strong>
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        <li>"Add 2 kg rice"</li>
+                        <li>"Add 5 packets of biscuits"</li>
+                        <li>"Add 1 box of cereal"</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="item-2">
+                    <AccordionTrigger>Multiple products</AccordionTrigger>
+                    <AccordionContent>
+                      You can add multiple products at once by separating them with "and" or commas.
+                      <br /><br />
+                      <strong>Examples:</strong>
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        <li>"Add 2 kg rice and 3 packets of biscuits"</li>
+                        <li>"Add 1 liter milk, 500 grams sugar, and 2 packets of coffee"</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="item-3">
+                    <AccordionTrigger>Specifying location</AccordionTrigger>
+                    <AccordionContent>
+                      You can specify where the product should be stored by adding "in/at/on rack/shelf X".
+                      <br /><br />
+                      <strong>Examples:</strong>
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        <li>"Add 2 kg rice in rack 3"</li>
+                        <li>"Add 5 packets of biscuits on shelf B"</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                
+                <div className="bg-muted p-3 rounded-md">
+                  <div className="flex gap-2 items-start">
+                    <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Voice recognition tips</p>
+                      <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                        <li>Speak clearly and at a moderate pace</li>
+                        <li>Use short, direct phrases</li>
+                        <li>Make sure your environment is not too noisy</li>
+                        <li>Allow microphone permissions when prompted</li>
+                      </ul>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="legacy" className="pt-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <VoiceCommandButton
-                onCommand={handleLegacyCommand}
-              />
-            </div>
-            
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-medium mb-3">Legacy Voice Command Support</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="font-medium">Basic features support:</p>
-                  <ul className="list-disc pl-6 space-y-1">
-                    <li>Simple product detection</li>
-                    <li>Basic quantity extraction</li>
-                    <li>Multiple product commands with limited accuracy</li>
-                  </ul>
-                  
-                  <div className="mt-4">
-                    <p className="font-medium">Try these commands:</p>
-                    <ol className="list-decimal pl-6 space-y-1">
-                      <li>"Add 5 kg rice"</li>
-                      <li>"Add 2 liters milk"</li>
-                      <li>"Add 3 apples and 2 kg sugar"</li>
-                    </ol>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="try" className="space-y-4">
+              <div className="flex flex-col items-center justify-center py-8">
+                <p className="text-center text-muted-foreground mb-6">
+                  Click the button below and speak your command
+                </p>
+                <SiriStyleVoiceUI className="max-w-sm" />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="examples" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Single Product</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">"Add 2 kg rice in rack 3"</p>
+                    <div className="mt-2 border-t pt-2">
+                      <p><span className="font-medium">Product:</span> rice</p>
+                      <p><span className="font-medium">Quantity:</span> 2 kg</p>
+                      <p><span className="font-medium">Location:</span> rack 3</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setActiveTab('try')}
+                    >
+                      Try this example
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Multiple Products</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">"Add 2 liters milk and 3 packets biscuits"</p>
+                    <div className="mt-2 border-t pt-2">
+                      <p><span className="font-medium">Products:</span> milk, biscuits</p>
+                      <p><span className="font-medium">Quantities:</span> 2 liters, 3 packets</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setActiveTab('try')}
+                    >
+                      Try this example
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">With Location</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">"Add 1 box cereal on shelf 2, 2 kg sugar in rack 3"</p>
+                    <div className="mt-2 border-t pt-2">
+                      <p><span className="font-medium">Products:</span> cereal, sugar</p>
+                      <p><span className="font-medium">Locations:</span> shelf 2, rack 3</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setActiveTab('try')}
+                    >
+                      Try this example
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
-}
+};
+
+export default VoiceFeatures;
