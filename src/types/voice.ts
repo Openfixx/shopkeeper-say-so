@@ -21,7 +21,7 @@ export const VOICE_COMMAND_TYPES = {
 };
 
 export interface CommandResult {
-  type: string;
+  type?: string;
   productName?: string;
   quantity?: {
     value: number;
@@ -30,5 +30,6 @@ export interface CommandResult {
   position?: string;
   price?: number;
   imageUrl?: string;
+  expiry?: string;
   rawText: string;
 }

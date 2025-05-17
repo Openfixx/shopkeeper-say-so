@@ -196,7 +196,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
         handleAddMultiProducts();
       } else {
         // For single product case
-        const productData: SupabaseVoiceProduct = {
+        const productData: VoiceProduct = {
           name: commandResult.productName || 'Unknown Product',
           quantity: commandResult.quantity?.value || 1,
           unit: commandResult.quantity?.unit || 'unit',
@@ -212,7 +212,14 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           const result = await saveVoiceProduct(productData);
           
           // Add to in-memory state
-          addProduct(productData);
+          addProduct({
+            name: productData.name,
+            quantity: productData.quantity,
+            unit: productData.unit,
+            price: productData.price || 0,
+            position: productData.position,
+            image_url: productData.image_url || ''
+          });
           
           toast.success(`Added ${productData.name} to inventory`);
         } catch (error: any) {
@@ -220,7 +227,14 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           toast.warning(`Product added locally but database save failed: ${error.message}`);
           
           // Still add to local state
-          addProduct(productData);
+          addProduct({
+            name: productData.name,
+            quantity: productData.quantity,
+            unit: productData.unit,
+            price: productData.price || 0,
+            position: productData.position,
+            image_url: productData.image_url || ''
+          });
         }
         
         setIsAddingToInventory(false);

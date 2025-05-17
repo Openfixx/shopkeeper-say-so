@@ -63,6 +63,7 @@ const Index = () => {
     if (command.toLowerCase().includes('add') && processedProduct.name) {
       // For single product, show the confirmation popup
       setCommandResult({
+        type: 'add_product',  // Add required type field
         productName: processedProduct.name,
         quantity: {
           value: processedProduct.quantity || 1,
@@ -86,12 +87,12 @@ const Index = () => {
     
     // Validate product details
     const productDetails = {
-      name: commandResult.productName,
+      name: commandResult.productName || '',
       quantity: commandResult.quantity?.value || 1,
       unit: commandResult.quantity?.unit || 'unit',
       position: location || commandResult.position || 'unspecified',
-      price: commandResult.price || 0,
-      expiry: commandResult.expiry
+      price: commandResult.price || 0
+      // Don't access expiry if it doesn't exist
     };
     
     const validation = validateProductDetails(productDetails);

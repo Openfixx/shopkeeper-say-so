@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { VoiceProduct } from '@/types/voice';
 
@@ -52,7 +53,7 @@ export const addProduct = async (
   
   const now = new Date().toISOString();
   
-  // Return product with parsed data
+  // Return product with parsed data - use null check for id
   return {
     id: data?.id || name, // Use name as fallback
     name: data?.name || name,

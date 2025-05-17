@@ -59,8 +59,8 @@ export const suggestLocationForProduct = (productName: string): string => {
   return 'General Storage';
 };
 
-// Export the voice command types that we imported
-export { VOICE_COMMAND_TYPES };
+// Export VoiceProduct for use in other files
+export type { VoiceProduct } from '@/types/voice';
 
 // Improved multi-product parser that better handles complex sentence structures
 export const parseMultipleProducts = (command: string, productList: { name: string }[] = []): VoiceProduct[] => {

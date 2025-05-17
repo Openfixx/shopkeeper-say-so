@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +7,8 @@ import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultipleProducts, VoiceProduct } from '@/utils/voiceCommandUtils';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
+import { VoiceProduct } from '@/types/voice';
 import { format } from 'date-fns';
 
 interface VoiceInputWithLocationProps {

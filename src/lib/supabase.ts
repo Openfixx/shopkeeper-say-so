@@ -86,7 +86,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
       throw error;
     }
     
-    return null; // Updated return value
+    return data;
   } catch (error) {
     console.error('Error in saveVoiceProduct:', error);
     throw error;
