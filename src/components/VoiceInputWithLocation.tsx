@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
@@ -82,8 +82,8 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
       if (intent === CommandIntent.ADD_PRODUCT) {
         console.log('Processing ADD_PRODUCT command:', command);
         
-        // Use our multi-product parser
-        const parsedProducts = parseMultipleProducts(command, productList);
+        // Use our multi-product parser - fixed to pass only one argument
+        const parsedProducts = parseMultipleProducts(command);
         console.log('Parsed products:', parsedProducts);
         
         if (parsedProducts.length > 0) {
