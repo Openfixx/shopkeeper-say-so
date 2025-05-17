@@ -40,33 +40,30 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
     // First ensure the product exists in the products table
     const { data: existingProduct, error: findError } = await supabase
       .from('products')
-      .select('id')
+      .select('name')  // Don't rely on ID column
       .ilike('name', product.name)
       .maybeSingle();
     
-    let productId = existingProduct?.id;
+    // Use product name as ID since the ID column might not exist yet
+    let productName = product.name.toLowerCase();
     
     // If product doesn't exist, create it first
     if (!existingProduct) {
-      const { data: newProduct, error: productError } = await supabase
+      const { error: productError } = await supabase
         .from('products')
         .insert({
-          name: product.name,
+          name: productName,
           image_url: product.image_url || '',
           user_id: user?.id
-        })
-        .select('id')
-        .single();
+        });
       
       if (productError) {
         console.error('Failed to create product:', productError);
         throw productError;
       }
-      
-      productId = newProduct?.id;
     }
     
-    // Now add to inventory with the valid product_id reference
+    // Now add to inventory with the product name reference
     const { data, error } = await supabase
       .from('inventory')
       .insert({
@@ -75,7 +72,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
         price: product.price || 0,
         expiry_date: null,
         image_url: product.image_url,
-        product_id: productId,
+        product_id: productName,  // Use name instead of ID
         user_id: user?.id,
         position: product.position
       })
@@ -130,33 +127,30 @@ export const addInventoryFromVoice = async (
     // First ensure the product exists in the products table
     const { data: existingProduct, error: findError } = await supabase
       .from('products')
-      .select('id')
+      .select('name')  // Don't rely on ID column
       .ilike('name', product.name)
       .maybeSingle();
 
-    let productId = existingProduct?.id;
+    // Use product name as ID since we can't rely on ID column
+    let productName = product.name.toLowerCase();
     
     // If product doesn't exist, create it first
     if (!existingProduct) {
-      const { data: newProduct, error: productError } = await supabase
+      const { error: productError } = await supabase
         .from('products')
         .insert({
-          name: product.name,
+          name: productName,
           image_url: product.image_url || '',
           user_id: user?.id
-        })
-        .select('id')
-        .single();
+        });
         
       if (productError) {
         console.error('Failed to create product:', productError);
         throw new Error(`Failed to create product: ${productError.message}`);
       }
-      
-      productId = newProduct?.id || '';
     }
     
-    // Now add to inventory with the valid product_id reference
+    // Now add to inventory with the product name reference
     const { data, error } = await supabase
       .from('inventory')
       .insert({
@@ -165,7 +159,7 @@ export const addInventoryFromVoice = async (
         price: options?.price || product.price || 0,
         expiry_date: options?.expiry || null,
         image_url: product.image_url,
-        product_id: productId,
+        product_id: productName,  // Use name instead of ID
         user_id: user?.id,
         position: product.position
       })
@@ -199,34 +193,31 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
     // Process each product sequentially to ensure proper error handling
     for (const product of products) {
       try {
-        // First ensure the product exists in products table
+        // First ensure the product exists in products table by name
         const { data: existingProduct } = await supabase
           .from('products')
-          .select('id')
+          .select('name')  // Don't rely on ID column
           .ilike('name', product.name)
           .maybeSingle();
           
-        let productId = existingProduct?.id;
+        // Use product name as ID since we can't rely on ID column
+        let productName = product.name.toLowerCase();
         
         // If product doesn't exist, create it first
         if (!existingProduct) {
-          const { data: newProduct, error: productError } = await supabase
+          const { error: productError } = await supabase
             .from('products')
             .insert({
-              name: product.name,
+              name: productName,
               image_url: product.image_url || '',
               user_id: user.id
-            })
-            .select('id')
-            .single();
+            });
             
           if (productError) {
             console.error(`Failed to create product ${product.name}:`, productError);
             errors.push({ product: product.name, error: productError.message });
             continue; // Skip to next product
           }
-          
-          productId = newProduct?.id || '';
         }
         
         // Now add to inventory with valid product reference
@@ -238,7 +229,7 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
             price: product.price || 0,
             expiry_date: null,
             image_url: product.image_url,
-            product_id: productId,
+            product_id: productName,  // Use name instead of ID
             user_id: user.id,
             position: product.position || 'General Storage'
           })
@@ -250,7 +241,7 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
           continue;
         }
         
-        results.push(null); // Updated value
+        results.push(data ? data[0] : null);
         
       } catch (productError: any) {
         console.error(`Error processing ${product.name}:`, productError);

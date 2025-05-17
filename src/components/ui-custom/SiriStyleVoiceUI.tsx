@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -90,9 +91,8 @@ const SiriStyleVoiceUI: React.FC<SiriStyleVoiceUIProps> = ({ onCommand, classNam
   
   const startListening = () => {
     if (!recognitionRef.current) {
-      toast({
-        title: "Not Supported",
-        description: "Speech recognition is not supported in your browser.",
+      // Fix: use proper toast API with string message instead of object with title
+      toast("Speech recognition is not supported in your browser.", {
         variant: "destructive"
       });
       return;
@@ -126,9 +126,8 @@ const SiriStyleVoiceUI: React.FC<SiriStyleVoiceUIProps> = ({ onCommand, classNam
   
   const processCommand = (command: string) => {
     if (!command.trim()) {
-      toast({
-        title: "No Input",
-        description: "No voice input detected. Please try again.",
+      // Fix: use proper toast API with string message instead of object with title
+      toast("No voice input detected. Please try again.", {
         variant: "warning"
       });
       return;
