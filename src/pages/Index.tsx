@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ import SiriStyleVoiceUI from '@/components/ui-custom/SiriStyleVoiceUI';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
 import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
-import { CommandResult, VoiceProduct } from '@/types/voice';
+import { VoiceProduct, CommandResult } from '@/types/voice';
 import { validateProductDetails } from '@/utils/voiceCommandUtils';
 
 const Index = () => {

@@ -46,14 +46,14 @@ export const addProduct = async (
       image_url: urlData.publicUrl,
       user_id: user?.id // Add user_id for RLS
     })
-    .select()
+    .select('id, name, image_url, created_at')
     .single();
 
   if (error) throw error;
   
   const now = new Date().toISOString();
   
-  // Return product with parsed data - use null check for id
+  // Return product with parsed data
   return {
     id: data?.id || name, // Use name as fallback
     name: data?.name || name,

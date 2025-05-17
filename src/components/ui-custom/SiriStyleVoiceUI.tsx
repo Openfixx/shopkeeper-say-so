@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
@@ -9,6 +8,8 @@ import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
 import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
 import VoiceCommandPopup from './VoiceCommandPopup';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
+import { VoiceProduct } from '@/types/voice';
 
 interface SiriStyleVoiceUIProps {
   onCommand?: (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => void;

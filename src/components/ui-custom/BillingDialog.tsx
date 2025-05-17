@@ -406,7 +406,7 @@ const BillingDialog: React.FC<BillingDialogProps> = ({
                   <Package2 className="h-8 w-8 text-muted-foreground opacity-40" />
                 </div>
                 <h3 className="text-lg font-medium">
-                  {language === 'hi-IN' ? 'बिल में कोई आइटम नहीं' : 'No items in bill'}
+                  {language === 'hi-IN' ? 'बिल ���ें कोई आइटम नहीं' : 'No items in bill'}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   {language === 'hi-IN' 
