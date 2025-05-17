@@ -1,3 +1,4 @@
+
 import { VoiceProduct, VoiceCommandResult, VOICE_COMMAND_TYPES } from '@/types/voice';
 
 export function normalizeUnit(unit: string): string {
@@ -53,12 +54,17 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
   // Normalize text
   const normalizedCommand = command.toLowerCase().trim();
   
+  // Add debugging for what's being processed
+  console.log('Processing voice command:', normalizedCommand);
+  
   // Patterns to identify product segments
   const productSegments: string[] = normalizedCommand
     // Replace common connectors with commas for easier splitting
     .replace(/\s+and\s+|\s+plus\s+|\s+also\s+|\s+with\s+/gi, ', ')
     // Split by commas
     .split(/\s*,\s*/);
+  
+  console.log('Product segments:', productSegments);
   
   // Process each segment
   const products: VoiceProduct[] = [];
@@ -117,6 +123,7 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
     }
   });
   
+  console.log('Parsed products:', products);
   return products;
 }
 
@@ -126,13 +133,13 @@ export function validateProductDetails(product: {
   unit?: string;
   position?: string;
   price?: number;
+  expiry?: string;
 }): { isValid: boolean; missingFields: string[] } {
   const missingFields: string[] = [];
   
   if (!product.name) missingFields.push('name');
   if (!product.quantity) missingFields.push('quantity');
   if (!product.unit) missingFields.push('unit');
-  if (!product.position) missingFields.push('location');
   
   return {
     isValid: missingFields.length === 0,
@@ -144,11 +151,13 @@ export function validateProductDetails(product: {
 export function detectCommandType(command: string): VoiceCommandResult {
   if (!command) return { type: VOICE_COMMAND_TYPES.UNKNOWN, rawText: '' };
   
+  console.log('Detecting command type for:', command);
   const normalizedCommand = command.toLowerCase().trim();
   
   // Check for bill creation commands
   if (normalizedCommand.includes('create bill') || normalizedCommand.includes('make bill') || 
       normalizedCommand.includes('generate bill') || normalizedCommand.includes('new bill')) {
+    console.log('Detected command type: CREATE_BILL');
     return {
       type: VOICE_COMMAND_TYPES.CREATE_BILL,
       data: { items: extractBillItems(command) },
@@ -156,8 +165,13 @@ export function detectCommandType(command: string): VoiceCommandResult {
     };
   }
   
-  // Check for add product commands
-  if (normalizedCommand.includes('add ') || normalizedCommand.match(/^([0-9]+)\s*([a-z]+)\s+/i)) {
+  // Check for add product commands - more lenient matching
+  if (normalizedCommand.includes('add ') || 
+      normalizedCommand.match(/^([0-9]+)\s*([a-z]+)\s+/i) || 
+      normalizedCommand.includes('product') || 
+      normalizedCommand.includes('get') || 
+      normalizedCommand.includes('buy')) {
+    console.log('Detected command type: ADD_PRODUCT');
     return {
       type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
       data: { products: parseMultipleProducts(command) },
@@ -167,6 +181,7 @@ export function detectCommandType(command: string): VoiceCommandResult {
   
   // Check for remove product commands
   if (normalizedCommand.includes('remove ') || normalizedCommand.includes('delete ')) {
+    console.log('Detected command type: REMOVE_PRODUCT');
     return {
       type: VOICE_COMMAND_TYPES.REMOVE_PRODUCT,
       data: { productName: extractProductName(command) },
@@ -177,6 +192,7 @@ export function detectCommandType(command: string): VoiceCommandResult {
   // Check for search product commands
   if (normalizedCommand.includes('search ') || normalizedCommand.includes('find ') || 
       normalizedCommand.includes('where is ') || normalizedCommand.includes('locate ')) {
+    console.log('Detected command type: SEARCH_PRODUCT');
     return {
       type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
       data: { productName: extractProductName(command) },
@@ -184,6 +200,18 @@ export function detectCommandType(command: string): VoiceCommandResult {
     };
   }
   
+  // If we can extract products, default to ADD_PRODUCT
+  const products = parseMultipleProducts(command);
+  if (products.length > 0) {
+    console.log('Defaulting to ADD_PRODUCT based on parsed products');
+    return {
+      type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
+      data: { products },
+      rawText: command
+    };
+  }
+  
+  console.log('Command type: UNKNOWN');
   return {
     type: VOICE_COMMAND_TYPES.UNKNOWN,
     rawText: command
@@ -236,7 +264,6 @@ export interface IdentifyShelvesResult {
   shelfCoordinates: ShelfCoordinate[];
 }
 
-// Update the identifyShelves function to return the correct type
 export function identifyShelves(imageUrl: string): IdentifyShelvesResult {
   // For now, return a mock implementation with 3 shelves
   return {
@@ -262,5 +289,6 @@ export function extractProductDetails(command: string): VoiceProduct {
     position: '',
     price: 0,
     expiry: '',
+    image_url: '',
   };
 }

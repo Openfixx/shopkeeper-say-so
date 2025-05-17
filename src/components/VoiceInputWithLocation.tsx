@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,18 +8,23 @@ import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
 import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
-import { VoiceProduct } from '@/types/voice';
+import { parseMultipleProducts, detectCommandType } from '@/utils/voiceCommandUtils';
+import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
 import { format } from 'date-fns';
 
 interface VoiceInputWithLocationProps {
   className?: string;
   onCommand?: (command: string, products: EnhancedProduct[]) => void;
   productList?: { name: string }[];
-  compact?: boolean; // Add the compact prop
+  compact?: boolean;
 }
 
-export default function VoiceInputWithLocation({ className, onCommand, productList = [], compact = false }: VoiceInputWithLocationProps) {
+export default function VoiceInputWithLocation({ 
+  className, 
+  onCommand, 
+  productList = [], 
+  compact = false 
+}: VoiceInputWithLocationProps) {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [products, setProducts] = useState<EnhancedProduct[]>([]);
@@ -76,20 +82,18 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
     setProcessing(true);
     
     try {
-      // Detect command intent
-      const intent = detectCommandIntent(command);
+      console.log("Processing command:", command);
+      // Use detectCommandType from voiceCommandUtils to get richer command information
+      const commandResult = detectCommandType(command);
+      console.log("Command result:", commandResult);
       
-      // Check if it's an ADD_PRODUCT intent
-      if (intent === CommandIntent.ADD_PRODUCT) {
-        console.log('Processing ADD_PRODUCT command:', command);
+      // Check if it's an ADD_PRODUCT command
+      if (commandResult.type === VOICE_COMMAND_TYPES.ADD_PRODUCT) {
+        console.log('Processing ADD_PRODUCT command data:', commandResult.data);
         
-        // Use our multi-product parser - fixed to pass only one argument
-        const parsedProducts = parseMultipleProducts(command);
-        console.log('Parsed products:', parsedProducts);
-        
-        if (parsedProducts.length > 0) {
+        if (commandResult.data?.products && commandResult.data.products.length > 0) {
           // Convert to EnhancedProduct format for consistency with the rest of the app
-          const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
+          const enhancedProducts: EnhancedProduct[] = commandResult.data.products.map(p => ({
             name: p.name || '',
             quantity: p.quantity || 1,
             unit: p.unit || 'piece',
@@ -101,26 +105,32 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
           setProducts(enhancedProducts);
           
           // Extract general location if available from the first product
-          if (parsedProducts[0]?.position) {
-            setDetectedLocation(parsedProducts[0].position);
+          if (commandResult.data.products[0]?.position) {
+            setDetectedLocation(commandResult.data.products[0].position);
           }
           
           setNeedsClarification(false);
           
           // Pass the structured data back to the parent component
           if (onCommand && enhancedProducts.length > 0) {
+            console.log("Calling onCommand with products:", enhancedProducts);
             onCommand(command, enhancedProducts);
+          } else {
+            console.log("No onCommand handler or no products to pass");
           }
         } else {
+          console.log("No products detected in command");
           toast.warning("Could not identify products in the command");
         }
-      } else if (intent !== CommandIntent.UNKNOWN) {
-        toast.info(`Detected command intent: ${intent}`);
+      } else if (commandResult.type !== VOICE_COMMAND_TYPES.UNKNOWN) {
+        console.log(`Detected command intent: ${commandResult.type}`);
+        toast.info(`Detected command: ${commandResult.type}`);
         
         if (onCommand) {
           onCommand(command, []);
         }
       } else {
+        console.log("Unknown command type");
         toast.warning("Could not understand command");
       }
     } catch (error) {
@@ -155,7 +165,7 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
     return (
       <Button
         onClick={handleListen}
-        disabled={isListening}
+        disabled={isListening || processing}
         variant={isListening ? "destructive" : "default"}
         size="sm"
         className="flex items-center gap-2"
@@ -164,6 +174,11 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
           <>
             <MicOff className="h-4 w-4" />
             Listening...
+          </>
+        ) : processing ? (
+          <>
+            <Mic className="h-4 w-4 animate-pulse" />
+            Processing...
           </>
         ) : (
           <>
@@ -177,12 +192,12 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
 
   return (
     <Card className={cn("border shadow-md overflow-hidden", className)}>
-      <CardHeader className="bg-muted/40">
+      <CardHeader className="bg-muted/40 py-3">
         <CardTitle className="text-lg flex justify-between items-center">
-          <span>Enhanced Voice Input</span>
+          <span>Voice Input</span>
           <Button
             onClick={handleListen}
-            disabled={isListening}
+            disabled={isListening || processing}
             variant={isListening ? "destructive" : "default"}
             size="sm"
             className="flex items-center gap-2"
@@ -191,6 +206,11 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
               <>
                 <MicOff className="h-4 w-4" />
                 Listening...
+              </>
+            ) : processing ? (
+              <>
+                <Mic className="h-4 w-4 animate-pulse" />
+                Processing...
               </>
             ) : (
               <>
@@ -269,32 +289,12 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
                     <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(new Date(product.expiry), 'dd MMM yyyy')}</span>
                   </div>
                 )}
-                
-                {product.variant && (
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {product.variant.size && (
-                      <Badge variant="outline" className="text-xs">
-                        Size: {product.variant.size}
-                      </Badge>
-                    )}
-                    {product.variant.color && (
-                      <Badge variant="outline" className="text-xs">
-                        Color: {product.variant.color}
-                      </Badge>
-                    )}
-                    {product.variant.type && (
-                      <Badge variant="outline" className="text-xs">
-                        Type: {product.variant.type}
-                      </Badge>
-                    )}
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
         
-        {!text && !isListening && (
+        {!text && !isListening && !processing && (
           <div className="text-center py-6 text-muted-foreground">
             <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
             <p>Click "Start Voice Command" to add products with voice</p>
