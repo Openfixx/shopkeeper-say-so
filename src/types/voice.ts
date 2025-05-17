@@ -3,10 +3,10 @@
 export interface VoiceProduct {
   name: string;
   quantity: number;
-  unit: string; // Making unit required to match lib/supabase.ts
+  unit: string;
   position?: string;
   price?: number;
-  image_url?: string; // Adding this to match usage in UnifiedVoiceCommand
+  image_url?: string;
   expiry?: string;
 }
 
@@ -16,30 +16,15 @@ export const VOICE_COMMAND_TYPES = {
   ADD_PRODUCT: 'add_product',
   REMOVE_PRODUCT: 'remove_product',
   SEARCH_PRODUCT: 'search_product',
-  GENERATE_BILL: 'generate_bill',
   UNKNOWN: 'unknown'
 };
-
-export interface CommandResult {
-  type?: string;
-  productName?: string;
-  quantity?: {
-    value: number;
-    unit: string;
-  };
-  position?: string;
-  price?: number;
-  imageUrl?: string;
-  expiry?: string;
-  rawText: string;
-}
 
 // Add a dedicated interface for the voice command result
 export interface VoiceCommandResult {
   type: string;
   data?: {
-    items?: any[];
-    total?: number;
+    products?: VoiceProduct[];
+    searchTerm?: string;
     [key: string]: any;
   };
   rawText: string;

@@ -1,3 +1,4 @@
+
 import { VoiceProduct, VoiceCommandResult, VOICE_COMMAND_TYPES } from '@/types/voice';
 
 export function normalizeUnit(unit: string): string {
@@ -37,11 +38,7 @@ export function normalizeUnit(unit: string): string {
     'box': 'box',
     'boxes': 'box',
     'unit': 'unit',
-    'units': 'unit',
-    'dozen': 'dozen',
-    'dozens': 'dozen',
-    'bag': 'bag',
-    'bags': 'bag'
+    'units': 'unit'
   };
 
   return unitMap[unit.toLowerCase()] || 'piece';
@@ -50,139 +47,90 @@ export function normalizeUnit(unit: string): string {
 export function parseMultipleProducts(command: string): VoiceProduct[] {
   if (!command) return [];
   
-  // Normalize text
-  const normalizedCommand = command.toLowerCase().trim();
+  console.log('Parsing command:', command);
   
-  // Add debugging for what's being processed
-  console.log('Processing voice command:', normalizedCommand);
-  
-  // Patterns to identify product segments
-  const productSegments: string[] = normalizedCommand
-    // Replace common connectors with commas for easier splitting
-    .replace(/\s+and\s+|\s+plus\s+|\s+also\s+|\s+with\s+/gi, ', ')
-    // Split by commas
-    .split(/\s*,\s*/);
-  
-  console.log('Product segments:', productSegments);
+  // Clean up the command and standardize format
+  const cleanCommand = command
+    .toLowerCase()
+    .replace(/^\s*(add|add to inventory|create|put|get|buy)\s+/i, '')
+    .trim();
+    
+  // Split by common separators (and, comma)
+  const segments = cleanCommand.split(/\s*,\s*|\s+and\s+/);
   
   // Process each segment
   const products: VoiceProduct[] = [];
   
-  productSegments.forEach(segment => {
-    if (!segment.trim()) return;
+  for (let segment of segments) {
+    segment = segment.trim();
+    if (!segment) continue;
     
-    // Extract command type
-    let productName = '';
+    // Extract quantity and unit
     let quantity = 1;
     let unit = 'piece';
     let position = '';
+    let productName = segment;
     
-    // Extract quantity and unit
-    const quantityMatch = segment.match(/(\d+(?:\.\d+)?)\s*(kg|g|kgs|grams|l|ml|liter|litre|packet|packets|pack|packs|bottle|bottles|can|cans|piece|pieces|pcs|pc|box|boxes|unit|units|dozen|dozens|bag|bags)/i);
+    // Match patterns like "2 kg rice" or "3 bottles of water"
+    const quantityPattern = /^(\d+(?:\.\d+)?)\s*(kg|g|kgs|grams|l|ml|liter|litre|packet|packets|pack|packs|bottle|bottles|can|cans|piece|pieces|pcs|pc|box|boxes|unit|units|dozen)s?\s+(?:of\s+)?(.+)$/i;
+    const quantityMatch = segment.match(quantityPattern);
     
     if (quantityMatch) {
       quantity = parseFloat(quantityMatch[1]);
       unit = normalizeUnit(quantityMatch[2]);
-      
-      // Remove the quantity and unit from the segment to extract product name
-      productName = segment.replace(quantityMatch[0], '').trim();
-      
-      // If segment starts with "add", "get", etc., remove it
-      productName = productName.replace(/^(add|get|buy|need|want)\s+/i, '').trim();
+      productName = quantityMatch[3].trim();
     } else {
-      // No quantity/unit found
-      // Check if segment starts with "add", "get", etc.
-      const actionMatch = segment.match(/^(add|get|buy|need|want)\s+(.*)/i);
-      if (actionMatch) {
-        productName = actionMatch[2].trim();
-      } else {
-        productName = segment.trim();
+      // Try to match plain product name
+      const simpleMatch = segment.match(/^([a-z\s]+)$/i);
+      if (simpleMatch) {
+        productName = simpleMatch[1].trim();
       }
     }
     
-    // Extract position if available
-    const positionMatch = segment.match(/\b(?:in|on|at|to)\s+(rack|shelf|section|aisle|row|cabinet|drawer|bin|box)\s*(\d+|[a-z])\b/i);
+    // Extract position if present
+    const positionMatch = productName.match(/\s+(?:in|on|at)\s+((?:rack|shelf|section|aisle|row|cabinet|drawer)\s+\w+)/i);
     if (positionMatch) {
-      position = `${positionMatch[1]} ${positionMatch[2]}`.trim();
+      position = positionMatch[1];
       // Remove position from product name
       productName = productName.replace(positionMatch[0], '').trim();
     }
     
-    // Only add if we have a product name
+    // Further clean product name
+    productName = productName
+      .replace(/^\s*(some|the)\s+/, '')
+      .replace(/\s+(please|thanks|thank you)\s*$/, '')
+      .trim();
+    
     if (productName) {
       products.push({
         name: productName,
         quantity,
         unit,
-        position,
-        image_url: '',
+        position: position || 'General Storage',
         price: 0,
-        expiry: undefined
+        image_url: ''
       });
     }
-  });
+  }
   
   console.log('Parsed products:', products);
   return products;
 }
 
-// Update to return VoiceCommandResult
 export function detectCommandType(command: string): VoiceCommandResult {
   if (!command) return { type: VOICE_COMMAND_TYPES.UNKNOWN, rawText: '' };
   
-  console.log('Detecting command type for:', command);
   const normalizedCommand = command.toLowerCase().trim();
   
-  // Check for bill creation commands
-  if (normalizedCommand.includes('create bill') || normalizedCommand.includes('make bill') || 
-      normalizedCommand.includes('generate bill') || normalizedCommand.includes('new bill')) {
-    console.log('Detected command type: CREATE_BILL');
-    return {
-      type: VOICE_COMMAND_TYPES.CREATE_BILL,
-      data: { items: extractBillItems(command) },
-      rawText: command
-    };
-  }
-  
-  // Check for add product commands - more lenient matching
+  // Check for add product commands
   if (normalizedCommand.includes('add ') || 
-      normalizedCommand.match(/^([0-9]+)\s*([a-z]+)\s+/i) || 
+      normalizedCommand.match(/^(\d+)\s+([a-z]+)\s+/i) ||
       normalizedCommand.includes('product') || 
       normalizedCommand.includes('get') || 
       normalizedCommand.includes('buy')) {
-    console.log('Detected command type: ADD_PRODUCT');
-    return {
-      type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
-      data: { products: parseMultipleProducts(command) },
-      rawText: command
-    };
-  }
-  
-  // Check for remove product commands
-  if (normalizedCommand.includes('remove ') || normalizedCommand.includes('delete ')) {
-    console.log('Detected command type: REMOVE_PRODUCT');
-    return {
-      type: VOICE_COMMAND_TYPES.REMOVE_PRODUCT,
-      data: { productName: extractProductName(command) },
-      rawText: command
-    };
-  }
-  
-  // Check for search product commands
-  if (normalizedCommand.includes('search ') || normalizedCommand.includes('find ') || 
-      normalizedCommand.includes('where is ') || normalizedCommand.includes('locate ')) {
-    console.log('Detected command type: SEARCH_PRODUCT');
-    return {
-      type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
-      data: { productName: extractProductName(command) },
-      rawText: command
-    };
-  }
-  
-  // If we can extract products, default to ADD_PRODUCT
-  const products = parseMultipleProducts(command);
-  if (products.length > 0) {
-    console.log('Defaulting to ADD_PRODUCT based on parsed products');
+    
+    const products = parseMultipleProducts(command);
+    
     return {
       type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
       data: { products },
@@ -190,34 +138,63 @@ export function detectCommandType(command: string): VoiceCommandResult {
     };
   }
   
-  console.log('Command type: UNKNOWN');
+  // Check for bill commands
+  if (normalizedCommand.includes('bill') || 
+      normalizedCommand.includes('invoice')) {
+    return {
+      type: VOICE_COMMAND_TYPES.CREATE_BILL,
+      rawText: command
+    };
+  }
+  
+  // Check for search commands
+  if (normalizedCommand.includes('search') || 
+      normalizedCommand.includes('find') || 
+      normalizedCommand.includes('look for')) {
+    
+    // Extract search term
+    const searchMatch = normalizedCommand.match(/(?:search|find|look\s+for)\s+(.+)/i);
+    const searchTerm = searchMatch ? searchMatch[1].trim() : '';
+    
+    return {
+      type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
+      data: { searchTerm },
+      rawText: command
+    };
+  }
+  
   return {
     type: VOICE_COMMAND_TYPES.UNKNOWN,
     rawText: command
   };
 }
 
-// Add missing exported functions needed by other components
-export function extractBillItems(command: string) {
-  // Improved implementation that returns product items
+// Helper functions needed by other components
+export function extractProductName(command: string): string {
   const products = parseMultipleProducts(command);
-  return products.map(p => ({
-    name: p.name,
-    quantity: p.quantity,
-    unit: p.unit,
-    price: p.price || 0
-  }));
+  return products.length > 0 ? products[0].name : '';
 }
 
-function extractProductName(command: string): string {
-  // Simple implementation to extract product name from commands like "find rice" or "where is sugar"
-  const words = command.toLowerCase().split(/\s+/);
-  const actionWords = ['find', 'search', 'where', 'is', 'locate', 'get', 'remove', 'delete'];
+export function extractBillItems(command: string) {
+  return parseMultipleProducts(command);
+}
+
+export function validateProductDetails(product: { 
+  name: string; 
+  quantity?: number; 
+  unit?: string;
+  position?: string;
+}) {
+  const missingFields = [];
   
-  // Filter out action words
-  return words
-    .filter(word => !actionWords.includes(word) && word.length > 2)
-    .join(' ');
+  if (!product.name) missingFields.push('name');
+  if (!product.quantity) missingFields.push('quantity');
+  if (!product.unit) missingFields.push('unit');
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
 }
 
 export interface ShelfCoordinate {
@@ -243,52 +220,5 @@ export function identifyShelves(imageUrl: string): IdentifyShelvesResult {
 }
 
 export function suggestLocationForProduct(product: string) {
-  // Implementation to satisfy imports
   return 'General Storage';
-}
-
-// Other needed utility functions
-export function validateProductDetails(product: { 
-  name: string; 
-  quantity?: number; 
-  unit?: string;
-  position?: string;
-  price?: number;
-  expiry?: string;
-}): { isValid: boolean; missingFields: string[] } {
-  const missingFields: string[] = [];
-  
-  if (!product.name) missingFields.push('name');
-  if (!product.quantity) missingFields.push('quantity');
-  if (!product.unit) missingFields.push('unit');
-  
-  return {
-    isValid: missingFields.length === 0,
-    missingFields
-  };
-}
-
-export function processBillingVoiceCommand(command: string): VoiceCommandResult {
-  // Enhanced implementation to return VoiceCommandResult
-  const items = extractBillItems(command);
-  const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
-  
-  return { 
-    type: VOICE_COMMAND_TYPES.CREATE_BILL,
-    data: { items, total },
-    rawText: command
-  };
-}
-
-export function extractProductDetails(command: string): VoiceProduct {
-  // Implementation to satisfy imports and type needs
-  return {
-    name: '',
-    quantity: 1,
-    unit: 'piece',
-    position: '',
-    price: 0,
-    expiry: '',
-    image_url: '',
-  };
 }

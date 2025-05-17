@@ -6,12 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Mic, MicOff, MapPin, Loader2 } from 'lucide-react';
-import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
+import { VoiceProduct } from '@/types/voice';
 
 interface VoiceInputWithLocationProps {
   className?: string;
-  onCommand?: (command: string, products: EnhancedProduct[]) => void;
+  onCommand?: (command: string, products: VoiceProduct[]) => void;
   compact?: boolean;
 }
 
@@ -22,14 +22,15 @@ export default function VoiceInputWithLocation({
 }: VoiceInputWithLocationProps) {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [products, setProducts] = useState<EnhancedProduct[]>([]);
+  const [products, setProducts] = useState<VoiceProduct[]>([]);
   const [detectedLocation, setDetectedLocation] = useState<string | undefined>(undefined);
   const [processing, setProcessing] = useState(false);
 
   const handleListen = () => {
     try {
       setIsListening(true);
-      toast.info("Listening... Try commands like 'Add 2 kg rice and 3 kg sugar'");
+      setText('');
+      toast.info("Listening... Try saying 'Add 2 kg rice and 3 kg sugar'");
       
       // Check if browser supports speech recognition
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -50,7 +51,6 @@ export default function VoiceInputWithLocation({
         const transcript = event.results[0][0].transcript;
         setText(transcript);
         processText(transcript);
-        toast.success("Voice command received!");
       };
       
       recognition.onerror = (event) => {
@@ -83,31 +83,22 @@ export default function VoiceInputWithLocation({
       console.log("Parsed products:", parsedProducts);
       
       if (parsedProducts && parsedProducts.length > 0) {
-        // Convert to EnhancedProduct format
-        const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
-          name: p.name || '',
-          quantity: p.quantity || 1,
-          unit: p.unit || 'piece',
-          position: p.position || 'General Storage',
-          price: p.price || undefined,
-          confidence: 1.0
-        }));
+        setProducts(parsedProducts);
         
-        setProducts(enhancedProducts);
-        
-        // Extract general location if available from the first product
+        // Extract location if available from the first product
         if (parsedProducts[0]?.position) {
           setDetectedLocation(parsedProducts[0].position);
         }
         
         // Pass the structured data back to the parent component
-        if (onCommand && enhancedProducts.length > 0) {
-          console.log("Calling onCommand with products:", enhancedProducts);
-          onCommand(command, enhancedProducts);
+        if (onCommand) {
+          console.log("Calling onCommand with products:", parsedProducts);
+          toast.success("Voice command processed!");
+          onCommand(command, parsedProducts);
         }
       } else {
         console.log("No products detected in command");
-        toast.warning("Could not identify products in the command");
+        toast.warning("Could not identify products in the command. Please try again with a clearer command.");
       }
     } catch (error) {
       console.error("Error processing text:", error);
@@ -117,7 +108,7 @@ export default function VoiceInputWithLocation({
     }
   };
 
-  // If compact, render a simpler version
+  // Render compact version if requested
   if (compact) {
     return (
       <Button
@@ -148,7 +139,7 @@ export default function VoiceInputWithLocation({
   }
 
   return (
-    <Card className={cn("border shadow-md overflow-hidden", className)}>
+    <Card className={cn("border shadow-md", className)}>
       <CardHeader className="bg-muted/40 py-3">
         <CardTitle className="text-lg flex justify-between items-center">
           <span>Voice Command</span>
@@ -182,7 +173,7 @@ export default function VoiceInputWithLocation({
       <CardContent className="p-4 space-y-4">
         {text && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium">Voice Command:</h3>
+            <h3 className="text-sm font-medium">You said:</h3>
             <p className="text-sm bg-muted p-2 rounded">{text}</p>
           </div>
         )}
@@ -198,24 +189,26 @@ export default function VoiceInputWithLocation({
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Recognized Products:</h3>
             
-            {products.map((product, index) => (
-              <div key={index} className="border rounded-md p-3 bg-card space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{product.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span>{product.quantity || 1}</span>
-                    <Badge variant="secondary">{product.unit || 'pc'}</Badge>
+            <div className="space-y-2">
+              {products.map((product, index) => (
+                <div key={index} className="border rounded-md p-3 bg-card">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium">{product.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{product.quantity}</span>
+                      <Badge variant="secondary">{product.unit}</Badge>
+                    </div>
                   </div>
+                  
+                  {product.position && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      <span>{product.position}</span>
+                    </div>
+                  )}
                 </div>
-                
-                {product.position && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-amber-500" />
-                    <span>Location: {product.position}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
         
@@ -223,8 +216,8 @@ export default function VoiceInputWithLocation({
           <div className="text-center py-6 text-muted-foreground">
             <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
             <p>Click "Speak" to add products with voice</p>
-            <p className="text-sm mt-2">Try saying:</p>
-            <p className="text-xs mt-1 font-medium">"Add 5 kg rice, 3 kg sugar, and 2 liters milk"</p>
+            <p className="text-xs mt-2 font-medium">Try saying:</p>
+            <p className="text-xs mt-1">"Add 5 kg rice and 3 kg sugar"</p>
           </div>
         )}
       </CardContent>

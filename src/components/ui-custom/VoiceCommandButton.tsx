@@ -8,7 +8,7 @@ import { VoiceProduct } from '@/types/voice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface VoiceCommandButtonProps {
-  onVoiceCommand?: (command: string) => void;
+  onVoiceCommand?: (command: string, products: VoiceProduct[]) => void;
   showDialog?: boolean;
   label?: string;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
@@ -90,10 +90,14 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
       }
       
       if (onVoiceCommand) {
-        onVoiceCommand(command);
+        onVoiceCommand(command, products);
       }
       
-      toast.success("Command processed!");
+      if (products.length > 0) {
+        toast.success(`Detected ${products.length} product(s)!`);
+      } else {
+        toast.info("Command processed but no products detected");
+      }
     } catch (error) {
       console.error("Error processing command:", error);
       toast.error("Failed to process command");

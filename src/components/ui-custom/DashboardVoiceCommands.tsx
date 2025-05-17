@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { toast } from 'sonner';
-import VoiceInput from './VoiceInput';
+import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardVoiceCommandsProps {
   onAddProduct: () => void;
@@ -33,9 +34,16 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
     'Search for rice',
     'Show sales report'
   ]);
+  const navigate = useNavigate();
   
-  const handleVoiceCommand = (command: string) => {
+  const handleVoiceCommand = (command: string, products: any[]) => {
     const lowerCommand = command.toLowerCase();
+    
+    if (products && products.length > 0) {
+      toast.success(`Adding ${products.length} product(s)`);
+      navigate('/products');
+      return;
+    }
     
     if (lowerCommand.includes('add') && (lowerCommand.includes('product') || lowerCommand.includes('item'))) {
       onAddProduct();
@@ -67,7 +75,7 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.2 }}
       >
-        <Card className={`overflow-hidden transition-all duration-300 voice-card ${isExpanded ? 'mb-4' : ''}`}>
+        <Card className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'mb-4' : ''}`}>
           <CardContent className={`p-0 ${isExpanded ? 'pb-4' : 'py-0'}`}>
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center">
@@ -91,9 +99,8 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
             
             {isExpanded && (
               <div className="px-4 space-y-4">
-                <VoiceInput
+                <VoiceInputWithLocation
                   onCommand={handleVoiceCommand}
-                  placeholder="Try saying 'Show low stock items'"
                 />
                 
                 <div className="space-y-2">
@@ -109,7 +116,7 @@ const DashboardVoiceCommands: React.FC<DashboardVoiceCommandsProps> = ({
                         size="sm"
                         className="text-xs h-7 bg-background/60"
                         onClick={() => {
-                          handleVoiceCommand(command);
+                          handleVoiceCommand(command, []);
                         }}
                       >
                         {command}

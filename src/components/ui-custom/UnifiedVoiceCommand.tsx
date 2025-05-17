@@ -1,22 +1,22 @@
 
 import React, { useState } from 'react';
-import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
-import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useInventory } from '@/context/InventoryContext';
-import { Button } from '@/components/ui/button';
 import { Mic } from 'lucide-react';
+import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
+import { VoiceProduct } from '@/types/voice';
 
 interface UnifiedVoiceCommandProps {
   compact?: boolean;
-  onCommand?: (command: string, products: EnhancedProduct[]) => void;
+  onCommand?: (command: string, products: VoiceProduct[]) => void;
 }
 
 export default function UnifiedVoiceCommand({ compact = false, onCommand }: UnifiedVoiceCommandProps) {
   const { addProduct } = useInventory();
   const [processing, setProcessing] = useState(false);
   
-  const handleCommand = (command: string, products: EnhancedProduct[]) => {
+  const handleCommand = (command: string, products: VoiceProduct[]) => {
     console.log("UnifiedVoiceCommand received command:", command);
     console.log("UnifiedVoiceCommand received products:", products);
     
@@ -46,6 +46,7 @@ export default function UnifiedVoiceCommand({ compact = false, onCommand }: Unif
         toast.success(`Added ${products.length} product(s) to inventory`);
       } else {
         console.log("No products to add to inventory");
+        toast.warning("No products were detected. Try speaking more clearly.");
       }
     } catch (error) {
       console.error("Error handling voice command:", error);
