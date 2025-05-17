@@ -1,14 +1,7 @@
 
 import Fuse from 'fuse.js';
 import { suggestLocationForProduct } from './voiceCommandUtils';
-
-export interface MultiProduct {
-  name: string;
-  quantity?: number;
-  unit?: string;
-  price?: number;
-  position?: string;
-}
+import { VoiceProduct } from '@/types/voice';
 
 const fuseOptions = {
   keys: ['name'],
@@ -112,7 +105,7 @@ const wordToNumber = (word: string): number | undefined => {
  * 
  * Returns array of MultiProduct items.
  */
-export const parseMultiProductCommand = (command: string, productList: {name: string}[] = []): MultiProduct[] => {
+export const parseMultiProductCommand = (command: string, productList: {name: string}[] = []): VoiceProduct[] => {
   if (!command) return [];
   
   console.log("Parsing command:", command);
@@ -156,7 +149,7 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
   console.log("Parts after splitting:", parts);
 
   const fuse = new Fuse(productList, fuseOptions);
-  const results: MultiProduct[] = [];
+  const results: VoiceProduct[] = [];
 
   // Process each potential product
   for (let i = 0; i < parts.length; i++) {
@@ -249,10 +242,11 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
       if (name) {
         results.push({
           name,
-          quantity,
-          unit,
+          quantity: quantity || 1,
+          unit: unit || 'piece',
           price,
-          position
+          position,
+          image_url: ''  // Adding default empty string to match VoiceProduct interface
         });
       }
     } else {
@@ -280,7 +274,8 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
           name: matchedName,
           quantity: 1, // Default quantity 
           unit: 'piece', // Default unit
-          position
+          position,
+          image_url: ''  // Adding default empty string to match VoiceProduct interface
         });
       }
     }

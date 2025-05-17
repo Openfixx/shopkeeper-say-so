@@ -1,6 +1,6 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { supabase as officialClient } from '@/integrations/supabase/client';
+import { VoiceProduct } from '@/types/voice';
 
 // ▼▼▼ ENVIRONMENT SETUP ▼▼▼
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -28,16 +28,10 @@ export const supabase = (() => {
   }
 })();
 
-// ▼▼▼ VOICE-ENABLED PRODUCT OPERATIONS ▼▼▼
-export interface VoiceProduct {
-  name: string;
-  quantity: number;
-  unit: string;
-  position: string;
-  image_url?: string;
-  price?: number;
-}
+// Re-export VoiceProduct from our central type definition
+export { VoiceProduct } from '@/types/voice';
 
+// ▼▼▼ VOICE-ENABLED PRODUCT OPERATIONS ▼▼▼
 export const saveVoiceProduct = async (product: VoiceProduct) => {
   try {
     // Get the current user
@@ -46,7 +40,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
     // First ensure the product exists in the products table
     const { data: existingProduct, error: findError } = await supabase
       .from('products')
-      .select()
+      .select('id')
       .ilike('name', product.name)
       .maybeSingle();
     
@@ -61,7 +55,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
           image_url: product.image_url || '',
           user_id: user?.id
         })
-        .select()
+        .select('id')
         .single();
       
       if (productError) {
@@ -69,7 +63,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
         throw productError;
       }
       
-      productId = newProduct.id;
+      productId = newProduct?.id;
     }
     
     // Now add to inventory with the valid product_id reference
@@ -82,7 +76,8 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
         expiry_date: null,
         image_url: product.image_url,
         product_id: productId,
-        user_id: user?.id
+        user_id: user?.id,
+        position: product.position
       })
       .select();
 
@@ -158,7 +153,7 @@ export const addInventoryFromVoice = async (
         throw new Error(`Failed to create product: ${productError.message}`);
       }
       
-      productId = newProduct.id;
+      productId = newProduct?.id || '';
     }
     
     // Now add to inventory with the valid product_id reference
@@ -171,7 +166,8 @@ export const addInventoryFromVoice = async (
         expiry_date: options?.expiry || null,
         image_url: product.image_url,
         product_id: productId,
-        user_id: user?.id
+        user_id: user?.id,
+        position: product.position
       })
       .select();
 
@@ -230,7 +226,7 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
             continue; // Skip to next product
           }
           
-          productId = newProduct.id;
+          productId = newProduct?.id || '';
         }
         
         // Now add to inventory with valid product reference
@@ -256,7 +252,7 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
         
         results.push(data[0]);
         
-      } catch (productError) {
+      } catch (productError: any) {
         console.error(`Error processing ${product.name}:`, productError);
         errors.push({ product: product.name, error: productError.message });
       }

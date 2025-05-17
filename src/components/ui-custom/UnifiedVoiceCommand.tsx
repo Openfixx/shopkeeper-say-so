@@ -6,14 +6,14 @@ import { toast } from 'sonner';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
-import { parseMultipleProducts, VoiceProduct } from '@/utils/voiceCommandUtils';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
 import VoiceCommandPopup from './VoiceCommandPopup';
-import { CommandResult } from '@/lib/voice';
+import { CommandResult } from '@/types/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase, saveVoiceProduct, addMultipleProductsToInventory, VoiceProduct as SupabaseVoiceProduct } from '@/lib/supabase';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
-import { addMultipleProductsToInventory } from '@/lib/supabase';
+import { VoiceProduct } from '@/types/voice';
 
 interface UnifiedVoiceCommandProps {
   className?: string;
@@ -59,7 +59,8 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           quantity: p.quantity || 1,
           unit: p.unit || 'piece',
           position: p.position || 'Default',
-          price: p.price
+          price: p.price,
+          image_url: ''  // Add default empty string for image_url
         }));
         
         // If enhanced parser didn't find anything useful, fall back to the original parser
@@ -124,8 +125,18 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
     try {
       console.log('Adding multiple products:', extractedProducts);
       
+      // Convert to Supabase VoiceProduct format
+      const supabaseProducts: SupabaseVoiceProduct[] = extractedProducts.map(p => ({
+        name: p.name,
+        quantity: p.quantity,
+        unit: p.unit,
+        position: p.position || 'General Storage',
+        price: p.price || 0,
+        image_url: p.image_url || ''
+      }));
+      
       // Use the new batch function from supabase.ts
-      const { results, errors } = await addMultipleProductsToInventory(extractedProducts);
+      const { results, errors } = await addMultipleProductsToInventory(supabaseProducts);
       
       if (errors.length === 0) {
         // All products were added successfully
@@ -186,7 +197,7 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
         handleAddMultiProducts();
       } else {
         // For single product case
-        const productData = {
+        const productData: SupabaseVoiceProduct = {
           name: commandResult.productName || 'Unknown Product',
           quantity: commandResult.quantity?.value || 1,
           unit: commandResult.quantity?.unit || 'unit',

@@ -42,6 +42,7 @@ export default function VoiceCommandButton({
       }
       
       // Initialize speech recognition
+      // @ts-ignore - TypeScript doesn't have built-in types for webkitSpeechRecognition
       const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
       const recognition = new SpeechRecognition();
       
@@ -49,7 +50,7 @@ export default function VoiceCommandButton({
       recognition.continuous = false;
       recognition.interimResults = false;
       
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: any) => {
         // Safely extract the transcript without directly rendering the event object
         const transcript = event.results[0][0].transcript;
         setText(transcript);
@@ -65,7 +66,7 @@ export default function VoiceCommandButton({
         }, 500);
       };
       
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         toast.error("Speech recognition error. Please try again.");
         setIsListening(false);

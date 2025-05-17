@@ -1,5 +1,5 @@
-
 import Fuse from 'fuse.js';
+import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
 
 // Product interface for parsed voice commands
 export interface VoiceProduct {
@@ -9,6 +9,7 @@ export interface VoiceProduct {
   position?: string;
   price?: number;
   expiry?: string;  // Added expiry field to fix AddProduct.tsx and test errors
+  image_url: string; // Initialize with empty string to match interface
 }
 
 // Common product locations for suggestions
@@ -79,6 +80,9 @@ export const suggestLocationForProduct = (productName: string): string => {
   return 'General Storage';
 };
 
+// Export the voice command types that we imported
+export { VOICE_COMMAND_TYPES };
+
 // Improved multi-product parser that better handles complex sentence structures
 export const parseMultipleProducts = (command: string, productList: { name: string }[] = []): VoiceProduct[] => {
   const results: VoiceProduct[] = [];
@@ -102,14 +106,6 @@ export const parseMultipleProducts = (command: string, productList: { name: stri
   productSegments.forEach(segment => {
     const trimmedSegment = segment.trim();
     if (!trimmedSegment) return;
-    
-    // Enhanced regex patterns to match different formats:
-    // 1. "5kg rice" - number + unit + product
-    // 2. "5 kg rice" - number + space + unit + product
-    // 3. "5 packets of milk" - number + unit + "of" + product
-    // 4. "two packet salt" - word number + unit + product
-    // 5. "rice 5kg" - product + number + unit
-    // 6. "salt two packet" - product + word number + unit
     
     // Dictionary for word numbers
     const wordNumbers: Record<string, number> = {
@@ -207,8 +203,9 @@ export const parseMultipleProducts = (command: string, productList: { name: stri
     results.push({
       name,
       quantity,
-      unit,
-      position
+      unit, // Now unit is always defined
+      position,
+      image_url: '' // Initialize with empty string to match interface
     });
   });
   

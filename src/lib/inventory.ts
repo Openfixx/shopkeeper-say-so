@@ -1,6 +1,6 @@
 
 import { supabase } from './supabase';
-import { Product } from '@/types';
+import { Product } from '@/types/';
 
 // Types
 export interface InventoryItem {
@@ -53,9 +53,9 @@ export const addProduct = async (
   
   const now = new Date().toISOString();
   
-  // Return product with parsed id and standard properties
+  // Return product with parsed data
   return {
-    id: data?.id || name, // Use actual ID from the database
+    id: data?.id || name, // Use name as fallback
     name: data?.name || name,
     description: '',
     quantity: 0,
@@ -66,8 +66,8 @@ export const addProduct = async (
     image_url: data?.image_url || urlData.publicUrl,
     created_at: data?.created_at || now,
     createdAt: data?.created_at || now,
-    updatedAt: now, // Use the current timestamp instead of trying to access data.updated_at
-    userId: user?.id || 'demo-user', // Use actual user ID or fallback
+    updatedAt: now,
+    userId: user?.id || 'demo-user',
   };
 };
 
@@ -108,7 +108,7 @@ export const addInventoryItem = async (
           throw new Error(`Failed to create product: ${productError.message}`);
         }
         
-        productId = newProduct.id;
+        productId = newProduct?.id || '';
       }
     }
     
