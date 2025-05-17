@@ -3,9 +3,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useVoiceStore } from '@/store/voiceStore';
-import { parseMultipleProducts, detectCommandType } from '@/utils/voiceCommandUtils';
-import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
+import { VoiceProduct } from '@/types/voice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface VoiceCommandButtonProps {
@@ -29,7 +28,7 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [detectedProducts, setDetectedProducts] = useState<VoiceProduct[]>([]);
   
-  const handleVoiceCommand = async () => {
+  const handleVoiceCommand = () => {
     if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
       toast.error("Speech recognition is not supported in your browser");
       return;
@@ -79,15 +78,11 @@ const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
     try {
       console.log("Processing command:", command);
       
-      // Use our enhanced command detection
-      const commandResult = detectCommandType(command);
-      console.log("Command result:", commandResult);
+      // Parse products from the command
+      const products = parseMultipleProducts(command);
       
-      if (commandResult.type === VOICE_COMMAND_TYPES.ADD_PRODUCT && 
-          commandResult.data?.products && 
-          commandResult.data.products.length > 0) {
-        
-        setDetectedProducts(commandResult.data.products);
+      if (products.length > 0) {
+        setDetectedProducts(products);
         
         if (showDialog) {
           setShowResults(true);

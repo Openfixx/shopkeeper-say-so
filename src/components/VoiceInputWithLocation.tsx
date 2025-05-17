@@ -1,42 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
-import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
+import { Mic, MicOff, MapPin, Loader2 } from 'lucide-react';
 import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { parseMultipleProducts, detectCommandType } from '@/utils/voiceCommandUtils';
-import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
-import { format } from 'date-fns';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
 
 interface VoiceInputWithLocationProps {
   className?: string;
   onCommand?: (command: string, products: EnhancedProduct[]) => void;
-  productList?: { name: string }[];
   compact?: boolean;
 }
 
 export default function VoiceInputWithLocation({ 
   className, 
-  onCommand, 
-  productList = [], 
-  compact = false 
+  onCommand,
+  compact = false
 }: VoiceInputWithLocationProps) {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [products, setProducts] = useState<EnhancedProduct[]>([]);
   const [detectedLocation, setDetectedLocation] = useState<string | undefined>(undefined);
   const [processing, setProcessing] = useState(false);
-  const [needsClarification, setNeedsClarification] = useState(false);
-  const [clarificationOptions, setClarificationOptions] = useState<string[]>([]);
 
-  const handleListen = async () => {
+  const handleListen = () => {
     try {
       setIsListening(true);
-      toast.info("Listening... Try commands like 'Add 2 kg rice and 3 kg sugar from the top shelf'");
+      toast.info("Listening... Try commands like 'Add 2 kg rice and 3 kg sugar'");
       
       // Check if browser supports speech recognition
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -63,6 +56,7 @@ export default function VoiceInputWithLocation({
       recognition.onerror = (event) => {
         console.error("Speech recognition error", event.error);
         toast.error("Failed to recognize speech");
+        setIsListening(false);
       };
       
       recognition.onend = () => {
@@ -83,80 +77,43 @@ export default function VoiceInputWithLocation({
     
     try {
       console.log("Processing command:", command);
-      // Use detectCommandType from voiceCommandUtils to get richer command information
-      const commandResult = detectCommandType(command);
-      console.log("Command result:", commandResult);
       
-      // Check if it's an ADD_PRODUCT command
-      if (commandResult.type === VOICE_COMMAND_TYPES.ADD_PRODUCT) {
-        console.log('Processing ADD_PRODUCT command data:', commandResult.data);
+      // Parse products from the command
+      const parsedProducts = parseMultipleProducts(command);
+      console.log("Parsed products:", parsedProducts);
+      
+      if (parsedProducts && parsedProducts.length > 0) {
+        // Convert to EnhancedProduct format
+        const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
+          name: p.name || '',
+          quantity: p.quantity || 1,
+          unit: p.unit || 'piece',
+          position: p.position || 'General Storage',
+          price: p.price || undefined,
+          confidence: 1.0
+        }));
         
-        if (commandResult.data?.products && commandResult.data.products.length > 0) {
-          // Convert to EnhancedProduct format for consistency with the rest of the app
-          const enhancedProducts: EnhancedProduct[] = commandResult.data.products.map(p => ({
-            name: p.name || '',
-            quantity: p.quantity || 1,
-            unit: p.unit || 'piece',
-            position: p.position || 'General Storage',
-            price: p.price || undefined,
-            confidence: 1.0
-          }));
-          
-          setProducts(enhancedProducts);
-          
-          // Extract general location if available from the first product
-          if (commandResult.data.products[0]?.position) {
-            setDetectedLocation(commandResult.data.products[0].position);
-          }
-          
-          setNeedsClarification(false);
-          
-          // Pass the structured data back to the parent component
-          if (onCommand && enhancedProducts.length > 0) {
-            console.log("Calling onCommand with products:", enhancedProducts);
-            onCommand(command, enhancedProducts);
-          } else {
-            console.log("No onCommand handler or no products to pass");
-          }
-        } else {
-          console.log("No products detected in command");
-          toast.warning("Could not identify products in the command");
+        setProducts(enhancedProducts);
+        
+        // Extract general location if available from the first product
+        if (parsedProducts[0]?.position) {
+          setDetectedLocation(parsedProducts[0].position);
         }
-      } else if (commandResult.type !== VOICE_COMMAND_TYPES.UNKNOWN) {
-        console.log(`Detected command intent: ${commandResult.type}`);
-        toast.info(`Detected command: ${commandResult.type}`);
         
-        if (onCommand) {
-          onCommand(command, []);
+        // Pass the structured data back to the parent component
+        if (onCommand && enhancedProducts.length > 0) {
+          console.log("Calling onCommand with products:", enhancedProducts);
+          onCommand(command, enhancedProducts);
         }
       } else {
-        console.log("Unknown command type");
-        toast.warning("Could not understand command");
+        console.log("No products detected in command");
+        toast.warning("Could not identify products in the command");
       }
     } catch (error) {
       console.error("Error processing text:", error);
       toast.error("Failed to process command");
     } finally {
       setProcessing(false);
-    }
-  };
-
-  const handleClarification = (option: string) => {
-    if (products.length > 0) {
-      // Update the first product with the selected option
-      const updatedProducts = [...products];
-      updatedProducts[0].name = option;
-      updatedProducts[0].confidence = 1.0; // Now we're confident
-      
-      setProducts(updatedProducts);
-      setNeedsClarification(false);
-      
-      // Pass the updated data back to the parent component
-      if (onCommand) {
-        onCommand(text, updatedProducts);
-      }
-      
-      toast.success(`Updated product to: ${option}`);
     }
   };
 
@@ -177,13 +134,13 @@ export default function VoiceInputWithLocation({
           </>
         ) : processing ? (
           <>
-            <Mic className="h-4 w-4 animate-pulse" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             Processing...
           </>
         ) : (
           <>
             <Mic className="h-4 w-4" />
-            Voice Command
+            Voice
           </>
         )}
       </Button>
@@ -194,7 +151,7 @@ export default function VoiceInputWithLocation({
     <Card className={cn("border shadow-md overflow-hidden", className)}>
       <CardHeader className="bg-muted/40 py-3">
         <CardTitle className="text-lg flex justify-between items-center">
-          <span>Voice Input</span>
+          <span>Voice Command</span>
           <Button
             onClick={handleListen}
             disabled={isListening || processing}
@@ -209,13 +166,13 @@ export default function VoiceInputWithLocation({
               </>
             ) : processing ? (
               <>
-                <Mic className="h-4 w-4 animate-pulse" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Processing...
               </>
             ) : (
               <>
                 <Mic className="h-4 w-4" />
-                Start Voice Command
+                Speak
               </>
             )}
           </Button>
@@ -230,32 +187,14 @@ export default function VoiceInputWithLocation({
           </div>
         )}
         
-        {needsClarification && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Did you mean:</h3>
-            <div className="flex flex-wrap gap-2">
-              {clarificationOptions.map((option, index) => (
-                <Button
-                  key={index}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleClarification(option)}
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {detectedLocation && !needsClarification && (
+        {detectedLocation && (
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-amber-500" />
             <span>Location: <Badge variant="outline">{detectedLocation}</Badge></span>
           </div>
         )}
         
-        {products.length > 0 && !needsClarification && (
+        {products.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Recognized Products:</h3>
             
@@ -269,24 +208,10 @@ export default function VoiceInputWithLocation({
                   </div>
                 </div>
                 
-                {product.price !== undefined && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Tag className="h-4 w-4 text-green-500" />
-                    <span>Price: ₹{product.price}</span>
-                  </div>
-                )}
-                
                 {product.position && (
                   <div className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-amber-500" />
                     <span>Location: {product.position}</span>
-                  </div>
-                )}
-                
-                {product.expiry && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-blue-500" />
-                    <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(new Date(product.expiry), 'dd MMM yyyy')}</span>
                   </div>
                 )}
               </div>
@@ -297,10 +222,9 @@ export default function VoiceInputWithLocation({
         {!text && !isListening && !processing && (
           <div className="text-center py-6 text-muted-foreground">
             <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
-            <p>Click "Start Voice Command" to add products with voice</p>
+            <p>Click "Speak" to add products with voice</p>
             <p className="text-sm mt-2">Try saying:</p>
             <p className="text-xs mt-1 font-medium">"Add 5 kg rice, 3 kg sugar, and 2 liters milk"</p>
-            <p className="text-xs mt-1 font-medium">"Add 2 packets biscuits from rack 3"</p>
           </div>
         )}
       </CardContent>

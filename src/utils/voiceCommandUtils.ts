@@ -1,4 +1,3 @@
-
 import { VoiceProduct, VoiceCommandResult, VOICE_COMMAND_TYPES } from '@/types/voice';
 
 export function normalizeUnit(unit: string): string {
@@ -117,34 +116,14 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
         unit,
         position,
         image_url: '',
-        price: 0, // Default price
-        expiry: undefined // Default expiry
+        price: 0,
+        expiry: undefined
       });
     }
   });
   
   console.log('Parsed products:', products);
   return products;
-}
-
-export function validateProductDetails(product: { 
-  name: string; 
-  quantity?: number; 
-  unit?: string;
-  position?: string;
-  price?: number;
-  expiry?: string;
-}): { isValid: boolean; missingFields: string[] } {
-  const missingFields: string[] = [];
-  
-  if (!product.name) missingFields.push('name');
-  if (!product.quantity) missingFields.push('quantity');
-  if (!product.unit) missingFields.push('unit');
-  
-  return {
-    isValid: missingFields.length === 0,
-    missingFields
-  };
 }
 
 // Update to return VoiceCommandResult
@@ -230,18 +209,6 @@ export function extractBillItems(command: string) {
   }));
 }
 
-export function processBillingVoiceCommand(command: string): VoiceCommandResult {
-  // Enhanced implementation to return VoiceCommandResult
-  const items = extractBillItems(command);
-  const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
-  
-  return { 
-    type: VOICE_COMMAND_TYPES.CREATE_BILL,
-    data: { items, total },
-    rawText: command
-  };
-}
-
 function extractProductName(command: string): string {
   // Simple implementation to extract product name from commands like "find rice" or "where is sugar"
   const words = command.toLowerCase().split(/\s+/);
@@ -280,8 +247,41 @@ export function suggestLocationForProduct(product: string) {
   return 'General Storage';
 }
 
+// Other needed utility functions
+export function validateProductDetails(product: { 
+  name: string; 
+  quantity?: number; 
+  unit?: string;
+  position?: string;
+  price?: number;
+  expiry?: string;
+}): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+  
+  if (!product.name) missingFields.push('name');
+  if (!product.quantity) missingFields.push('quantity');
+  if (!product.unit) missingFields.push('unit');
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+}
+
+export function processBillingVoiceCommand(command: string): VoiceCommandResult {
+  // Enhanced implementation to return VoiceCommandResult
+  const items = extractBillItems(command);
+  const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
+  
+  return { 
+    type: VOICE_COMMAND_TYPES.CREATE_BILL,
+    data: { items, total },
+    rawText: command
+  };
+}
+
 export function extractProductDetails(command: string): VoiceProduct {
-  // Enhanced implementation to satisfy imports and type needs
+  // Implementation to satisfy imports and type needs
   return {
     name: '',
     quantity: 1,

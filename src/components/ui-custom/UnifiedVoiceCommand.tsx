@@ -5,7 +5,7 @@ import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
 import { toast } from 'sonner';
 import { useInventory } from '@/context/InventoryContext';
 import { Button } from '@/components/ui/button';
-import { Mic, Settings } from 'lucide-react';
+import { Mic } from 'lucide-react';
 
 interface UnifiedVoiceCommandProps {
   compact?: boolean;
@@ -59,7 +59,6 @@ export default function UnifiedVoiceCommand({ compact = false, onCommand }: Unif
   if (compact) {
     return (
       <Button
-        onClick={() => {}}
         variant="outline"
         size="sm"
         className="flex items-center gap-2 bg-primary/10"
