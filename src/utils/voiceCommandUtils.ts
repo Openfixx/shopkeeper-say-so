@@ -111,7 +111,9 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
         quantity,
         unit,
         position,
-        image_url: ''
+        image_url: '',
+        price: 0, // Default price
+        expiry: undefined // Default expiry
       });
     }
   });
@@ -166,11 +168,13 @@ export function suggestLocationForProduct(product: string) {
 }
 
 export function extractProductDetails(command: string) {
-  // Basic implementation to satisfy imports
+  // Enhanced implementation to satisfy imports and type needs
   return {
     name: '',
     quantity: 1,
     unit: 'piece',
     position: '',
+    price: 0,       // Add price field
+    expiry: '',     // Add expiry field
   };
 }

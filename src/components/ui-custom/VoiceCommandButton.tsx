@@ -1,114 +1,83 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic } from 'lucide-react';
-import { useVoiceRecognition } from '@/hooks/use-voice-recognition';
+import { Mic, MicOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { useVoiceStore } from '@/store/voiceStore';
-import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useInventory } from '@/context/InventoryContext';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
 
-const VoiceCommandButton: React.FC = () => {
-  const { isListening, isProcessing, startListening, stopListening } = useVoiceRecognition();
-  const { products, clearProducts } = useVoiceStore();
-  const { addProduct } = useInventory();
-  const [open, setOpen] = React.useState(false);
-  const [locations, setLocations] = React.useState<Record<string, string>>({});
+interface VoiceCommandButtonProps {
+  onVoiceCommand?: (command: string) => void;
+  showDialog?: boolean;
+  label?: string;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+}
 
-  React.useEffect(() => {
-    if (products.length > 0) {
-      setOpen(true);
-      
-      // Initialize locations
-      const initialLocations: Record<string, string> = {};
-      products.forEach(product => {
-        initialLocations[product.name] = product.position || '';
-      });
-      setLocations(initialLocations);
+const VoiceCommandButton: React.FC<VoiceCommandButtonProps> = ({
+  onVoiceCommand,
+  showDialog = false,
+  label = 'Voice',
+  variant = 'default',
+  size = 'default'
+}) => {
+  const [isListening, setIsListening] = useState(false);
+  
+  const handleVoiceCommand = async () => {
+    if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+      toast.error("Speech recognition is not supported in your browser");
+      return;
     }
-  }, [products]);
-
-  const handleAddProducts = () => {
-    products.forEach(product => {
-      addProduct({
-        name: product.name,
-        quantity: product.quantity,
-        unit: product.unit,
-        price: product.price || 0,
-        position: locations[product.name] || 'unspecified',
-        image_url: product.image_url || ''
-      });
-    });
     
-    clearProducts();
-    setOpen(false);
-  };
-
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="icon"
-        className="relative h-10 w-10 rounded-full"
-        onClick={startListening}
-        disabled={isListening || isProcessing}
-      >
-        <Mic className="h-4 w-4" />
-        {isListening && (
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
-          </span>
-        )}
-      </Button>
+    try {
+      setIsListening(true);
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
       
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Confirm product locations</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4">
-            <p className="text-muted-foreground text-sm mb-4">
-              Please specify the location for each product
-            </p>
-            
-            {products.map((product, index) => (
-              <Card key={`${product.name}-${index}`} className="mb-3">
-                <CardContent className="pt-4">
-                  <div className="flex flex-col gap-2">
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {product.quantity} {product.unit}
-                      </p>
-                    </div>
-                    <div className="grid w-full items-center gap-1.5">
-                      <Label htmlFor={`location-${index}`}>Location</Label>
-                      <Input
-                        id={`location-${index}`}
-                        placeholder="Rack 1, Shelf 2, etc."
-                        value={locations[product.name] || ''}
-                        onChange={(e) => setLocations({
-                          ...locations,
-                          [product.name]: e.target.value
-                        })}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <DrawerFooter>
-            <Button onClick={handleAddProducts}>
-              Add {products.length} {products.length === 1 ? 'Product' : 'Products'}
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
-    </>
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      
+      recognition.onstart = () => {
+        toast.info("Listening... Speak your command");
+      };
+      
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (onVoiceCommand) {
+          onVoiceCommand(transcript);
+        }
+        toast.success("Command received!");
+      };
+      
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        toast.error("Failed to recognize speech");
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+      
+      recognition.start();
+    } catch (error) {
+      console.error("Voice command error:", error);
+      toast.error("Failed to start voice recognition");
+      setIsListening(false);
+    }
+  };
+  
+  return (
+    <Button
+      onClick={handleVoiceCommand}
+      disabled={isListening}
+      variant={isListening ? "destructive" : variant}
+      size={size}
+      className="flex items-center gap-2"
+    >
+      {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+      {label}
+    </Button>
   );
 };
 

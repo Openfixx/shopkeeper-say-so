@@ -15,9 +15,10 @@ interface VoiceInputWithLocationProps {
   className?: string;
   onCommand?: (command: string, products: EnhancedProduct[]) => void;
   productList?: { name: string }[];
+  compact?: boolean; // Add the compact prop
 }
 
-export default function VoiceInputWithLocation({ className, onCommand, productList = [] }: VoiceInputWithLocationProps) {
+export default function VoiceInputWithLocation({ className, onCommand, productList = [], compact = false }: VoiceInputWithLocationProps) {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [products, setProducts] = useState<EnhancedProduct[]>([]);
@@ -148,6 +149,31 @@ export default function VoiceInputWithLocation({ className, onCommand, productLi
       toast.success(`Updated product to: ${option}`);
     }
   };
+
+  // If compact, render a simpler version
+  if (compact) {
+    return (
+      <Button
+        onClick={handleListen}
+        disabled={isListening}
+        variant={isListening ? "destructive" : "default"}
+        size="sm"
+        className="flex items-center gap-2"
+      >
+        {isListening ? (
+          <>
+            <MicOff className="h-4 w-4" />
+            Listening...
+          </>
+        ) : (
+          <>
+            <Mic className="h-4 w-4" />
+            Voice Command
+          </>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Card className={cn("border shadow-md overflow-hidden", className)}>

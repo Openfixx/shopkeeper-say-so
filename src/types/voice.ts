@@ -33,3 +33,10 @@ export interface CommandResult {
   expiry?: string;
   rawText: string;
 }
+
+// Add a dedicated interface for the voice command result
+export interface VoiceCommandResult {
+  type: string;
+  data?: any;
+  rawText: string;
+}
