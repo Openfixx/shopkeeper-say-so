@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '@/context/InventoryContext';
@@ -26,9 +27,9 @@ import { toast } from 'sonner';
 import { 
   extractBillItems, 
   processBillingVoiceCommand, 
-  detectCommandType, 
-  VOICE_COMMAND_TYPES 
+  detectCommandType
 } from '@/utils/voiceCommandUtils';
+import { VOICE_COMMAND_TYPES } from '@/types/voice';
 import { formatCurrency } from '@/utils/formatters';
 
 const UNIT_TYPES = {

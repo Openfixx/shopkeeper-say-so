@@ -1,5 +1,5 @@
 import Fuse from 'fuse.js';
-import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
+import { VoiceProduct, VOICE_COMMAND_TYPES, CommandResult } from '@/types/voice';
 
 // Common product locations for suggestions
 const PRODUCT_LOCATIONS = {
@@ -58,9 +58,6 @@ export const suggestLocationForProduct = (productName: string): string => {
   // Default location if no match found
   return 'General Storage';
 };
-
-// Export VoiceProduct for use in other files
-export type { VoiceProduct } from '@/types/voice';
 
 // Improved multi-product parser that better handles complex sentence structures
 export const parseMultipleProducts = (command: string, productList: { name: string }[] = []): VoiceProduct[] => {

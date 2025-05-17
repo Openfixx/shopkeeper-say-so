@@ -38,7 +38,7 @@ export const addProduct = async (
     .from('product-images')
     .getPublicUrl(uploadData.path);
 
-  // Save to products table
+  // Save to products table - make sure we select the fields we need
   const { data, error } = await supabase
     .from('products')
     .insert({ 

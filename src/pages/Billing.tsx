@@ -47,7 +47,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { detectCommandType, VOICE_COMMAND_TYPES } from '@/types/voice';
+import { detectCommandType } from '@/utils/voiceCommandUtils';
+import { VOICE_COMMAND_TYPES } from '@/types/voice';
 
 const BillingPage: React.FC = () => {
   const { products, currentBill, startNewBill, addToBill, removeFromBill, completeBill, cancelBill, isLoading } = useInventory();
