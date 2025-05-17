@@ -37,6 +37,10 @@ export interface CommandResult {
 // Add a dedicated interface for the voice command result
 export interface VoiceCommandResult {
   type: string;
-  data?: any;
+  data?: {
+    items?: any[];
+    total?: number;
+    [key: string]: any;
+  };
   rawText: string;
 }

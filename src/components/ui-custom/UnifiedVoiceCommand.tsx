@@ -1,284 +1,46 @@
-// Update the parseMultipleProducts function call to only use one argument
-import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { Mic, MicOff, MapPin, Calendar, Tag } from 'lucide-react';
-import { CommandIntent, detectCommandIntent } from '@/utils/nlp/commandTypeDetector';
-import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
-import { VoiceProduct } from '@/types/voice';
-import { format } from 'date-fns';
 
-interface VoiceInputWithLocationProps {
-  className?: string;
+import React from 'react';
+import VoiceInputWithLocation from '@/components/VoiceInputWithLocation';
+import { EnhancedProduct } from '@/utils/nlp/enhancedProductParser';
+import { toast } from 'sonner';
+import { useInventory } from '@/context/InventoryContext';
+
+interface UnifiedVoiceCommandProps {
+  compact?: boolean;
   onCommand?: (command: string, products: EnhancedProduct[]) => void;
-  productList?: { name: string }[];
 }
 
-export default function VoiceInputWithLocation({ className, onCommand, productList = [] }: VoiceInputWithLocationProps) {
-  const [text, setText] = useState('');
-  const [isListening, setIsListening] = useState(false);
-  const [products, setProducts] = useState<EnhancedProduct[]>([]);
-  const [detectedLocation, setDetectedLocation] = useState<string | undefined>(undefined);
-  const [processing, setProcessing] = useState(false);
-  const [needsClarification, setNeedsClarification] = useState(false);
-  const [clarificationOptions, setClarificationOptions] = useState<string[]>([]);
-
-  const handleListen = async () => {
-    try {
-      setIsListening(true);
-      toast.info("Listening... Try commands like 'Add 2 kg rice and 3 kg sugar from the top shelf'");
+export default function UnifiedVoiceCommand({ compact = false, onCommand }: UnifiedVoiceCommandProps) {
+  const { addProduct } = useInventory();
+  
+  const handleCommand = (command: string, products: EnhancedProduct[]) => {
+    // First try to use the provided onCommand handler
+    if (onCommand) {
+      onCommand(command, products);
+      return;
+    }
+    
+    // Default behavior: add products to inventory
+    if (products && products.length > 0) {
+      products.forEach(product => {
+        addProduct({
+          name: product.name,
+          quantity: product.quantity || 1,
+          unit: product.unit || 'piece',
+          position: product.position || 'General Storage',
+          price: product.price || 0,
+          image_url: ''
+        });
+      });
       
-      // Check if browser supports speech recognition
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        toast.error("Speech recognition is not supported in this browser");
-        setIsListening(false);
-        return;
-      }
-      
-      // Initialize speech recognition
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.lang = 'en-US';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setText(transcript);
-        processText(transcript);
-        toast.success("Voice command received!");
-      };
-      
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
-        toast.error("Failed to recognize speech");
-      };
-      
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      
-      recognition.start();
-      
-    } catch (error) {
-      console.error("Voice recognition error:", error);
-      toast.error("Voice recognition failed. Please try again.");
-      setIsListening(false);
+      toast.success(`Added ${products.length} product(s) to inventory`);
     }
   };
   
-  const processText = (command: string) => {
-    setProcessing(true);
-    
-    try {
-      // Detect command intent
-      const intent = detectCommandIntent(command);
-      
-      // Check if it's an ADD_PRODUCT intent
-      if (intent === CommandIntent.ADD_PRODUCT) {
-        console.log('Processing ADD_PRODUCT command:', command);
-        
-        // Use our multi-product parser - fixed to pass only one argument
-        const parsedProducts = parseMultipleProducts(command);
-        console.log('Parsed products:', parsedProducts);
-        
-        if (parsedProducts.length > 0) {
-          // Convert to EnhancedProduct format for consistency with the rest of the app
-          const enhancedProducts: EnhancedProduct[] = parsedProducts.map(p => ({
-            name: p.name || '',
-            quantity: p.quantity || 1,
-            unit: p.unit || 'piece',
-            position: p.position || 'General Storage',
-            price: p.price || undefined,
-            confidence: 1.0
-          }));
-          
-          setProducts(enhancedProducts);
-          
-          // Extract general location if available from the first product
-          if (parsedProducts[0]?.position) {
-            setDetectedLocation(parsedProducts[0].position);
-          }
-          
-          setNeedsClarification(false);
-          
-          // Pass the structured data back to the parent component
-          if (onCommand && enhancedProducts.length > 0) {
-            onCommand(command, enhancedProducts);
-          }
-        } else {
-          toast.warning("Could not identify products in the command");
-        }
-      } else if (intent !== CommandIntent.UNKNOWN) {
-        toast.info(`Detected command intent: ${intent}`);
-        
-        if (onCommand) {
-          onCommand(command, []);
-        }
-      } else {
-        toast.warning("Could not understand command");
-      }
-    } catch (error) {
-      console.error("Error processing text:", error);
-      toast.error("Failed to process command");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleClarification = (option: string) => {
-    if (products.length > 0) {
-      // Update the first product with the selected option
-      const updatedProducts = [...products];
-      updatedProducts[0].name = option;
-      updatedProducts[0].confidence = 1.0; // Now we're confident
-      
-      setProducts(updatedProducts);
-      setNeedsClarification(false);
-      
-      // Pass the updated data back to the parent component
-      if (onCommand) {
-        onCommand(text, updatedProducts);
-      }
-      
-      toast.success(`Updated product to: ${option}`);
-    }
-  };
-
   return (
-    <Card className={cn("border shadow-md overflow-hidden", className)}>
-      <CardHeader className="bg-muted/40">
-        <CardTitle className="text-lg flex justify-between items-center">
-          <span>Enhanced Voice Input</span>
-          <Button
-            onClick={handleListen}
-            disabled={isListening}
-            variant={isListening ? "destructive" : "default"}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            {isListening ? (
-              <>
-                <MicOff className="h-4 w-4" />
-                Listening...
-              </>
-            ) : (
-              <>
-                <Mic className="h-4 w-4" />
-                Start Voice Command
-              </>
-            )}
-          </Button>
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="p-4 space-y-4">
-        {text && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Voice Command:</h3>
-            <p className="text-sm bg-muted p-2 rounded">{text}</p>
-          </div>
-        )}
-        
-        {needsClarification && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Did you mean:</h3>
-            <div className="flex flex-wrap gap-2">
-              {clarificationOptions.map((option, index) => (
-                <Button
-                  key={index}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleClarification(option)}
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {detectedLocation && !needsClarification && (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="h-4 w-4 text-amber-500" />
-            <span>Location: <Badge variant="outline">{detectedLocation}</Badge></span>
-          </div>
-        )}
-        
-        {products.length > 0 && !needsClarification && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Recognized Products:</h3>
-            
-            {products.map((product, index) => (
-              <div key={index} className="border rounded-md p-3 bg-card space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{product.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span>{product.quantity || 1}</span>
-                    <Badge variant="secondary">{product.unit || 'pc'}</Badge>
-                  </div>
-                </div>
-                
-                {product.price !== undefined && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Tag className="h-4 w-4 text-green-500" />
-                    <span>Price: ₹{product.price}</span>
-                  </div>
-                )}
-                
-                {product.position && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-amber-500" />
-                    <span>Location: {product.position}</span>
-                  </div>
-                )}
-                
-                {product.expiry && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-blue-500" />
-                    <span>Expiry: {typeof product.expiry === 'string' ? product.expiry : format(new Date(product.expiry), 'dd MMM yyyy')}</span>
-                  </div>
-                )}
-                
-                {product.variant && (
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {product.variant.size && (
-                      <Badge variant="outline" className="text-xs">
-                        Size: {product.variant.size}
-                      </Badge>
-                    )}
-                    {product.variant.color && (
-                      <Badge variant="outline" className="text-xs">
-                        Color: {product.variant.color}
-                      </Badge>
-                    )}
-                    {product.variant.type && (
-                      <Badge variant="outline" className="text-xs">
-                        Type: {product.variant.type}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {!text && !isListening && (
-          <div className="text-center py-6 text-muted-foreground">
-            <Mic className="h-12 w-12 mx-auto mb-2 opacity-20" />
-            <p>Click "Start Voice Command" to add products with voice</p>
-            <p className="text-sm mt-2">Try saying:</p>
-            <p className="text-xs mt-1 font-medium">"Add 5 kg rice, 3 kg sugar, and 2 liters milk"</p>
-            <p className="text-xs mt-1 font-medium">"Add 2 packets biscuits from rack 3"</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <VoiceInputWithLocation
+      compact={compact}
+      onCommand={handleCommand}
+    />
   );
 }

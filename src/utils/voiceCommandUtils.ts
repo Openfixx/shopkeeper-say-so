@@ -1,5 +1,4 @@
-
-import { VoiceProduct } from '@/types/voice';
+import { VoiceProduct, VoiceCommandResult, VOICE_COMMAND_TYPES } from '@/types/voice';
 
 export function normalizeUnit(unit: string): string {
   const unitMap: Record<string, string> = {
@@ -141,40 +140,109 @@ export function validateProductDetails(product: {
   };
 }
 
+// Update to return VoiceCommandResult
+export function detectCommandType(command: string): VoiceCommandResult {
+  if (!command) return { type: VOICE_COMMAND_TYPES.UNKNOWN, rawText: '' };
+  
+  const normalizedCommand = command.toLowerCase().trim();
+  
+  // Check for bill creation commands
+  if (normalizedCommand.includes('create bill') || normalizedCommand.includes('make bill') || 
+      normalizedCommand.includes('generate bill') || normalizedCommand.includes('new bill')) {
+    return {
+      type: VOICE_COMMAND_TYPES.CREATE_BILL,
+      data: { items: extractBillItems(command) },
+      rawText: command
+    };
+  }
+  
+  // Check for add product commands
+  if (normalizedCommand.includes('add ') || normalizedCommand.match(/^([0-9]+)\s*([a-z]+)\s+/i)) {
+    return {
+      type: VOICE_COMMAND_TYPES.ADD_PRODUCT,
+      data: { products: parseMultipleProducts(command) },
+      rawText: command
+    };
+  }
+  
+  // Check for remove product commands
+  if (normalizedCommand.includes('remove ') || normalizedCommand.includes('delete ')) {
+    return {
+      type: VOICE_COMMAND_TYPES.REMOVE_PRODUCT,
+      data: { productName: extractProductName(command) },
+      rawText: command
+    };
+  }
+  
+  // Check for search product commands
+  if (normalizedCommand.includes('search ') || normalizedCommand.includes('find ') || 
+      normalizedCommand.includes('where is ') || normalizedCommand.includes('locate ')) {
+    return {
+      type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
+      data: { productName: extractProductName(command) },
+      rawText: command
+    };
+  }
+  
+  return {
+    type: VOICE_COMMAND_TYPES.UNKNOWN,
+    rawText: command
+  };
+}
+
 // Add missing exported functions needed by other components
 export function extractBillItems(command: string) {
-  // Basic implementation to satisfy imports 
-  return [];
+  // Improved implementation that returns product items
+  const products = parseMultipleProducts(command);
+  return products.map(p => ({
+    name: p.name,
+    quantity: p.quantity,
+    unit: p.unit,
+    price: p.price || 0
+  }));
 }
 
-export function processBillingVoiceCommand(command: string) {
-  // Basic implementation to satisfy imports
-  return { items: [], total: 0 };
+export function processBillingVoiceCommand(command: string): VoiceCommandResult {
+  // Enhanced implementation to return VoiceCommandResult
+  const items = extractBillItems(command);
+  const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
+  
+  return { 
+    type: VOICE_COMMAND_TYPES.CREATE_BILL,
+    data: { items, total },
+    rawText: command
+  };
 }
 
-export function detectCommandType(command: string) {
-  // Basic implementation to satisfy imports
-  return 'ADD_PRODUCT';
+function extractProductName(command: string): string {
+  // Simple implementation to extract product name from commands like "find rice" or "where is sugar"
+  const words = command.toLowerCase().split(/\s+/);
+  const actionWords = ['find', 'search', 'where', 'is', 'locate', 'get', 'remove', 'delete'];
+  
+  // Filter out action words
+  return words
+    .filter(word => !actionWords.includes(word) && word.length > 2)
+    .join(' ');
 }
 
 export function identifyShelves(command: string) {
-  // Basic implementation to satisfy imports
+  // Implementation to satisfy imports
   return [];
 }
 
 export function suggestLocationForProduct(product: string) {
-  // Basic implementation to satisfy imports
+  // Implementation to satisfy imports
   return 'General Storage';
 }
 
-export function extractProductDetails(command: string) {
+export function extractProductDetails(command: string): VoiceProduct {
   // Enhanced implementation to satisfy imports and type needs
   return {
     name: '',
     quantity: 1,
     unit: 'piece',
     position: '',
-    price: 0,       // Add price field
-    expiry: '',     // Add expiry field
+    price: 0,
+    expiry: '',
   };
 }
