@@ -6,18 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Camera, Upload, X, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Product } from '@/context/InventoryContext';
-import { identifyShelves } from '@/utils/voiceCommandUtils';
+import { identifyShelves, ShelfCoordinate, IdentifyShelvesResult } from '@/utils/voiceCommandUtils';
 
 interface RackMappingProps {
   products: Product[];
   onSelectProduct?: (productId: string) => void;
-}
-
-interface ShelfCoordinate {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
 }
 
 interface ShelfProduct {
@@ -72,7 +65,7 @@ const RackMapping: React.FC<RackMappingProps> = ({ products, onSelectProduct }) 
         setRackImage(imageUrl);
         
         // Analyze the rack image for shelves
-        const result = identifyShelves(imageUrl);
+        const result: IdentifyShelvesResult = identifyShelves(imageUrl);
         setShelfCoordinates(result.shelfCoordinates);
         
         toast.success(`Rack image uploaded with ${result.shelfCoordinates.length} shelves identified`);
@@ -98,7 +91,7 @@ const RackMapping: React.FC<RackMappingProps> = ({ products, onSelectProduct }) 
           setRackImage(imageUrl);
           
           // Analyze the rack image for shelves
-          const result = identifyShelves(imageUrl);
+          const result: IdentifyShelvesResult = identifyShelves(imageUrl);
           setShelfCoordinates(result.shelfCoordinates);
           
           toast.success(`Rack image captured with ${result.shelfCoordinates.length} shelves identified`);

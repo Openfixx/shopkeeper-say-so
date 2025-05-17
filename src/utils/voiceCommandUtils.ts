@@ -225,9 +225,27 @@ function extractProductName(command: string): string {
     .join(' ');
 }
 
-export function identifyShelves(command: string) {
-  // Implementation to satisfy imports
-  return [];
+export interface ShelfCoordinate {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+export interface IdentifyShelvesResult {
+  shelfCoordinates: ShelfCoordinate[];
+}
+
+// Update the identifyShelves function to return the correct type
+export function identifyShelves(imageUrl: string): IdentifyShelvesResult {
+  // For now, return a mock implementation with 3 shelves
+  return {
+    shelfCoordinates: [
+      { top: 10, left: 10, width: 80, height: 20 },
+      { top: 40, left: 10, width: 80, height: 20 },
+      { top: 70, left: 10, width: 80, height: 20 }
+    ]
+  };
 }
 
 export function suggestLocationForProduct(product: string) {
