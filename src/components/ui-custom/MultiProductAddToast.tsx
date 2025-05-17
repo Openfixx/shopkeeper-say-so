@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Loader2, ShoppingBag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MultiProduct } from '@/utils/multiVoiceParse';
+import { VoiceProduct } from '@/types/voice';
 
 interface MultiProductAddToastProps {
-  products: MultiProduct[];
+  products: VoiceProduct[];
   onClose: () => void;
   onComplete?: () => void;
 }

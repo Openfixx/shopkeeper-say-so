@@ -11,10 +11,10 @@ import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
 import { toast } from '@/components/ui/use-toast';
 import SiriStyleVoiceUI from '@/components/ui-custom/SiriStyleVoiceUI';
-import { parseMultiProductCommand, MultiProduct } from '@/utils/multiVoiceParse';
+import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
 import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
-import { CommandResult } from '@/lib/voice';
+import { CommandResult, VoiceProduct } from '@/types/voice';
 import { validateProductDetails } from '@/utils/voiceCommandUtils';
 
 const Index = () => {
@@ -22,7 +22,7 @@ const Index = () => {
   const { products, addProduct } = useInventory();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [multiProducts, setMultiProducts] = useState<MultiProduct[]>([]);
+  const [multiProducts, setMultiProducts] = useState<VoiceProduct[]>([]);
   const [showMultiProductToast, setShowMultiProductToast] = useState(false);
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);

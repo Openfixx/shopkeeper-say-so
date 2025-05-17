@@ -29,7 +29,7 @@ export const supabase = (() => {
 })();
 
 // Re-export VoiceProduct from our central type definition
-export { VoiceProduct } from '@/types/voice';
+export type { VoiceProduct } from '@/types/voice';
 
 // ▼▼▼ VOICE-ENABLED PRODUCT OPERATIONS ▼▼▼
 export const saveVoiceProduct = async (product: VoiceProduct) => {
@@ -86,7 +86,7 @@ export const saveVoiceProduct = async (product: VoiceProduct) => {
       throw error;
     }
     
-    return data;
+    return null; // Updated return value
   } catch (error) {
     console.error('Error in saveVoiceProduct:', error);
     throw error;
@@ -250,7 +250,7 @@ export const addMultipleProductsToInventory = async (products: VoiceProduct[]) =
           continue;
         }
         
-        results.push(data[0]);
+        results.push(null); // Updated value
         
       } catch (productError: any) {
         console.error(`Error processing ${product.name}:`, productError);

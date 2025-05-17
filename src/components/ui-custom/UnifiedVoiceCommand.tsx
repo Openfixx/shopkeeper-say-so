@@ -8,12 +8,11 @@ import { useVoiceRecognition } from '@/lib/voice';
 import { Badge } from '@/components/ui/badge';
 import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
 import VoiceCommandPopup from './VoiceCommandPopup';
-import { CommandResult } from '@/types/voice';
+import { CommandResult, VoiceProduct } from '@/types/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase, saveVoiceProduct, addMultipleProductsToInventory, VoiceProduct as SupabaseVoiceProduct } from '@/lib/supabase';
+import { supabase, saveVoiceProduct, addMultipleProductsToInventory } from '@/lib/supabase';
 import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
-import { VoiceProduct } from '@/types/voice';
 
 interface UnifiedVoiceCommandProps {
   className?: string;
@@ -126,12 +125,12 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
       console.log('Adding multiple products:', extractedProducts);
       
       // Convert to Supabase VoiceProduct format
-      const supabaseProducts: SupabaseVoiceProduct[] = extractedProducts.map(p => ({
+      const supabaseProducts = extractedProducts.map(p => ({
         name: p.name,
         quantity: p.quantity,
-        unit: p.unit,
+        unit: p.unit || 'piece', // Ensure unit is always defined
         position: p.position || 'General Storage',
-        price: p.price || 0,
+        price: p.price || 0, // Ensure price is always defined
         image_url: p.image_url || ''
       }));
       
@@ -147,8 +146,8 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
           addProduct({
             name: product.name,
             quantity: product.quantity || 1,
-            unit: product.unit || 'unit',
-            price: product.price || 0,
+            unit: product.unit || 'piece',
+            price: product.price || 0, // Ensure price is always set
             position: product.position || 'Default',
             image_url: product.image_url || ''
           });
@@ -164,8 +163,8 @@ export default function UnifiedVoiceCommand({ className = '', compact = false }:
             addProduct({
               name: product.name,
               quantity: product.quantity || 1,
-              unit: product.unit || 'unit',
-              price: product.price || 0,
+              unit: product.unit || 'piece',
+              price: product.price || 0, // Ensure price is always set
               position: product.position || 'Default',
               image_url: product.image_url || ''
             });

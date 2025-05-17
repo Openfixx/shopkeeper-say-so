@@ -1,6 +1,5 @@
-
 import { supabase } from './supabase';
-import { Product } from '@/types/';
+import { VoiceProduct } from '@/types/voice';
 
 // Types
 export interface InventoryItem {
@@ -21,7 +20,7 @@ export interface InventoryItem {
 export const addProduct = async (
   name: string, 
   imageFile: File
-): Promise<Product> => {
+): Promise<any> => {
   // Get the current user
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -211,7 +210,7 @@ export const addMultipleProducts = async (products: Array<{
             continue; // Skip to next product
           }
           
-          productId = newProduct.id;
+          productId = newProduct?.id || '';
         }
         
         // Now add to inventory with the valid product ID

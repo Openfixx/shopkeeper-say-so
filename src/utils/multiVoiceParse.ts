@@ -1,4 +1,3 @@
-
 import Fuse from 'fuse.js';
 import { suggestLocationForProduct } from './voiceCommandUtils';
 import { VoiceProduct } from '@/types/voice';
@@ -135,7 +134,7 @@ export const parseMultiProductCommand = (command: string, productList: {name: st
 
   // Enhanced splitting to handle more complex patterns
   // We'll split on commas, "and", or when we detect a clear product boundary
-  const productDelimiterPattern = /,|\sand\s|also|plus|along with|together with|with|as well as|besides|additionally|moreover|\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets|piece|pieces|pcs|box|boxes|unit|units)\s+of\s+/i;
+  const productDelimiterPattern = /,|\sand\s|also|plus|along with|together with|with|as well as|besides|additionally|moreover|\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(kg|g|ml|l|litre|liter|packet|packets|pack|packs|bottle|bottles|can|cans|sachet|sachets)\s+of\s+/i;
   
   // First split by common separators
   let parts = cleanedCommand.split(productDelimiterPattern);

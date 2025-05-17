@@ -1,17 +1,6 @@
 import Fuse from 'fuse.js';
 import { VoiceProduct, VOICE_COMMAND_TYPES } from '@/types/voice';
 
-// Product interface for parsed voice commands
-export interface VoiceProduct {
-  name: string;
-  quantity: number;
-  unit?: string;
-  position?: string;
-  price?: number;
-  expiry?: string;  // Added expiry field to fix AddProduct.tsx and test errors
-  image_url: string; // Initialize with empty string to match interface
-}
-
 // Common product locations for suggestions
 const PRODUCT_LOCATIONS = {
   'rice': 'Rack 2',
@@ -29,16 +18,6 @@ const PRODUCT_LOCATIONS = {
   'chocolate': 'Shelf 3',
   'candy': 'Shelf 3',
   'snack': 'Shelf 2'
-};
-
-// Voice command types for billing
-export const VOICE_COMMAND_TYPES = {
-  CREATE_BILL: 'create_bill',
-  ADD_PRODUCT: 'add_product',
-  REMOVE_PRODUCT: 'remove_product',
-  SEARCH_PRODUCT: 'search_product',
-  GENERATE_BILL: 'generate_bill', // Added to fix VoiceFeatures.tsx
-  UNKNOWN: 'unknown'
 };
 
 // Export all required functions
@@ -361,6 +340,6 @@ export const identifyShelves = (imageUrl: string) => {
     type: "Generic",
     number: "1",
     label: "Generic Shelf",
-    shelfCoordinates: mockCoordinates // Add shelfCoordinates to the return value
+    shelfCoordinates: [{ top: 0, left: 0, width: 0, height: 0 }] // Add default value
   };
 };
