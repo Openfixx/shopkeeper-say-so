@@ -8,7 +8,8 @@ import {
   ArrowUp, 
   ArrowDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Mic
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,10 +30,9 @@ import ProductCard from '@/components/ProductCard';
 import { toast } from 'sonner';
 import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
-import { Product } from '@/context/InventoryContext'; // Import from context instead of inventory.ts
 
 const Products = () => {
-  const { products } = useInventory();
+  const { products, addProduct } = useInventory();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -109,7 +109,24 @@ const Products = () => {
         toast.success(`Searching for "${searchTerms}"`);
       }
     } else if (detectedProducts.length > 0) {
-      toast.success(`Detected ${detectedProducts.length} product(s)`);
+      // Add all detected products to inventory
+      detectedProducts.forEach(product => {
+        const newProduct = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          name: product.name,
+          quantity: product.quantity || 1,
+          unit: product.unit || 'piece',
+          position: product.position || 'General Storage',
+          price: product.price || 0,
+          category: 'Voice Added',
+          image_url: product.image_url || '',
+          notes: `Added via voice command on ${new Date().toLocaleString()}`
+        };
+        
+        addProduct(newProduct);
+      });
+      
+      toast.success(`Added ${detectedProducts.length} product(s) to inventory`);
     }
   };
   
@@ -141,6 +158,7 @@ const Products = () => {
             onClick={() => setShowVoiceCommand(true)}
             className="w-full sm:w-auto"
           >
+            <Mic className="mr-2 h-4 w-4" />
             Voice Command
           </Button>
         </div>
@@ -259,7 +277,7 @@ const Products = () => {
         </div>
       )}
       
-      {/* Floating voice command */}
+      {/* Floating voice command with enhanced functionality */}
       <EnhancedVoiceCommand
         variant="floating"
         onCommand={handleVoiceCommand}

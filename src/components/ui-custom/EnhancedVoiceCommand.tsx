@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, X, Check, Loader2, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, X, Check, Loader2, MessageSquare, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
 import { VoiceProduct } from '@/types/voice';
@@ -168,15 +167,19 @@ export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
     if (!products.length) return;
     
     products.forEach(product => {
-      addProduct({
+      const newProduct = {
+        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
         name: product.name,
         quantity: product.quantity || 1,
         unit: product.unit || 'piece',
         position: product.position || 'General Storage',
         price: product.price || 0,
-        image_url: ''
-      });
+        category: 'Voice Added',
+        image_url: product.image_url || '',
+        notes: `Added via voice command on ${new Date().toLocaleString()}`
+      };
       
+      addProduct(newProduct);
       toast.success(`Added ${product.quantity} ${product.unit} of ${product.name}`);
     });
     
@@ -201,7 +204,7 @@ export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
     if (onClose) onClose();
   }, [onClose]);
   
-  // Render different variants
+  // Render different variants based on the variant prop
   if (variant === 'minimal') {
     return (
       <Button
@@ -333,6 +336,7 @@ export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
                           Cancel
                         </Button>
                         <Button onClick={handleAddProducts}>
+                          <Plus className="mr-2 h-4 w-4" />
                           Add Products
                         </Button>
                       </div>
@@ -347,7 +351,7 @@ export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
     );
   }
   
-  // Default variant
+  // Default variant 
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
