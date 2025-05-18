@@ -12,20 +12,30 @@ import { VoiceProduct } from '@/types/voice';
 import { useInventory } from '@/context/InventoryContext';
 import { useNavigate } from 'react-router-dom';
 
-interface EnhancedVoiceCommandProps {
+export interface EnhancedVoiceCommandProps {
   onCommand?: (command: string, products: VoiceProduct[]) => void;
+  onResult?: (text: string, processedData: any) => void;
   onClose?: () => void;
   className?: string;
   variant?: 'default' | 'inline' | 'floating' | 'minimal';
   autoClose?: boolean;
+  size?: string;
+  showTranscript?: boolean;
+  autoProcess?: boolean;
+  supportedLanguages?: string[];
 }
 
 export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({ 
   onCommand,
+  onResult,
   onClose,
   className,
   variant = 'default',
-  autoClose = true
+  autoClose = true,
+  size,
+  showTranscript,
+  autoProcess,
+  supportedLanguages
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);

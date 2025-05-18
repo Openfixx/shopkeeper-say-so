@@ -1,48 +1,22 @@
 
-// Define common types used throughout the inventory system
+// Extending the inventory types to include category field
 
-export type BillItem = {
-  productId: string;
+export interface Product {
+  id: string;
   name: string;
-  quantity: number;
   price: number;
-  unit?: string;
-  total: number;
-  image?: string;
-  image_url?: string;
-};
-
-export type Bill = {
-  id: string;
-  items: BillItem[];
-  total: number;
-  customerId?: string;
-  customerName?: string;
-  timestamp: string;
-  status: 'pending' | 'completed' | 'cancelled';
-};
-
-export type Shop = {
-  id: string;
-  name: string;
-  type: string;
-  location: string;
-  distance: number;
-  products?: string[];
-};
-
-export type StockAlert = {
-  productId: string;
-  threshold: number;
-};
-
-// Type for the utility functions
-export type ProductFindResult = {
-  id: string;
-  name: string;
   quantity: number;
   unit: string;
-  price: number;
-  image?: string;
+  position?: string;
+  expiry?: string;
+  notes?: string;
   image_url?: string;
-};
+  category?: string;
+}
+
+export interface InventoryContextType {
+  products: Product[];
+  addProduct: (product: Omit<Product, 'id'>) => void;
+  updateProduct: (id: string, product: Product) => void;
+  deleteProduct: (id: string) => void;
+}
