@@ -89,6 +89,7 @@ const ProductDetail = () => {
             quantity: detectedProduct.quantity
           };
           
+          // Only pass id if it exists, otherwise pass null
           updateProduct(id!, updatedProduct);
           toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
         }
@@ -100,6 +101,7 @@ const ProductDetail = () => {
             position: detectedProduct.position
           };
           
+          // Fixed: Only pass id if it exists
           updateProduct(id!, updatedProduct);
           toast.success(`Updated location to ${detectedProduct.position}`);
         }
