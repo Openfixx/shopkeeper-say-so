@@ -19,7 +19,6 @@ import ProductDetail from './pages/ProductDetail';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
-import VoiceScreen from './pages/VoiceScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -41,7 +40,6 @@ function App() {
                   <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
                   <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                   <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                  <Route path="voice" element={<ProtectedRoute><VoiceScreen /></ProtectedRoute>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

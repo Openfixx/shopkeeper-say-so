@@ -2,197 +2,345 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { 
+  Card, 
+  CardContent, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle
+} from '@/components/ui/card';
+import { 
+  ArrowLeft, 
+  Edit, 
+  Trash, 
+  Clock, 
+  Package2,
+  MapPin,
+  Mic
+} from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatCurrency } from '@/utils/formatters';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import ProductImage from '@/components/ProductImage';
+import ProductLocationMap from '@/components/ProductLocationMap';
+import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
+import { VoiceProduct } from '@/types/voice';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { products, deleteProduct } = useInventory();
-  const [product, setProduct] = useState<any>(null);
+  const { products, deleteProduct, updateProduct } = useInventory();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [product, setProduct] = useState<any>(null);
+  const [showVoiceCommand, setShowVoiceCommand] = useState(false);
 
   useEffect(() => {
-    if (id && products.length > 0) {
-      const foundProduct = products.find(p => p.id === id);
-      if (foundProduct) {
-        setProduct(foundProduct);
-      } else {
-        toast.error('Product not found');
-        navigate('/products');
+    // Simulate loading time
+    const timer = setTimeout(() => {
+      if (id) {
+        const foundProduct = products.find(p => p.id === id);
+        if (foundProduct) {
+          setProduct(foundProduct);
+        }
       }
       setLoading(false);
-    }
-  }, [id, products, navigate]);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [id, products]);
 
   const handleDelete = () => {
-    if (id) {
+    if (id && product) {
       deleteProduct(id);
-      toast.success('Product deleted successfully');
+      toast.success(`${product.name} deleted`);
       navigate('/products');
+    }
+  };
+
+  const handleVoiceCommand = (command: string, detectedProducts: VoiceProduct[]) => {
+    if (!product) return;
+    
+    const lowerCommand = command.toLowerCase();
+    
+    // Update quantity command
+    if (lowerCommand.includes('update') || lowerCommand.includes('change') || lowerCommand.includes('set')) {
+      if (detectedProducts.length > 0) {
+        const detectedProduct = detectedProducts[0];
+        
+        // Update product quantity
+        if (detectedProduct.quantity) {
+          const updatedProduct = {
+            ...product,
+            quantity: detectedProduct.quantity
+          };
+          
+          updateProduct(id!, updatedProduct);
+          toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
+        }
+        
+        // Update product position if detected
+        if (detectedProduct.position) {
+          const updatedProduct = {
+            ...product,
+            position: detectedProduct.position
+          };
+          
+          updateProduct(id!, updatedProduct);
+          toast.success(`Updated location to ${detectedProduct.position}`);
+        }
+      }
     }
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="container mx-auto p-4 sm:p-6">
+        <div className="flex items-center mb-6">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-8 w-40 ml-4" />
         </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-64 w-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-6 w-1/4" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h3 className="text-lg font-medium">Product not found</h3>
-              <p className="text-sm text-gray-500 mt-2">
-                The product you're looking for doesn't exist or has been removed.
-              </p>
-              <Button onClick={() => navigate('/products')} className="mt-4">
-                Go back to products
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto p-4 sm:p-6 text-center py-16">
+        <h1 className="text-2xl font-bold mb-4">{t('productNotFound')}</h1>
+        <p className="text-muted-foreground mb-6">{t('productMayHaveBeenDeleted')}</p>
+        <Button onClick={() => navigate('/products')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t('backToProducts')}
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Button
-        variant="outline" 
-        className="mb-6" 
-        onClick={() => navigate('/products')}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Products
-      </Button>
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/products')}
+          className="hover:bg-transparent p-0"
+        >
+          <ArrowLeft className="mr-2 h-5 w-5" />
+          {t('backToProducts')}
+        </Button>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => setShowVoiceCommand(true)}
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/products/edit/${id}`)}
+          >
+            <Edit className="mr-2 h-4 w-4" />
+            {t('edit')}
+          </Button>
+          
+          <Button 
+            variant="destructive" 
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash className="mr-2 h-4 w-4" />
+            {t('delete')}
+          </Button>
+        </div>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <Card>
-            <CardHeader className="pb-0">
-              <CardTitle>Product Image</CardTitle>
+      <div className="grid md:grid-cols-3 gap-6">
+        <motion.div 
+          className="md:col-span-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="overflow-hidden">
+            <div className="relative pt-[56.25%] bg-muted">
+              <ProductImage
+                src={product.image_url}
+                alt={product.name}
+                className="absolute top-0 left-0 w-full h-full object-contain p-4"
+              />
+            </div>
+            
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                <span className="text-2xl font-bold">{product.name}</span>
+                <Badge className="ml-2">{product.category || t('uncategorized')}</Badge>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="flex justify-center pt-6">
-              {product.image ? (
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
-                  className="w-full max-w-[300px] rounded-md object-cover"
-                />
-              ) : (
-                <div className="w-full h-[200px] bg-gray-100 dark:bg-gray-800 rounded-md flex items-center justify-center">
-                  <span className="text-gray-400 dark:text-gray-500">No image available</span>
+            
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-secondary/30 p-4 rounded-md flex items-center">
+                  <Package2 className="mr-3 h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('quantity')}</p>
+                    <p className="font-medium">
+                      {product.quantity} {product.unit}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="bg-secondary/30 p-4 rounded-md flex items-center">
+                  <Clock className="mr-3 h-5 w-5 text-amber-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('expiry')}</p>
+                    <p className="font-medium">
+                      {product.expiry || t('notSpecified')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-muted/50 p-4 rounded-md">
+                <div className="flex items-center mb-3">
+                  <MapPin className="mr-2 h-5 w-5 text-rose-500" />
+                  <h3 className="font-medium">{t('location')}: {product.position || t('notSpecified')}</h3>
+                </div>
+                
+                <ProductLocationMap position={product.position} />
+              </div>
+              
+              {product.notes && (
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">{t('notes')}:</h3>
+                  <p className="text-muted-foreground">{product.notes}</p>
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
         
-        <div className="md:col-span-2">
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-2xl">{product.name}</CardTitle>
-                  <CardDescription className="mt-2">
-                    {product.category || 'No category'}
-                  </CardDescription>
-                </div>
-                <div>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => navigate(`/products/edit/${id}`)}
-                    className="mr-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="icon"
-                    onClick={handleDelete}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              <CardTitle>{t('productDetails')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Description</h3>
-                  <p className="mt-1">{product.description || 'No description provided.'}</p>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Price</h3>
-                    <p className="mt-1 text-lg font-medium">
-                      {typeof product.price === 'number' ? `$${product.price.toFixed(2)}` : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Quantity</h3>
-                    <p className="mt-1 text-lg font-medium">
-                      {product.quantity} {product.unit || 'units'}
-                    </p>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">SKU</h3>
-                    <p className="mt-1">{product.sku || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Barcode</h3>
-                    <p className="mt-1">{product.barcode || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                {product.location && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Location</h3>
-                      <p className="mt-1">{product.location}</p>
-                    </div>
-                  </>
-                )}
-                
-                {product.expiryDate && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Expiry Date</h3>
-                      <p className="mt-1">{new Date(product.expiryDate).toLocaleDateString()}</p>
-                    </div>
-                  </>
-                )}
+            
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">{t('price')}</p>
+                <p className="text-3xl font-bold">{formatCurrency(product.price)}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm text-muted-foreground">{t('totalValue')}</p>
+                <p className="text-xl font-semibold">{formatCurrency(product.price * product.quantity)}</p>
+              </div>
+              
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-2">{t('productId')}</p>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {product.id}
+                </Badge>
+              </div>
+              
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">{t('lastUpdated')}</p>
+                <p className="text-sm">
+                  {new Date().toLocaleDateString()}
+                </p>
               </div>
             </CardContent>
-            <CardFooter>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Last updated: {product.updatedAt ? new Date(product.updatedAt).toLocaleString() : 'Unknown'}
-              </div>
+            
+            <CardFooter className="flex flex-col gap-3">
+              <Button 
+                className="w-full" 
+                onClick={() => navigate(`/products/edit/${id}`)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                {t('editProduct')}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => navigate('/products')}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t('allProducts')}
+              </Button>
             </CardFooter>
           </Card>
-        </div>
+        </motion.div>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteProduct')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deleteProductConfirmation', { name: product.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Voice Command */}
+      <EnhancedVoiceCommand
+        variant="floating"
+        onCommand={handleVoiceCommand}
+        onClose={() => setShowVoiceCommand(false)}
+        className={showVoiceCommand ? 'visible' : 'invisible'}
+      />
     </div>
   );
 };

@@ -1,486 +1,269 @@
+
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  Package2, 
-  Plus, 
-  Search,
-  Camera,
-  Image as ImageIcon
-} from 'lucide-react';
-import { useInventory } from '@/context/InventoryContext';
-import { Product as TypesProduct } from '@/types';
-import ProductCard from '@/components/ui-custom/ProductCard';
-import SearchBar from '@/components/ui-custom/SearchBar';
-import UnifiedVoiceCommand from '@/components/ui-custom/UnifiedVoiceCommand';
-import { Button } from '@/components/ui/button';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getCachedImage } from '@/utils/fetchImage';
-import { convertProduct } from '@/utils/productUtils';
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { useInventory } from '@/context/InventoryContext';
+import { useLanguage } from '@/context/LanguageContext';
+import NoData from '@/components/NoData';
+import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
+import ProductCard from '@/components/ProductCard';
+import { toast } from 'sonner';
+import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
+import { VoiceProduct } from '@/types/voice';
 
-interface ProductFormData {
-  name: string;
-  quantity: number;
-  unit: string;
-  position: string;
-  expiry?: string;
-  price: number;
-  image_url?: string;
-}
-
-const initialFormData: ProductFormData = {
-  name: '',
-  quantity: 0,
-  unit: 'kg',
-  position: '',
-  expiry: '',
-  price: 0,
-  image_url: '',
-};
-
-const Products: React.FC = () => {
-  const { products, addProduct, updateProduct, deleteProduct, isLoading } = useInventory();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+const Products = () => {
+  const { products } = useInventory();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Check for search query passed via navigation state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productsPerPage] = useState(8);
+  const [showVoiceCommand, setShowVoiceCommand] = useState(false);
+
+  // Check for search query in location state (when redirected from voice search)
   useEffect(() => {
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-      // Clear the state to prevent persistence on page refresh
-      navigate(location.pathname, { replace: true, state: {} });
+    const searchFromState = location.state?.searchQuery;
+    if (searchFromState) {
+      setSearchQuery(searchFromState);
+      // Clear the state to avoid persisting across navigations
+      navigate('.', { state: {}, replace: true });
     }
   }, [location.state, navigate]);
-  
-  const filteredProducts = searchQuery
-    ? products.filter(product => 
-        product.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : products;
-  
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? Number(value) : value,
-    }));
-  };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const imageUrl = reader.result as string;
-        setFormData(prev => ({
-          ...prev,
-          image_url: imageUrl
-        }));
-        toast.success('Product image uploaded');
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const captureImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    
-    input.onchange = (e) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const imageUrl = reader.result as string;
-          setFormData(prev => ({
-            ...prev,
-            image_url: imageUrl
-          }));
-          toast.success('Product image captured');
-        };
-        reader.readAsDataURL(file);
+  // Filter and sort products
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        return sortOrder === 'asc'
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === 'quantity') {
+        return sortOrder === 'asc'
+          ? a.quantity - b.quantity
+          : b.quantity - a.quantity;
+      } else if (sortBy === 'price') {
+        return sortOrder === 'asc'
+          ? a.price - b.price
+          : b.price - a.price;
       }
-    };
-    
-    input.click();
-  };
-
-  const findProductImage = async () => {
-    if (!formData.name) {
-      toast.error('Please enter a product name first');
-      return;
-    }
-    
-    toast.loading('Searching for product image...');
-    
-    try {
-      const imageUrl = await getCachedImage(formData.name);
-      if (imageUrl) {
-        setFormData(prev => ({
-          ...prev,
-          image_url: imageUrl
-        }));
-        toast.dismiss();
-        toast.success('Product image found');
-      } else {
-        toast.dismiss();
-        toast.error('No image found for this product');
-      }
-    } catch (error) {
-      toast.dismiss();
-      toast.error('Failed to find product image');
-      console.error('Error finding product image:', error);
-    }
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingProductId) {
-      const product = convertProduct(products.find(p => p.id === editingProductId));
-      if (!product) return;
-      
-      const updatedProduct = {
-        ...product,
-        name: formData.name,
-        quantity: formData.quantity,
-        unit: formData.unit,
-        position: formData.position,
-        price: formData.price,
-        image_url: formData.image_url
-      };
-      
-      updateProduct(editingProductId, updatedProduct);
-      setIsEditDialogOpen(false);
-    } else {
-      addProduct({
-        name: formData.name,
-        quantity: formData.quantity,
-        unit: formData.unit,
-        position: formData.position,
-        price: formData.price,
-        image_url: formData.image_url
-      });
-      setIsAddDialogOpen(false);
-    }
-    
-    setFormData(initialFormData);
-    setEditingProductId(null);
-  };
-  
-  const handleEdit = (productToEdit: any) => {
-    const product = {
-      ...convertProduct(productToEdit),
-      updatedAt: productToEdit.updatedAt || new Date().toISOString(),
-      userId: productToEdit.userId || productToEdit.user_id || 'demo-user'
-    };
-    setEditingProductId(product.id);
-    setFormData({
-      name: product.name,
-      quantity: product.quantity,
-      unit: product.unit,
-      position: product.position || '',
-      expiry: product.expiry || '',
-      price: product.price,
-      image_url: product.image_url || product.image || '',
+      return 0;
     });
-    setIsEditDialogOpen(true);
+  
+  // Calculate pagination
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+
+  // Categories derived from products
+  const categories = ['all', ...new Set(products.map(product => product.category || 'uncategorized').filter(Boolean))];
+  
+  // Toggle sort order when clicking on the same sort option
+  const handleSortChange = (value: string) => {
+    if (value === sortBy) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(value);
+      setSortOrder('asc');
+    }
+  };
+
+  const handleVoiceCommand = (command: string, detectedProducts: VoiceProduct[]) => {
+    if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
+      // Extract search term
+      const searchTerms = command.replace(/search|find|for/gi, '').trim();
+      if (searchTerms) {
+        setSearchQuery(searchTerms);
+        toast.success(`Searching for "${searchTerms}"`);
+      }
+    } else if (detectedProducts.length > 0) {
+      toast.success(`Detected ${detectedProducts.length} product(s)`);
+    }
   };
   
-  const handleDelete = (id: string) => {
-    deleteProduct(id);
+  const getSortIcon = () => {
+    if (sortOrder === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
   };
-  
-  const renderForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Product Name</Label>
-          <Input
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Sugar, Rice, etc."
-            required
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="image">Image URL</Label>
-          <div className="flex space-x-2">
-            <Input
-              id="image"
-              name="image"
-              value={formData.image_url}
-              onChange={handleInputChange}
-              placeholder="https://example.com/image.jpg"
-              className="flex-1"
-            />
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={findProductImage}
-              title="Search for product image online"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="quantity">Quantity</Label>
-          <Input
-            id="quantity"
-            name="quantity"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.quantity}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="unit">Unit</Label>
-          <Input
-            id="unit"
-            name="unit"
-            value={formData.unit}
-            onChange={handleInputChange}
-            placeholder="kg, g, l, ml, etc."
-            required
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="position">Position</Label>
-          <Input
-            id="position"
-            name="position"
-            value={formData.position}
-            onChange={handleInputChange}
-            placeholder="Rack 7"
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="price">Price</Label>
-          <Input
-            id="price"
-            name="price"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.price}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-        
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="expiry">Expiry Date</Label>
-          <Input
-            id="expiry"
-            name="expiry"
-            type="date"
-            value={formData.expiry}
-            onChange={handleInputChange}
-          />
-        </div>
-        
-        <div className="space-y-2 md:col-span-2">
-          <Label>Product Image</Label>
-          <div className="flex flex-col space-y-3">
-            <div className="flex space-x-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="flex-1"
-                onClick={captureImage}
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Capture Image
-              </Button>
-              
-              <Label
-                htmlFor="product-image-upload"
-                className="flex-1 cursor-pointer flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent hover:text-accent-foreground"
-              >
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Upload from Gallery
-                <input
-                  id="product-image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={handleImageUpload}
-                />
-              </Label>
-            </div>
-            
-            {formData.image_url && (
-              <div className="relative border rounded-md overflow-hidden h-40">
-                <img 
-                  src={formData.image_url} 
-                  alt={formData.name || 'Product'} 
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      <DialogFooter>
-        <Button type="submit">
-          {editingProductId ? 'Update Product' : 'Add Product'}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
   
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Products</h2>
+          <h1 className="text-2xl sm:text-3xl font-bold">{t('products')}</h1>
           <p className="text-muted-foreground">
-            Manage your product catalog
+            {t('manageProducts')}
           </p>
         </div>
-        <div className="flex space-x-2">
-          <UnifiedVoiceCommand compact={true} />
-          
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-                <DialogDescription>
-                  Fill in the details to add a new product to your inventory.
-                </DialogDescription>
-              </DialogHeader>
-              {renderForm()}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-      
-      <div className="flex flex-col sm:flex-row gap-4">
-        <SearchBar
-          placeholder="Search products..."
-          onSearch={handleSearch}
-          className="w-full sm:w-96"
-        />
         
-        {/* Add the full voice command UI here */}
-        <div className="w-full sm:w-auto">
-          <UnifiedVoiceCommand />
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button onClick={() => navigate('/products/add')} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            {t('addProduct')}
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => setShowVoiceCommand(true)}
+            className="w-full sm:w-auto"
+          >
+            Voice Command
+          </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {isLoading ? (
-          Array(8).fill(0).map((_, i) => (
-            <div key={i} className="rounded-lg overflow-hidden">
-              <Skeleton className="h-48 w-full" />
-              <div className="p-4 space-y-3">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <div className="flex justify-between pt-2">
-                  <Skeleton className="h-9 w-16" />
-                  <Skeleton className="h-9 w-20" />
-                </div>
-              </div>
-            </div>
-          ))
-        ) : filteredProducts.length > 0 ? (
-          filteredProducts.map((product, index) => {
-            const convertedProduct = convertProduct(product);
-            return (
-              <ProductCard
-                key={product.id}
-                product={convertedProduct}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t('searchProducts')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
               />
-            );
-          })
-        ) : (
-          <div className="col-span-full flex flex-col items-center justify-center text-center py-12 space-y-3">
-            <Package2 className="h-12 w-12 text-muted-foreground opacity-20" />
-            <div>
-              <h3 className="text-lg font-medium">No products found</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {searchQuery
-                  ? `No products matching "${searchQuery}"`
-                  : "Start by adding your first product"}
-              </p>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Product
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Product</DialogTitle>
-                  <DialogDescription>
-                    Fill in the details to add a new product to your inventory.
-                  </DialogDescription>
-                </DialogHeader>
-                {renderForm()}
-              </DialogContent>
-            </Dialog>
+            
+            <div className="flex gap-2">
+              <Select
+                value={filterCategory}
+                onValueChange={setFilterCategory}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder={t('filterBy')} />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category === 'all' 
+                        ? t('allCategories') 
+                        : category.charAt(0).toUpperCase() + category.slice(1)
+                      }
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select
+                value={sortBy}
+                onValueChange={handleSortChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center">
+                    <ArrowUpDown className="mr-2 h-4 w-4" />
+                    <span>
+                      {t('sortBy')}: {sortBy}
+                    </span>
+                    {getSortIcon()}
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">{t('name')}</SelectItem>
+                  <SelectItem value="quantity">{t('quantity')}</SelectItem>
+                  <SelectItem value="price">{t('price')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
       
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
-            <DialogDescription>
-              Update the product details in your inventory.
-            </DialogDescription>
-          </DialogHeader>
-          {renderForm()}
-        </DialogContent>
-      </Dialog>
+      {/* Product Grid */}
+      {currentProducts.length === 0 ? (
+        <NoData 
+          title={t('noProductsFound')}
+          message={t('tryDifferentSearch')}
+          action={
+            <Button onClick={() => setSearchQuery('')}>
+              {t('clearSearch')}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {currentProducts.map((product) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ProductCard product={product} />
+            </motion.div>
+          ))}
+        </div>
+      )}
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8 items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <Badge variant="outline" className="px-3 py-1.5">
+            {t('page')} {currentPage} {t('of')} {totalPages}
+          </Badge>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      
+      {/* Floating voice command */}
+      <EnhancedVoiceCommand
+        variant="floating"
+        onCommand={handleVoiceCommand}
+        onClose={() => setShowVoiceCommand(false)}
+        className={showVoiceCommand ? 'visible' : 'invisible'}
+      />
     </div>
   );
 };

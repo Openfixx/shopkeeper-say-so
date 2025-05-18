@@ -1,49 +1,54 @@
 
 import { VoiceProduct, VoiceCommandResult, VOICE_COMMAND_TYPES } from '@/types/voice';
 
+// Normalize unit to standard form
 export function normalizeUnit(unit: string): string {
-  const unitMap: Record<string, string> = {
-    'kg': 'kilogram',
-    'g': 'gram',
-    'kgs': 'kilogram',
-    'grams': 'gram',
-    'kilos': 'kilogram',
-    'kilo': 'kilogram',
-    'kilograms': 'kilogram',
-    'kilogram': 'kilogram',
-    'l': 'liter',
-    'ml': 'milliliter',
-    'liter': 'liter',
-    'litre': 'liter',
-    'liters': 'liter',
-    'litres': 'liter',
-    'milliliter': 'milliliter',
-    'millilitre': 'milliliter',
-    'milliliters': 'milliliter',
-    'millilitres': 'milliliter',
-    'packet': 'packet',
-    'packets': 'packet',
-    'pack': 'packet',
-    'packs': 'packet',
-    'bottle': 'bottle',
-    'bottles': 'bottle',
-    'can': 'can',
-    'cans': 'can',
-    'sachet': 'sachet',
-    'sachets': 'sachet',
-    'piece': 'piece',
-    'pieces': 'piece',
-    'pcs': 'piece',
-    'pc': 'piece',
-    'box': 'box',
-    'boxes': 'box',
-    'unit': 'unit',
-    'units': 'unit'
-  };
-
-  return unitMap[unit.toLowerCase()] || 'piece';
+  // Convert to lowercase for consistent comparison
+  const lcUnit = unit.toLowerCase();
+  
+  // Weight units
+  if (/^(kg|kgs|kilo|kilos|kilogram|kilograms)$/.test(lcUnit)) {
+    return 'kg';
+  }
+  if (/^(g|gram|grams|gm|gms)$/.test(lcUnit)) {
+    return 'g';
+  }
+  
+  // Volume units
+  if (/^(l|liter|litre|liters|litres)$/.test(lcUnit)) {
+    return 'liter';
+  }
+  if (/^(ml|milliliter|millilitre|milliliters|millilitres)$/.test(lcUnit)) {
+    return 'ml';
+  }
+  
+  // Package units
+  if (/^(packet|packets|pack|packs|sachet|sachets)$/.test(lcUnit)) {
+    return 'packet';
+  }
+  if (/^(bottle|bottles|btl|btls)$/.test(lcUnit)) {
+    return 'bottle';
+  }
+  if (/^(can|cans)$/.test(lcUnit)) {
+    return 'can';
+  }
+  if (/^(box|boxes|carton|cartons)$/.test(lcUnit)) {
+    return 'box';
+  }
+  
+  // Count units
+  if (/^(piece|pieces|pc|pcs|unit|units)$/.test(lcUnit)) {
+    return 'piece';
+  }
+  if (/^(dozen|dozens|doz)$/.test(lcUnit)) {
+    return 'dozen';
+  }
+  
+  // Default to piece if unknown
+  return 'piece';
 }
 
+// Enhanced method to parse multiple products from voice command
 export function parseMultipleProducts(command: string): VoiceProduct[] {
   if (!command) return [];
   
@@ -52,7 +57,7 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
   // Clean up the command and standardize format
   const cleanCommand = command
     .toLowerCase()
-    .replace(/^\s*(add|add to inventory|create|put|get|buy)\s+/i, '')
+    .replace(/^\s*(add|add to inventory|create|put|get|buy|need)\s+/i, '')
     .trim();
     
   // Split by common separators (and, comma)
@@ -70,8 +75,10 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
     let unit = 'piece';
     let position = '';
     let productName = segment;
+    let price = 0;
     
     // Match patterns like "2 kg rice" or "3 bottles of water"
+    // Enhanced pattern to capture more variations
     const quantityPattern = /^(\d+(?:\.\d+)?)\s*(kg|g|kgs|grams|l|ml|liter|litre|packet|packets|pack|packs|bottle|bottles|can|cans|piece|pieces|pcs|pc|box|boxes|unit|units|dozen)s?\s+(?:of\s+)?(.+)$/i;
     const quantityMatch = segment.match(quantityPattern);
     
@@ -80,19 +87,41 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
       unit = normalizeUnit(quantityMatch[2]);
       productName = quantityMatch[3].trim();
     } else {
-      // Try to match plain product name
-      const simpleMatch = segment.match(/^([a-z\s]+)$/i);
-      if (simpleMatch) {
-        productName = simpleMatch[1].trim();
+      // Try to match written numbers like "two packets of sugar"
+      const wordNumberPattern = /^(one|two|three|four|five|six|seven|eight|nine|ten)\s+(kg|g|kgs|grams|l|ml|liter|litre|packet|packets|pack|packs|bottle|bottles|can|cans|piece|pieces|pcs|pc|box|boxes|unit|units|dozen)s?\s+(?:of\s+)?(.+)$/i;
+      const wordMatch = segment.match(wordNumberPattern);
+      
+      if (wordMatch) {
+        const numberMap: Record<string, number> = {
+          'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+          'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+        };
+        
+        quantity = numberMap[wordMatch[1].toLowerCase()] || 1;
+        unit = normalizeUnit(wordMatch[2]);
+        productName = wordMatch[3].trim();
+      } else {
+        // Try to match plain product name
+        const simpleMatch = segment.match(/^([a-z\s]+)$/i);
+        if (simpleMatch) {
+          productName = simpleMatch[1].trim();
+        }
       }
     }
     
-    // Extract position if present
-    const positionMatch = productName.match(/\s+(?:in|on|at)\s+((?:rack|shelf|section|aisle|row|cabinet|drawer)\s+\w+)/i);
+    // Extract position/location if present
+    const positionMatch = productName.match(/\s+(?:in|on|at|from)\s+((?:rack|shelf|section|aisle|row|cabinet|drawer|fridge|freezer|pantry)\s+\w+|(?:kitchen|pantry|bathroom|storage|garage))/i);
     if (positionMatch) {
-      position = positionMatch[1];
+      position = positionMatch[1].charAt(0).toUpperCase() + positionMatch[1].slice(1);
       // Remove position from product name
       productName = productName.replace(positionMatch[0], '').trim();
+    }
+    
+    // Extract price if present
+    const priceMatch = productName.match(/\s+(?:at|for|price|costing|worth|value)\s+(\d+(?:\.\d+)?)\s*(?:dollars|rupees|Rs\.?|$)/i);
+    if (priceMatch) {
+      price = parseFloat(priceMatch[1]);
+      productName = productName.replace(priceMatch[0], '').trim();
     }
     
     // Further clean product name
@@ -107,7 +136,7 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
         quantity,
         unit,
         position: position || 'General Storage',
-        price: 0,
+        price,
         image_url: ''
       });
     }
@@ -117,6 +146,7 @@ export function parseMultipleProducts(command: string): VoiceProduct[] {
   return products;
 }
 
+// Detect command type from voice input
 export function detectCommandType(command: string): VoiceCommandResult {
   if (!command) return { type: VOICE_COMMAND_TYPES.UNKNOWN, rawText: '' };
   
@@ -127,7 +157,8 @@ export function detectCommandType(command: string): VoiceCommandResult {
       normalizedCommand.match(/^(\d+)\s+([a-z]+)\s+/i) ||
       normalizedCommand.includes('product') || 
       normalizedCommand.includes('get') || 
-      normalizedCommand.includes('buy')) {
+      normalizedCommand.includes('buy') ||
+      normalizedCommand.includes('need')) {
     
     const products = parseMultipleProducts(command);
     
@@ -140,7 +171,8 @@ export function detectCommandType(command: string): VoiceCommandResult {
   
   // Check for bill commands
   if (normalizedCommand.includes('bill') || 
-      normalizedCommand.includes('invoice')) {
+      normalizedCommand.includes('invoice') ||
+      normalizedCommand.includes('receipt')) {
     return {
       type: VOICE_COMMAND_TYPES.CREATE_BILL,
       rawText: command
@@ -150,15 +182,34 @@ export function detectCommandType(command: string): VoiceCommandResult {
   // Check for search commands
   if (normalizedCommand.includes('search') || 
       normalizedCommand.includes('find') || 
-      normalizedCommand.includes('look for')) {
+      normalizedCommand.includes('look for') ||
+      normalizedCommand.includes('where is')) {
     
     // Extract search term
-    const searchMatch = normalizedCommand.match(/(?:search|find|look\s+for)\s+(.+)/i);
+    const searchMatch = normalizedCommand.match(/(?:search|find|look\s+for|where\s+is)\s+(.+)/i);
     const searchTerm = searchMatch ? searchMatch[1].trim() : '';
     
     return {
       type: VOICE_COMMAND_TYPES.SEARCH_PRODUCT,
       data: { searchTerm },
+      rawText: command
+    };
+  }
+  
+  // Check for remove product commands
+  if (normalizedCommand.includes('remove') || 
+      normalizedCommand.includes('delete') ||
+      normalizedCommand.includes('take out')) {
+    
+    // Attempt to extract product name from removal command
+    const removeMatch = normalizedCommand.match(/(?:remove|delete|take\s+out)\s+(.+)/i);
+    const productName = removeMatch ? removeMatch[1].trim() : '';
+    
+    return {
+      type: VOICE_COMMAND_TYPES.REMOVE_PRODUCT,
+      data: { 
+        products: productName ? [{ name: productName, quantity: 1, unit: 'piece' }] : []
+      },
       rawText: command
     };
   }
@@ -169,17 +220,18 @@ export function detectCommandType(command: string): VoiceCommandResult {
   };
 }
 
-// Helper functions needed by other components
+// Extract product name from command
 export function extractProductName(command: string): string {
   const products = parseMultipleProducts(command);
   return products.length > 0 ? products[0].name : '';
 }
 
-export function extractBillItems(command: string) {
+// Extract bill items from command
+export function extractBillItems(command: string): VoiceProduct[] {
   return parseMultipleProducts(command);
 }
 
-// Adding the missing extractProductDetails function
+// Extract product details from command
 export async function extractProductDetails(command: string): Promise<VoiceProduct> {
   // Parse the command to extract product details
   const products = parseMultipleProducts(command);
@@ -199,7 +251,7 @@ export async function extractProductDetails(command: string): Promise<VoiceProdu
   };
 }
 
-// Adding the missing processBillingVoiceCommand function
+// Process billing voice command
 export function processBillingVoiceCommand(command: string): VoiceProduct[] {
   if (!command) return [];
   
@@ -214,6 +266,7 @@ export function processBillingVoiceCommand(command: string): VoiceProduct[] {
   return parseMultipleProducts(cleanCommand);
 }
 
+// Validate product details
 export function validateProductDetails(product: { 
   name: string; 
   quantity?: number; 
@@ -255,5 +308,35 @@ export function identifyShelves(imageUrl: string): IdentifyShelvesResult {
 }
 
 export function suggestLocationForProduct(product: string) {
+  // Simple map of products to suggested locations
+  const suggestions: Record<string, string> = {
+    'rice': 'Pantry',
+    'sugar': 'Pantry',
+    'flour': 'Pantry',
+    'salt': 'Kitchen',
+    'milk': 'Refrigerator',
+    'butter': 'Refrigerator',
+    'yogurt': 'Refrigerator',
+    'cheese': 'Refrigerator',
+    'eggs': 'Refrigerator',
+    'bread': 'Kitchen',
+    'cereal': 'Pantry',
+    'pasta': 'Pantry',
+    'noodles': 'Pantry',
+    'oil': 'Kitchen',
+    'vinegar': 'Kitchen',
+    'spices': 'Kitchen',
+    'canned goods': 'Pantry',
+    'frozen': 'Freezer'
+  };
+  
+  // Lookup based on product name
+  const lowerProduct = product.toLowerCase();
+  for (const [key, location] of Object.entries(suggestions)) {
+    if (lowerProduct.includes(key)) {
+      return location;
+    }
+  }
+  
   return 'General Storage';
 }

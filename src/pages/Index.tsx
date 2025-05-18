@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,8 +10,6 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
 import { toast } from '@/components/ui/use-toast';
-import SiriStyleVoiceUI from '@/components/ui-custom/SiriStyleVoiceUI';
-import { parseMultiProductCommand } from '@/utils/multiVoiceParse';
 import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
 import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
 import { VoiceProduct, CommandResult } from '@/types/voice';
@@ -26,59 +25,6 @@ const Index = () => {
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   
-  const handleVoiceCommand = (command: string, processedProduct: { name: string, quantity?: number, unit?: string }) => {
-    console.log("Voice command:", command);
-    console.log("Processed product:", processedProduct);
-    
-    // Check if it's a multi-product command by looking for commas or "and"
-    if (command.includes(',') || /\band\b/i.test(command)) {
-      // Use our multi-product parser
-      const productNames = products.map(p => ({ name: p.name }));
-      const parsedProducts = parseMultiProductCommand(command, productNames);
-      
-      if (parsedProducts.length > 0) {
-        setMultiProducts(parsedProducts);
-        setShowMultiProductToast(true);
-        
-        // Add all products with a delay
-        parsedProducts.forEach((product, index) => {
-          setTimeout(() => {
-            addProduct({
-              name: product.name,
-              quantity: product.quantity || 1,
-              unit: product.unit || 'unit',
-              price: product.price || 0,
-              position: product.position || 'unspecified', 
-              image_url: ''
-            });
-          }, index * 800);
-        });
-        
-        return;
-      }
-    }
-    
-    // Handle single product command
-    if (command.toLowerCase().includes('add') && processedProduct.name) {
-      // For single product, show the confirmation popup
-      setCommandResult({
-        type: 'add_product',  // Add required type field
-        productName: processedProduct.name,
-        quantity: {
-          value: processedProduct.quantity || 1,
-          unit: processedProduct.unit || 'unit'
-        },
-        rawText: command
-      });
-    } else if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
-      // Handle search command
-      navigate('/products', { state: { searchQuery: processedProduct.name } });
-    } else if (command.toLowerCase().includes('bill')) {
-      // Handle bill command
-      navigate('/billing');
-    }
-  };
-  
   const handleConfirmProduct = (location?: string) => {
     if (!commandResult) return;
     
@@ -91,7 +37,6 @@ const Index = () => {
       unit: commandResult.quantity?.unit || 'unit',
       position: location || commandResult.position || 'unspecified',
       price: commandResult.price || 0
-      // Don't access expiry if it doesn't exist
     };
     
     const validation = validateProductDetails(productDetails);
@@ -144,17 +89,11 @@ const Index = () => {
         </p>
       </motion.div>
       
-      {/* Keep the original SiriStyleVoiceUI on the dashboard */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <SiriStyleVoiceUI 
-          onCommand={handleVoiceCommand}
-          className="mb-6"
-        />
-        
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-violet-500/5 to-indigo-500/5 shadow">
             <CardContent className="p-6 flex flex-col items-center justify-center">

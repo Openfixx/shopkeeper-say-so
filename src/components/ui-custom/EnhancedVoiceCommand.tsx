@@ -1,547 +1,425 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Mic, MicOff, Volume, TextSelect, Loader2, RefreshCw, Check, 
-  X, Info, VolumeX, BarChart2, Wand2, Languages
-} from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, MicOff, X, Check, Loader2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { parseMultipleProducts } from '@/utils/voiceCommandUtils';
+import { VoiceProduct } from '@/types/voice';
 import { useInventory } from '@/context/InventoryContext';
-import { getCachedTranslation } from '@/lib/translationCache';
-import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface EnhancedVoiceCommandProps {
-  onResult?: (text: string, processedData: any) => void;
+  onCommand?: (command: string, products: VoiceProduct[]) => void;
+  onClose?: () => void;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  showTranscript?: boolean;
-  autoProcess?: boolean;
-  supportedLanguages?: string[];
-  processCommand?: boolean;
-  listenerTimeout?: number; // auto-stop after this many milliseconds
-  floating?: boolean;
-  alwaysShowControls?: boolean;
+  variant?: 'default' | 'inline' | 'floating' | 'minimal';
+  autoClose?: boolean;
 }
 
-const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({
-  onResult,
+export const EnhancedVoiceCommand: React.FC<EnhancedVoiceCommandProps> = ({ 
+  onCommand,
+  onClose,
   className,
-  size = 'md',
-  showTranscript = true,
-  autoProcess = true,
-  supportedLanguages = ['en-US', 'hi-IN'],
-  processCommand = true,
-  listenerTimeout = 10000,
-  floating = false,
-  alwaysShowControls = false,
+  variant = 'default',
+  autoClose = true
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [processedData, setProcessedData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [language, setLanguage] = useState(supportedLanguages[0]);
-  const [confidence, setConfidence] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [commandHistory, setCommandHistory] = useState<string[]>([]);
-  const recognition = useRef<SpeechRecognition | null>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const [products, setProducts] = useState<VoiceProduct[]>([]);
+  
   const { addProduct } = useInventory();
   const navigate = useNavigate();
-
-  // Button size based on the size prop
-  const buttonSizeClasses = {
-    sm: 'w-10 h-10',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16'
-  };
-
+  
+  // Recognition reference to prevent recreation on each render
+  const recognitionRef = React.useRef<SpeechRecognition | null>(null);
+  
+  // Clean up on unmount
   useEffect(() => {
-    // Initialize speech recognition
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognitionAPI) {
-        recognition.current = new SpeechRecognitionAPI();
-        recognition.current.continuous = true;
-        recognition.current.interimResults = true;
-        recognition.current.lang = language;
-        
-        recognition.current.onstart = () => {
-          setIsListening(true);
-          setError(null);
-          
-          // Set a timeout to automatically stop listening
-          if (listenerTimeout > 0) {
-            if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-            timeoutRef.current = window.setTimeout(() => {
-              stopListening();
-            }, listenerTimeout);
-          }
-        };
-        
-        recognition.current.onresult = (event) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-          
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript;
-              // Update confidence with the latest result
-              setConfidence(event.results[i][0].confidence * 100);
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-          
-          if (finalTranscript) {
-            setTranscript(finalTranscript);
-            
-            // Store in command history
-            setCommandHistory(prev => {
-              // Limit history to last 5 commands
-              const newHistory = [...prev, finalTranscript];
-              if (newHistory.length > 5) {
-                return newHistory.slice(newHistory.length - 5);
-              }
-              return newHistory;
-            });
-            
-            // Reset timeout as we got results
-            if (timeoutRef.current) {
-              window.clearTimeout(timeoutRef.current);
-              timeoutRef.current = window.setTimeout(() => {
-                stopListening();
-              }, listenerTimeout);
-            }
-            
-            // Auto process if enabled
-            if (autoProcess) {
-              processTranscript(finalTranscript);
-            }
-          } else if (interimTranscript) {
-            setTranscript(interimTranscript);
-          }
-        };
-        
-        recognition.current.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
-          setError(`Recognition error: ${event.error}`);
-          setIsListening(false);
-          
-          if (event.error === 'no-speech') {
-            toast.warning("No speech detected. Please try again.");
-          } else if (event.error === 'network') {
-            toast.error("Network error. Please check your connection.");
-          } else {
-            toast.error(`Speech recognition error: ${event.error}`);
-          }
-        };
-        
-        recognition.current.onend = () => {
-          setIsListening(false);
-          if (timeoutRef.current) {
-            window.clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-        };
-      }
-    }
-    
     return () => {
-      stopListening();
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      }
     };
-  }, [language, autoProcess, listenerTimeout]);
+  }, []);
 
-  // Keep controls expanded if always show controls is true
-  useEffect(() => {
-    if (alwaysShowControls) {
-      setIsExpanded(true);
-    }
-  }, [alwaysShowControls]);
-
-  const startListening = () => {
-    if (!recognition.current) {
-      toast.error('Speech recognition is not supported in your browser');
+  const startListening = useCallback(() => {
+    if (isListening) return;
+    
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Speech recognition is not supported in your browser");
       return;
     }
     
     try {
-      setTranscript('');
-      setProcessedData(null);
-      setError(null);
-      setIsExpanded(true);
-      recognition.current.lang = language;
-      recognition.current.start();
-      toast.info(`Listening in ${language === 'hi-IN' ? 'Hindi' : 'English'}... Say something`);
-    } catch (error) {
-      console.error('Failed to start speech recognition:', error);
-      toast.error('Failed to start speech recognition');
-      setIsListening(false);
-    }
-  };
-
-  const stopListening = () => {
-    if (recognition.current && isListening) {
-      recognition.current.stop();
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    }
-    setIsListening(false);
-  };
-
-  const toggleListening = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
-
-  const toggleLanguage = () => {
-    // Cycle through supported languages
-    const currentIndex = supportedLanguages.indexOf(language);
-    const nextIndex = (currentIndex + 1) % supportedLanguages.length;
-    setLanguage(supportedLanguages[nextIndex]);
-    
-    if (isListening) {
-      stopListening();
+      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+      const recognition = new SpeechRecognition();
       
-      // Give a small delay before restarting with new language
-      setTimeout(() => {
-        if (recognition.current) {
-          recognition.current.lang = supportedLanguages[nextIndex];
-          startListening();
-        }
-      }, 300);
-    }
-    
-    // Show a toast with the new language
-    toast.success(`Switched to ${supportedLanguages[nextIndex] === 'hi-IN' ? 'Hindi' : 'English'}`);
-  };
-
-  const processTranscript = async (text: string) => {
-    if (!text || !processCommand) return;
-    
-    setIsProcessing(true);
-    try {
-      // Try to detect Hindi text and translate if needed
-      const isHindi = /[\u0900-\u097F]/.test(text);
-      const processedText = isHindi ? await getCachedTranslation(text) : text;
-
-      console.log('Processing transcript:', text);
-      console.log('Processed/translated text:', processedText);
-
-      // Process with NLP edge function
-      const { data, error } = await supabase.functions.invoke('ai-voice-processing', {
-        body: { type: 'text', data: processedText, language }
-      });
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = true;
       
-      if (error) {
-        throw new Error(error.message);
-      }
+      recognition.onstart = () => {
+        setIsListening(true);
+        setTranscript('');
+        toast.info("Listening. Try saying 'Add 2kg rice and 3 sugar'");
+      };
       
-      if (data?.success) {
-        setProcessedData(data);
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
         
-        // Auto-handle the command based on processed data
-        if (data.processed) {
-          const { product, quantity, position, price, expiryDate, command } = data.processed;
-          
-          // If we have a product name and a command to add
-          if (product && command && (command.includes('add') || command.includes('जोड़'))) {
-            const productData = {
-              name: product,
-              quantity: quantity?.value || 1,
-              unit: quantity?.unit || 'pcs',
-              position: position || '',
-              price: price || 0,
-              expiry: expiryDate || '',
-              image: data.imageUrl || '',
-            };
-            
-            addProduct(productData);
-            toast.success(`Added ${product} to inventory`);
-            navigate('/products');
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            setTranscript(transcript);
+          } else {
+            interimTranscript += transcript;
+            setTranscript(interimTranscript);
           }
         }
-        
-        // Pass the result to the parent component if callback provided
-        if (onResult) {
-          onResult(text, data);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+        toast.error("Failed to recognize speech");
+      };
+      
+      recognition.onend = () => {
+        setIsListening(false);
+        if (transcript) {
+          processCommand(transcript);
         }
-      } else {
-        // Handle error
-        toast.error('Failed to process speech command');
+      };
+      
+      recognitionRef.current = recognition;
+      recognition.start();
+      
+    } catch (error) {
+      console.error("Voice recognition error:", error);
+      toast.error("Voice recognition failed. Please try again.");
+      setIsListening(false);
+    }
+  }, [isListening, transcript]);
+  
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.onend = null; // Prevent automatic processing
+      recognitionRef.current.abort();
+      setIsListening(false);
+      
+      if (transcript) {
+        processCommand(transcript);
       }
-    } catch (error: any) {
-      console.error('Error processing transcript:', error);
-      setError(error.message || 'Error processing speech');
-      toast.error('Error processing speech: ' + (error.message || 'Unknown error'));
+    }
+  }, [isListening, transcript]);
+  
+  const processCommand = useCallback((command: string) => {
+    if (!command.trim()) {
+      toast.warning("No voice input detected. Please try again.");
+      return;
+    }
+    
+    setIsProcessing(true);
+    console.log("Processing command:", command);
+    
+    try {
+      // Process the command to extract products
+      const parsedProducts = parseMultipleProducts(command);
+      console.log("Parsed products:", parsedProducts);
+      
+      if (parsedProducts.length > 0) {
+        setProducts(parsedProducts);
+        
+        // Pass the command to parent if handler provided
+        if (onCommand) {
+          onCommand(command, parsedProducts);
+        }
+        
+        toast.success(`Detected ${parsedProducts.length} product(s)`);
+      } else {
+        toast.warning("Could not detect any products. Try speaking more clearly.");
+      }
+    } catch (error) {
+      console.error("Error processing command:", error);
+      toast.error("Failed to process voice command. Please try again.");
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  // Re-process last command with a different command
-  const reprocessWithCommand = async (storedCommand: string) => {
-    setTranscript(storedCommand);
-    await processTranscript(storedCommand);
-  };
-
-  const mainButtonSize = buttonSizeClasses[size];
+  }, [onCommand]);
   
-  const buttonVariants = {
-    idle: { scale: 1 },
-    listening: { 
-      scale: [1, 1.05, 1],
-      transition: { repeat: Infinity, duration: 2 }
+  const handleAddProducts = useCallback(() => {
+    if (!products.length) return;
+    
+    products.forEach(product => {
+      addProduct({
+        name: product.name,
+        quantity: product.quantity || 1,
+        unit: product.unit || 'piece',
+        position: product.position || 'General Storage',
+        price: product.price || 0,
+        image_url: ''
+      });
+      
+      toast.success(`Added ${product.quantity} ${product.unit} of ${product.name}`);
+    });
+    
+    // Auto close dialog if enabled
+    if (autoClose) {
+      setIsOpen(false);
+      if (onClose) onClose();
     }
-  };
-
-  // Determine confidence level classes
-  const getConfidenceClass = () => {
-    if (confidence >= 80) return 'bg-green-500';
-    if (confidence >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  return (
-    <div className={cn("relative", className, floating && "fixed bottom-8 right-8 z-50")}>
-      {showTranscript && (isListening || transcript || isProcessing || isExpanded) && (
+    
+    // Reset state
+    setProducts([]);
+    setTranscript('');
+    
+    // Navigate to products page
+    navigate('/products');
+  }, [products, addProduct, autoClose, onClose, navigate]);
+  
+  const handleCancel = useCallback(() => {
+    setIsOpen(false);
+    setTranscript('');
+    setProducts([]);
+    if (onClose) onClose();
+  }, [onClose]);
+  
+  // Render different variants
+  if (variant === 'minimal') {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        variant="ghost"
+        size="sm"
+        className={cn("p-2", className)}
+      >
+        <Mic className="h-4 w-4" />
+      </Button>
+    );
+  }
+  
+  if (variant === 'inline') {
+    return (
+      <Button
+        onClick={() => setIsOpen(true)}
+        variant="outline"
+        size="sm"
+        className={cn("flex items-center gap-2", className)}
+      >
+        <Mic className="h-4 w-4" />
+        Voice Command
+      </Button>
+    );
+  }
+  
+  if (variant === 'floating') {
+    return (
+      <>
+        <Button
+          onClick={() => setIsOpen(true)}
+          variant="secondary"
+          size="icon"
+          className={cn("fixed bottom-8 right-8 h-12 w-12 rounded-full shadow-lg", className)}
+        >
+          <Mic className="h-5 w-5" />
+        </Button>
+        
         <AnimatePresence>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className={cn("absolute bottom-full mb-2 w-80 right-0")}
-          >
-            <Card className="shadow-lg border border-primary/10">
-              <CardContent className="p-3 space-y-2">
-                {isListening && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                    <span className="text-muted-foreground">Listening in {language === 'hi-IN' ? 'Hindi' : 'English'}</span>
-                  </div>
-                )}
-                
-                <div className="min-h-[40px] text-sm bg-muted/40 p-2 rounded-md">
-                  {transcript || (isListening ? 'Listening for command...' : 'Say a command')}
-                </div>
-                
-                {isProcessing && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Processing...
-                  </div>
-                )}
-                
-                {confidence > 0 && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <BarChart2 className="h-3 w-3 text-muted-foreground" />
-                    <div className="w-full bg-muted rounded-full h-1.5">
-                      <div 
-                        className={`h-1.5 rounded-full ${getConfidenceClass()}`} 
-                        style={{ width: `${confidence}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-muted-foreground">{confidence.toFixed(0)}%</span>
-                  </div>
-                )}
-                
-                {error && (
-                  <div className="flex items-center gap-2 text-xs text-red-500">
-                    <Info className="h-3 w-3" />
-                    {error}
-                  </div>
-                )}
-                
-                {processedData?.processed && (
-                  <div className="border-t pt-2 mt-2">
-                    <div className="text-xs font-medium mb-1">Detected:</div>
-                    <div className="flex flex-wrap gap-1">
-                      {processedData.processed.product && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-                          {processedData.processed.product}
-                        </Badge>
-                      )}
-                      {processedData.processed.quantity && (
-                        <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-                          {processedData.processed.quantity.value} {processedData.processed.quantity.unit}
-                        </Badge>
-                      )}
-                      {processedData.processed.price && (
-                        <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-                          ₹{processedData.processed.price}
-                        </Badge>
-                      )}
-                      {processedData.processed.position && (
-                        <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
-                          {processedData.processed.position}
-                        </Badge>
-                      )}
-                      {processedData.processed.command && (
-                        <Badge variant="outline" className="text-xs bg-rose-50 dark:bg-rose-950 border-rose-200 dark:border-rose-800">
-                          {processedData.processed.command}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {commandHistory.length > 0 && (
-                  <div className="mt-1 pt-2 border-t border-muted">
-                    <p className="text-xs font-medium text-muted-foreground mb-1.5">Recent commands:</p>
-                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
-                      {commandHistory.map((cmd, i) => (
-                        <Button 
-                          key={i} 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-6 text-xs py-0 px-2 truncate max-w-[200px] justify-start"
-                          onClick={() => reprocessWithCommand(cmd)}
-                        >
-                          {cmd}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex justify-end gap-1 pt-1">
-                  {transcript && !isListening && (
-                    <Button 
-                      type="button" 
-                      size="icon"
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+            >
+              <Card className="w-full max-w-md mx-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex justify-between items-center">
+                    Voice Command
+                    <Button
                       variant="ghost"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        if (!isProcessing) {
-                          processTranscript(transcript);
-                        }
-                      }}
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleCancel}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-center space-x-3">
+                    <Button
+                      variant={isListening ? "destructive" : "default"}
+                      size="lg"
+                      className="w-full"
+                      onClick={isListening ? stopListening : startListening}
                       disabled={isProcessing}
                     >
-                      {isProcessing ? (
-                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      {isListening ? (
+                        <>
+                          <MicOff className="mr-2 h-4 w-4" />
+                          Stop Listening
+                        </>
+                      ) : isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
                       ) : (
-                        <Wand2 className="h-3 w-3" />
+                        <>
+                          <Mic className="mr-2 h-4 w-4" />
+                          Start Listening
+                        </>
                       )}
                     </Button>
+                  </div>
+                  
+                  {transcript && (
+                    <div className="p-3 bg-muted rounded-md">
+                      <p className="text-sm font-medium mb-1 flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" /> You said:
+                      </p>
+                      <p className={cn("text-sm", isListening && "animate-pulse")}>
+                        {transcript}
+                      </p>
+                    </div>
                   )}
                   
-                  <Button 
-                    type="button" 
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={() => {
-                      setTranscript('');
-                      setProcessedData(null);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                  {products.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Detected Products:</p>
+                      {products.map((product, index) => (
+                        <div 
+                          key={index}
+                          className="p-2 border rounded flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            {product.position && (
+                              <p className="text-xs text-muted-foreground">
+                                Location: {product.position}
+                              </p>
+                            )}
+                          </div>
+                          <Badge>
+                            {product.quantity} {product.unit}
+                          </Badge>
+                        </div>
+                      ))}
+                      
+                      <div className="pt-4 flex justify-end space-x-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleCancel}
+                        >
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddProducts}>
+                          Add Products
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </AnimatePresence>
-      )}
+      </>
+    );
+  }
+  
+  // Default variant
+  return (
+    <Card className={className}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Voice Command</CardTitle>
+      </CardHeader>
       
-      <div className="flex items-center gap-2">
-        <motion.div
-          variants={buttonVariants}
-          animate={isListening ? "listening" : "idle"}
-        >
-          <Button 
-            type="button" 
-            size="icon"
-            className={cn(
-              "rounded-full shadow-md",
-              mainButtonSize,
-              isListening 
-                ? "bg-red-500 hover:bg-red-600 text-white" 
-                : "bg-primary"
-            )}
-            onClick={toggleListening}
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-center space-x-3">
+          <Button
+            variant={isListening ? "destructive" : "default"}
+            className="w-full"
+            onClick={isListening ? stopListening : startListening}
             disabled={isProcessing}
           >
-            {isProcessing ? (
-              <Loader2 className={cn("animate-spin", size === 'sm' ? "h-4 w-4" : "h-5 w-5")} />
-            ) : isListening ? (
-              <Mic className={cn(size === 'sm' ? "h-4 w-4" : "h-5 w-5")} />
+            {isListening ? (
+              <>
+                <MicOff className="mr-2 h-4 w-4" />
+                Stop Listening
+              </>
+            ) : isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
             ) : (
-              <MicOff className={cn(size === 'sm' ? "h-4 w-4" : "h-5 w-5")} />
+              <>
+                <Mic className="mr-2 h-4 w-4" />
+                Start Listening
+              </>
             )}
           </Button>
-        </motion.div>
+        </div>
         
-        {(isExpanded || alwaysShowControls) && (
-          <AnimatePresence>
-            <motion.div 
-              className="flex items-center gap-1"
-              initial={{ opacity: 0, scale: 0.8, width: 0 }}
-              animate={{ opacity: 1, scale: 1, width: 'auto' }}
-              exit={{ opacity: 0, scale: 0.8, width: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Button 
-                type="button"
-                size="icon"
-                variant="outline"
-                className="h-8 w-8 rounded-full bg-white/50 backdrop-blur-sm"
-                onClick={toggleLanguage}
-                title={`Change language (current: ${language === 'hi-IN' ? 'Hindi' : 'English'})`}
-              >
-                <Languages className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                type="button"
-                size="icon"
-                variant={transcript ? "outline" : "ghost"}
-                className={cn("h-8 w-8 rounded-full", transcript ? "bg-white/50 backdrop-blur-sm" : "")}
-                onClick={() => {
-                  if (transcript) {
-                    // Use browser's speech synthesis to read back the transcript
-                    const utterance = new SpeechSynthesisUtterance(transcript);
-                    utterance.lang = language;
-                    window.speechSynthesis.speak(utterance);
-                  }
-                }}
-                disabled={!transcript}
-                title="Read transcript aloud"
-              >
-                {transcript ? <Volume className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-              </Button>
-              
-              {!alwaysShowControls && (
-                <Button 
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 rounded-full"
-                  onClick={() => setIsExpanded(false)}
-                  title="Collapse controls"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </motion.div>
-          </AnimatePresence>
+        {transcript && (
+          <div className="p-3 bg-muted rounded-md">
+            <p className="text-sm font-medium mb-1">You said:</p>
+            <p className={cn("text-sm", isListening && "animate-pulse")}>
+              {transcript}
+            </p>
+          </div>
         )}
-      </div>
-    </div>
+        
+        {products.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Detected Products:</p>
+            {products.map((product, index) => (
+              <div 
+                key={index}
+                className="p-2 border rounded flex items-center justify-between"
+              >
+                <div>
+                  <p className="font-medium">{product.name}</p>
+                  {product.position && (
+                    <p className="text-xs text-muted-foreground">
+                      Location: {product.position}
+                    </p>
+                  )}
+                </div>
+                <Badge>
+                  {product.quantity} {product.unit}
+                </Badge>
+              </div>
+            ))}
+            
+            <div className="pt-4 flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setProducts([]);
+                  setTranscript('');
+                }}
+              >
+                Clear
+              </Button>
+              <Button onClick={handleAddProducts}>
+                Add Products
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
