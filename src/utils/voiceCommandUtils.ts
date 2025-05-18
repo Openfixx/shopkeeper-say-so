@@ -179,6 +179,41 @@ export function extractBillItems(command: string) {
   return parseMultipleProducts(command);
 }
 
+// Adding the missing extractProductDetails function
+export async function extractProductDetails(command: string): Promise<VoiceProduct> {
+  // Parse the command to extract product details
+  const products = parseMultipleProducts(command);
+  
+  if (products.length > 0) {
+    return products[0]; // Return the first product found
+  }
+  
+  // Return a default product if none was found
+  return {
+    name: '',
+    quantity: 0,
+    unit: 'piece',
+    position: '',
+    price: 0,
+    image_url: ''
+  };
+}
+
+// Adding the missing processBillingVoiceCommand function
+export function processBillingVoiceCommand(command: string): VoiceProduct[] {
+  if (!command) return [];
+  
+  console.log('Processing billing command:', command);
+  
+  // Clean up the command for billing purposes
+  const cleanCommand = command
+    .toLowerCase()
+    .replace(/^\s*(add|bill|create|invoice|add to bill)\s+/i, '')
+    .trim();
+    
+  return parseMultipleProducts(cleanCommand);
+}
+
 export function validateProductDetails(product: { 
   name: string; 
   quantity?: number; 

@@ -6,7 +6,11 @@
  * To run these tests, you would typically use a testing framework like Jest.
  */
 
-import { extractProductDetails, normalizeUnit, validateProductDetails } from '../voiceCommandUtils';
+import { 
+  normalizeUnit, 
+  validateProductDetails, 
+  extractProductDetails 
+} from '../voiceCommandUtils';
 
 /**
  * Test: normalizeUnit function

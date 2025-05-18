@@ -29,3 +29,17 @@ export interface VoiceCommandResult {
   };
   rawText: string;
 }
+
+// Add the missing CommandResult interface
+export interface CommandResult {
+  type: string;
+  productName: string;
+  quantity?: {
+    value: number;
+    unit: string;
+  };
+  position?: string;
+  price?: number;
+  imageUrl?: string;
+  rawText: string;
+}
