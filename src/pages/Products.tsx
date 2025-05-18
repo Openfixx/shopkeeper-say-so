@@ -29,7 +29,7 @@ import ProductCard from '@/components/ProductCard';
 import { toast } from 'sonner';
 import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
-import { Product } from '@/types/inventory';
+import { Product } from '@/context/InventoryContext'; // Import from context instead of inventory.ts
 
 const Products = () => {
   const { products } = useInventory();

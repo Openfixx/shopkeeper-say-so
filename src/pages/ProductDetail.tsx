@@ -90,8 +90,8 @@ const ProductDetail = () => {
             quantity: detectedProduct.quantity
           };
           
-          // Fix: Only pass the updated product
-          updateProduct(id!, updatedProduct);
+          // Fix: Call updateProduct with only one argument - the product
+          updateProduct(updatedProduct);
           toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
         }
         
@@ -102,8 +102,8 @@ const ProductDetail = () => {
             position: detectedProduct.position
           };
           
-          // Fix: Only pass the updated product
-          updateProduct(id!, updatedProduct);
+          // Fix: Call updateProduct with only one argument
+          updateProduct(updatedProduct);
           toast.success(`Updated location to ${detectedProduct.position}`);
         }
       }

@@ -1,4 +1,3 @@
-
 // Extending the inventory types to include category field
 
 export interface Product {
@@ -11,7 +10,7 @@ export interface Product {
   expiry?: string;
   notes?: string;
   image_url?: string;
-  category?: string;
+  category?: string; // Added category field
 }
 
 export interface InventoryContextType {

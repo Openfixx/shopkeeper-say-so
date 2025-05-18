@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +24,7 @@ export type Product = {
   updatedAt: string;
   shopId?: string;
   userId: string;
+  category?: string; // Add category property
 };
 
 interface InventoryContextType {
@@ -39,7 +39,7 @@ interface InventoryContextType {
   addProduct: (
     product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
   ) => Promise<void>;
-  updateProduct: (id: string, product: Product) => Promise<void>;
+  updateProduct: (updatedProduct: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   findProduct: (name: string) => ProductFindResult[];
   scanBarcode: (barcode: string) => Promise<Product | null>;
@@ -192,9 +192,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const updateProduct = async (id: string, updatedProduct: Product) => {
+  const updateProduct = async (updatedProduct: Product) => {
     try {
-      setProducts(prev => prev.map(p => p.id === id ? { ...updatedProduct, updatedAt: new Date().toISOString() } : p));
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? { ...updatedProduct, updatedAt: new Date().toISOString() } : p));
       toast.success('Product updated');
     } catch (err) {
       console.error(err);
