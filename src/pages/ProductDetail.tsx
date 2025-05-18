@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -89,7 +90,7 @@ const ProductDetail = () => {
             quantity: detectedProduct.quantity
           };
           
-          // Only pass id if it exists, otherwise pass null
+          // Fix: Only pass the updated product
           updateProduct(id!, updatedProduct);
           toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
         }
@@ -101,7 +102,7 @@ const ProductDetail = () => {
             position: detectedProduct.position
           };
           
-          // Fixed: Only pass id if it exists
+          // Fix: Only pass the updated product
           updateProduct(id!, updatedProduct);
           toast.success(`Updated location to ${detectedProduct.position}`);
         }
