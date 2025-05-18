@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -199,16 +200,16 @@ const ProductDetail = () => {
           <Card className="overflow-hidden">
             <div className="relative pt-[56.25%] bg-muted">
               <ProductImage
-                src={product.image_url}
-                alt={product.name}
+                src={product?.image_url}
+                alt={product?.name}
                 className="absolute top-0 left-0 w-full h-full object-contain p-4"
               />
             </div>
             
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
-                <span className="text-2xl font-bold">{product.name}</span>
-                <Badge className="ml-2">{product.category || t('uncategorized')}</Badge>
+                <span className="text-2xl font-bold">{product?.name}</span>
+                <Badge className="ml-2">{product?.category || t('uncategorized')}</Badge>
               </CardTitle>
             </CardHeader>
             
@@ -219,7 +220,7 @@ const ProductDetail = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">{t('quantity')}</p>
                     <p className="font-medium">
-                      {product.quantity} {product.unit}
+                      {product?.quantity} {product?.unit}
                     </p>
                   </div>
                 </div>
@@ -229,7 +230,7 @@ const ProductDetail = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">{t('expiry')}</p>
                     <p className="font-medium">
-                      {product.expiry || t('notSpecified')}
+                      {product?.expiry || t('notSpecified')}
                     </p>
                   </div>
                 </div>
@@ -238,13 +239,13 @@ const ProductDetail = () => {
               <div className="bg-muted/50 p-4 rounded-md">
                 <div className="flex items-center mb-3">
                   <MapPin className="mr-2 h-5 w-5 text-rose-500" />
-                  <h3 className="font-medium">{t('location')}: {product.position || t('notSpecified')}</h3>
+                  <h3 className="font-medium">{t('location')}: {product?.position || t('notSpecified')}</h3>
                 </div>
                 
-                <ProductLocationMap position={product.position} />
+                <ProductLocationMap position={product?.position} />
               </div>
               
-              {product.notes && (
+              {product?.notes && (
                 <div className="p-4 border rounded-md">
                   <h3 className="font-medium mb-2">{t('notes')}:</h3>
                   <p className="text-muted-foreground">{product.notes}</p>
@@ -267,18 +268,18 @@ const ProductDetail = () => {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">{t('price')}</p>
-                <p className="text-3xl font-bold">{formatCurrency(product.price)}</p>
+                <p className="text-3xl font-bold">{formatCurrency(product?.price || 0)}</p>
               </div>
               
               <div>
                 <p className="text-sm text-muted-foreground">{t('totalValue')}</p>
-                <p className="text-xl font-semibold">{formatCurrency(product.price * product.quantity)}</p>
+                <p className="text-xl font-semibold">{formatCurrency((product?.price || 0) * (product?.quantity || 0))}</p>
               </div>
               
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground mb-2">{t('productId')}</p>
                 <Badge variant="outline" className="font-mono text-xs">
-                  {product.id}
+                  {product?.id}
                 </Badge>
               </div>
               
@@ -318,7 +319,7 @@ const ProductDetail = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteProduct')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('deleteProductConfirmation', { name: product.name })}
+              {t('deleteProductConfirmation', { name: product?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
