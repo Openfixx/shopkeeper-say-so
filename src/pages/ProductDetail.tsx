@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -108,6 +107,7 @@ const ProductDetail = () => {
     }
   };
 
+  // Show loading skeleton
   if (loading) {
     return (
       <div className="container mx-auto p-4 sm:p-6">
@@ -138,6 +138,7 @@ const ProductDetail = () => {
     );
   }
 
+  // Show not found message if product doesn't exist
   if (!product) {
     return (
       <div className="container mx-auto p-4 sm:p-6 text-center py-16">
