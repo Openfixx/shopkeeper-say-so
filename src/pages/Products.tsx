@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -30,6 +29,7 @@ import ProductCard from '@/components/ProductCard';
 import { toast } from 'sonner';
 import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
+import { Product } from '@/types/inventory';
 
 const Products = () => {
   const { products } = useInventory();
@@ -86,7 +86,9 @@ const Products = () => {
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
   // Categories derived from products
-  const categories = ['all', ...new Set(products.map(product => product.category || 'uncategorized').filter(Boolean))];
+  const categories = ['all', ...new Set(products
+    .map(product => (product.category || 'uncategorized'))
+    .filter(Boolean))];
   
   // Toggle sort order when clicking on the same sort option
   const handleSortChange = (value: string) => {

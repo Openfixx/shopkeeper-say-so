@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -35,8 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import ProductImage from '@/components/ProductImage';
-import ProductLocationMap from '@/components/ProductLocationMap';
+import ProductImage from './ProductImage';
+import ProductLocationMap from './ProductLocationMap';
 import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
 
