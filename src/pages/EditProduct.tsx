@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ const EditProduct = () => {
         image: formData.image
       };
       
-      updateProduct(id, updatedProduct);
+      updateProduct(updatedProduct);
       toast.success('Product updated successfully');
       navigate('/products');
     } catch (error) {

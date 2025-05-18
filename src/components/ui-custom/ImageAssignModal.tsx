@@ -37,7 +37,7 @@ const ImageAssignModal: React.FC<ImageAssignModalProps> = ({ open, onOpenChange,
       return;
     }
     try {
-      await updateProduct(selectedProductId, {
+      await updateProduct({
         ...productToUpdate,
         image_url: imageUrl,
         updatedAt: new Date().toISOString()
