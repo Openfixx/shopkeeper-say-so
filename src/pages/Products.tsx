@@ -85,9 +85,9 @@ const Products = () => {
   const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
-  // Categories derived from products
+  // Categories derived from products - ensuring we access the category field only if it exists
   const categories = ['all', ...new Set(products
-    .map(product => (product.category || 'uncategorized'))
+    .map(product => ((product as any).category || 'uncategorized'))
     .filter(Boolean))];
   
   // Toggle sort order when clicking on the same sort option

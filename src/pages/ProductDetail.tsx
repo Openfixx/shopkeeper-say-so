@@ -34,8 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import ProductImage from './ProductImage';
-import ProductLocationMap from './ProductLocationMap';
+import ProductImage from '@/components/ProductImage';
+import ProductLocationMap from '@/components/ProductLocationMap';
 import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
 
