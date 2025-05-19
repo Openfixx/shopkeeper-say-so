@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -9,7 +10,6 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
-  Mic
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,11 +28,9 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import ProductCard from '@/components/ProductCard';
 import { toast } from 'sonner';
-import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
-import { VoiceProduct } from '@/types/voice';
 
 const Products = () => {
-  const { products, addProduct } = useInventory();
+  const { products } = useInventory();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,7 +41,6 @@ const Products = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [productsPerPage] = useState(8);
-  const [showVoiceCommand, setShowVoiceCommand] = useState(false);
 
   // Check for search query in location state (when redirected from voice search)
   useEffect(() => {
@@ -99,36 +96,6 @@ const Products = () => {
       setSortOrder('asc');
     }
   };
-
-  const handleVoiceCommand = (command: string, detectedProducts: VoiceProduct[]) => {
-    if (command.toLowerCase().includes('search') || command.toLowerCase().includes('find')) {
-      // Extract search term
-      const searchTerms = command.replace(/search|find|for/gi, '').trim();
-      if (searchTerms) {
-        setSearchQuery(searchTerms);
-        toast.success(`Searching for "${searchTerms}"`);
-      }
-    } else if (detectedProducts.length > 0) {
-      // Add all detected products to inventory
-      detectedProducts.forEach(product => {
-        const newProduct = {
-          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-          name: product.name,
-          quantity: product.quantity || 1,
-          unit: product.unit || 'piece',
-          position: product.position || 'General Storage',
-          price: product.price || 0,
-          category: 'Voice Added',
-          image_url: product.image_url || '',
-          notes: `Added via voice command on ${new Date().toLocaleString()}`
-        };
-        
-        addProduct(newProduct);
-      });
-      
-      toast.success(`Added ${detectedProducts.length} product(s) to inventory`);
-    }
-  };
   
   const getSortIcon = () => {
     if (sortOrder === 'asc') {
@@ -151,15 +118,6 @@ const Products = () => {
           <Button onClick={() => navigate('/products/add')} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             {t('addProduct')}
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => setShowVoiceCommand(true)}
-            className="w-full sm:w-auto"
-          >
-            <Mic className="mr-2 h-4 w-4" />
-            Voice Command
           </Button>
         </div>
       </div>
@@ -276,14 +234,6 @@ const Products = () => {
           </Button>
         </div>
       )}
-      
-      {/* Floating voice command with enhanced functionality */}
-      <EnhancedVoiceCommand
-        variant="floating"
-        onCommand={handleVoiceCommand}
-        onClose={() => setShowVoiceCommand(false)}
-        className={showVoiceCommand ? 'visible' : 'invisible'}
-      />
     </div>
   );
 };

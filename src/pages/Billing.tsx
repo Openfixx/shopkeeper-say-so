@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInventory } from '@/context/InventoryContext';
 import { Product } from '@/types';
 import SearchBar from '@/components/ui-custom/SearchBar';
-import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
-import QuickBillDialog from '@/components/ui-custom/QuickBillDialog';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -47,15 +46,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { detectCommandType } from '@/utils/voiceCommandUtils';
-import { VOICE_COMMAND_TYPES } from '@/types/voice';
 
 const BillingPage: React.FC = () => {
   const { products, currentBill, startNewBill, addToBill, removeFromBill, completeBill, cancelBill, isLoading } = useInventory();
   const [searchQuery, setSearchQuery] = useState('');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
-  const [isQuickBillOpen, setIsQuickBillOpen] = useState(false);
-  const [quickBillTranscript, setQuickBillTranscript] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'wallet'>('cash');
   
   const filteredProducts = searchQuery
@@ -66,73 +61,6 @@ const BillingPage: React.FC = () => {
   
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-  };
-  
-  const handleVoiceCommand = (command: string) => {
-    const lowerCommand = command.toLowerCase();
-    const recognizedCommand = detectCommandType(command);
-    
-    if (recognizedCommand.type === VOICE_COMMAND_TYPES.CREATE_BILL) {
-      if (!currentBill) {
-        startNewBill();
-      }
-      setQuickBillTranscript(command);
-      setIsQuickBillOpen(true);
-      return;
-    }
-    
-    if (lowerCommand.includes('prepare a bill') || lowerCommand.includes('start bill')) {
-      if (!currentBill) {
-        startNewBill();
-        toast.success('New bill started');
-      } else {
-        toast.info('A bill is already in progress');
-      }
-    } 
-    else if (lowerCommand.includes('add')) {
-      if (!currentBill) {
-        startNewBill();
-      }
-      
-      // Try to parse product quantity and name
-      const match = lowerCommand.match(/add\s+(\d+)\s+(.*)/i);
-      if (match && match[2]) {
-        const quantity = parseInt(match[1]);
-        const productName = match[2].trim();
-        
-        const product = products.find(p => 
-          p.name.toLowerCase().includes(productName.toLowerCase())
-        );
-        
-        if (product) {
-          addToBill(product.id, quantity);
-          toast.success(`Added ${quantity} ${product.name} to bill`);
-        } else {
-          toast.error(`Product "${productName}" not found`);
-        }
-      } else {
-        toast.error('Could not understand the product to add');
-      }
-    }
-    else if (lowerCommand.includes('complete bill') || lowerCommand.includes('checkout')) {
-      if (currentBill && currentBill.items.length > 0) {
-        completeBill();
-        toast.success('Bill completed');
-      } else {
-        toast.error('Cannot complete an empty bill');
-      }
-    }
-    else if (lowerCommand.includes('cancel bill')) {
-      if (currentBill) {
-        cancelBill();
-        toast.success('Bill cancelled');
-      } else {
-        toast.error('No active bill to cancel');
-      }
-    }
-    else {
-      toast.info(`Command not recognized: "${command}"`);
-    }
   };
   
   const convertProduct = (product: any): Product => {
@@ -213,13 +141,6 @@ const BillingPage: React.FC = () => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <VoiceCommandButton 
-            onVoiceCommand={handleVoiceCommand}
-            showDialog={true}
-            label="Voice Command"
-            variant="outline"
-          />
-          
           <Button onClick={() => startNewBill()}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             New Bill
@@ -374,40 +295,34 @@ const BillingPage: React.FC = () => {
                         </p>
                       </div>
                     ) : (
-                      <div className="p-4 mb-4 rounded-xl bg-card/50 border shadow-sm">
-                        <Table>
+                      <div className="p-4 mb-4 rounded-xl bg-card/50">
+                        <Table className="border-collapse">
                           <TableHeader>
                             <TableRow>
+                              <TableHead className="w-[50px]">#</TableHead>
                               <TableHead>Item</TableHead>
                               <TableHead className="text-right">Qty</TableHead>
                               <TableHead className="text-right">Price</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                              <TableHead className="w-[30px]"></TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {currentBill.items.map((item, index) => (
-                              <TableRow key={index} className="group">
-                                <TableCell className="font-medium">
-                                  {item.name}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {item.quantity}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatter.format(item.price)}
-                                </TableCell>
+                              <TableRow key={index} className="hover:bg-transparent">
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell className="text-right">{item.quantity}</TableCell>
                                 <TableCell className="text-right">
                                   {formatter.format(item.price * item.quantity)}
                                 </TableCell>
-                                <TableCell className="p-0">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <TableCell>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-7 w-7"
                                     onClick={() => handleRemoveFromBill(index)}
                                   >
-                                    <MinusCircle className="h-4 w-4 text-destructive" />
+                                    <MinusCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                                   </Button>
                                 </TableCell>
                               </TableRow>
@@ -416,86 +331,74 @@ const BillingPage: React.FC = () => {
                         </Table>
                       </div>
                     )}
-                  </div>
-                
-                  <div className="mt-6 pt-6 border-t">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
+                    
+                    <div className="px-4 py-2 space-y-2">
+                      <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Subtotal</span>
                         <span>{formatter.format(calculateTotal())}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tax (8%)</span>
-                        <span>{formatter.format(calculateTotal() * 0.08)}</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Tax (0%)</span>
+                        <span>{formatter.format(0)}</span>
                       </div>
-                      <div className="flex justify-between font-bold text-lg">
+                      <Separator className="my-2" />
+                      <div className="flex justify-between items-center font-semibold">
                         <span>Total</span>
-                        <span>{formatter.format(calculateTotal() * 1.08)}</span>
+                        <span className="text-xl">{formatter.format(calculateTotal())}</span>
                       </div>
                     </div>
-                    
-                    <div className="mt-6 space-y-4">
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button 
-                          variant={paymentMethod === 'cash' ? 'default' : 'outline'} 
-                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'cash' ? 'bg-primary text-primary-foreground' : ''}`}
-                          onClick={() => setPaymentMethod('cash')}
-                        >
-                          <DollarSign className="h-5 w-5" />
-                          <span className="text-xs">Cash</span>
-                        </Button>
-                        <Button 
-                          variant={paymentMethod === 'card' ? 'default' : 'outline'} 
-                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'card' ? 'bg-primary text-primary-foreground' : ''}`}
-                          onClick={() => setPaymentMethod('card')}
-                        >
-                          <CreditCard className="h-5 w-5" />
-                          <span className="text-xs">Card</span>
-                        </Button>
-                        <Button 
-                          variant={paymentMethod === 'wallet' ? 'default' : 'outline'} 
-                          className={`h-16 rounded-xl flex flex-col items-center justify-center gap-1 ${paymentMethod === 'wallet' ? 'bg-primary text-primary-foreground' : ''}`}
-                          onClick={() => setPaymentMethod('wallet')}
-                        >
-                          <Wallet className="h-5 w-5" />
-                          <span className="text-xs">Wallet</span>
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          className="gap-1"
-                          onClick={handlePrintBill}
-                        >
-                          <PrinterIcon className="h-4 w-4" />
-                          Print
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="gap-1"
-                        >
-                          <QrCode className="h-4 w-4" />
-                          QR Code
-                        </Button>
-                      </div>
-                      
+                  </div>
+                  
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Payment Method</p>
+                    <div className="flex gap-2 mb-4">
                       <Button 
-                        className="w-full h-12 rounded-xl gap-1"
-                        onClick={handleCompleteBill}
-                        disabled={currentBill.items.length === 0}
+                        variant={paymentMethod === 'cash' ? 'default' : 'outline'}
+                        size="sm"
+                        className={`flex-1 ${paymentMethod === 'cash' ? '' : 'border-dashed'}`}
+                        onClick={() => setPaymentMethod('cash')}
                       >
-                        Complete Payment
-                        <ArrowRight className="h-4 w-4" />
+                        <DollarSign className="mr-1 h-4 w-4" />
+                        Cash
                       </Button>
-                      
                       <Button 
-                        variant="ghost" 
-                        className="w-full gap-1 text-destructive hover:text-destructive"
-                        onClick={() => cancelBill()}
+                        variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                        size="sm"
+                        className={`flex-1 ${paymentMethod === 'card' ? '' : 'border-dashed'}`}
+                        onClick={() => setPaymentMethod('card')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <CreditCard className="mr-1 h-4 w-4" />
+                        Card
+                      </Button>
+                      <Button 
+                        variant={paymentMethod === 'wallet' ? 'default' : 'outline'}
+                        size="sm"
+                        className={`flex-1 ${paymentMethod === 'wallet' ? '' : 'border-dashed'}`}
+                        onClick={() => setPaymentMethod('wallet')}
+                      >
+                        <Wallet className="mr-1 h-4 w-4" />
+                        UPI
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        variant="destructive"
+                        className="w-full"
+                        onClick={() => cancelBill()}
+                        disabled={!currentBill || currentBill.items.length === 0}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
                         Cancel Bill
+                      </Button>
+                      <Button 
+                        variant="default"
+                        className="w-full"
+                        onClick={handleCompleteBill}
+                        disabled={!currentBill || currentBill.items.length === 0}
+                      >
+                        <PrinterIcon className="mr-2 h-4 w-4" />
+                        Complete & Print
                       </Button>
                     </div>
                   </div>
@@ -506,88 +409,87 @@ const BillingPage: React.FC = () => {
         </motion.div>
       </div>
       
-      <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
-        <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+      {/* Print Preview Sheet */}
+      <Sheet 
+        open={isPrintPreviewOpen} 
+        onOpenChange={setIsPrintPreviewOpen}
+      >
+        <SheetContent className="sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Print Preview</SheetTitle>
+            <SheetTitle>Bill Preview</SheetTitle>
             <SheetDescription>
-              Review the bill before printing or sharing
+              Review the bill before printing or sharing.
             </SheetDescription>
           </SheetHeader>
           
           {currentBill && (
-            <div className="mt-6 space-y-6">
-              <div className="text-center">
-                <h3 className="font-bold text-xl">InventoryPro</h3>
-                <p className="text-sm text-muted-foreground">Bill #{currentBill.id.slice(-5)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+            <div className="mt-6 space-y-4">
+              <div className="text-center mb-6">
+                <h3 className="font-semibold text-xl mb-1">Shopkeeper Say So</h3>
+                <p className="text-muted-foreground text-sm">
+                  Receipt #{currentBill.id.slice(-8)}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {new Date().toLocaleString()}
                 </p>
               </div>
               
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentBill.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right">{formatter.format(item.price)}</TableCell>
-                      <TableCell className="text-right">{formatter.format(item.price * item.quantity)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="border-t border-b py-4 space-y-2">
+                {currentBill.items.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <div>
+                      <span>{item.name}</span>
+                      <span className="text-muted-foreground ml-2">x{item.quantity}</span>
+                    </div>
+                    <span>{formatter.format(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
               
-              <Separator />
-              
-              <div className="space-y-2">
-                <div className="flex justify-between">
+              <div className="space-y-1 pt-2">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatter.format(calculateTotal())}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax (8%)</span>
-                  <span>{formatter.format(calculateTotal() * 0.08)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span>{formatter.format(0)}</span>
                 </div>
-                <div className="flex justify-between font-bold">
+                <div className="flex justify-between font-semibold pt-2">
                   <span>Total</span>
-                  <span>{formatter.format(calculateTotal() * 1.08)}</span>
+                  <span>{formatter.format(calculateTotal())}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2">
+                  <span className="text-muted-foreground">Payment Method</span>
+                  <span>
+                    {paymentMethod === 'cash' && 'Cash'}
+                    {paymentMethod === 'card' && 'Card Payment'}
+                    {paymentMethod === 'wallet' && 'UPI / Wallet'}
+                  </span>
                 </div>
               </div>
               
-              <div className="text-center text-sm text-muted-foreground">
-                <p>Thank you for your business!</p>
-                <p>Payment method: {paymentMethod === 'card' ? 'Credit Card' : paymentMethod === 'wallet' ? 'Digital Wallet' : 'Cash'}</p>
+              <div className="text-center border-t pt-4 pb-2 text-xs text-muted-foreground">
+                <p>Thank you for your purchase!</p>
+                <p>Visit us again soon.</p>
               </div>
-              
-              <SheetFooter>
-                <Button className="w-full gap-1" onClick={() => setIsPrintPreviewOpen(false)}>
-                  <PrinterIcon className="h-4 w-4" />
-                  Print
-                </Button>
-                <Button variant="outline" className="w-full gap-1">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-              </SheetFooter>
             </div>
           )}
+          
+          <SheetFooter className="mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsPrintPreviewOpen(false)}>
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button onClick={handlePrintBill}>
+                <PrinterIcon className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+            </div>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
-      
-      <QuickBillDialog
-        open={isQuickBillOpen}
-        onOpenChange={setIsQuickBillOpen}
-        transcript={quickBillTranscript}
-      />
     </div>
   );
 };

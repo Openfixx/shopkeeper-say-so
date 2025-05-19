@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useInventory } from '@/context/InventoryContext';
 import SearchBar from '@/components/ui-custom/SearchBar';
-import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
 import { 
   AlertCircle,
   ArrowUpDown, 
@@ -93,57 +92,6 @@ const Inventory: React.FC = () => {
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-  
-  const handleVoiceCommand = (command: string) => {
-    const lowerCommand = command.toLowerCase();
-    
-    if (lowerCommand.includes('search') || lowerCommand.includes('find')) {
-      const searchTerm = lowerCommand
-        .replace(/search|find|where is/i, '')
-        .trim();
-      
-      if (searchTerm) {
-        handleSearch(searchTerm);
-        toast.success(`Searching for "${searchTerm}"`);
-      }
-    } 
-    else if (lowerCommand.includes('show') || lowerCommand.includes('filter')) {
-      if (lowerCommand.includes('low stock') || lowerCommand.includes('low inventory')) {
-        handleFilter('low-stock');
-        toast.success('Filtering by low stock items');
-      } 
-      else if (lowerCommand.includes('expiring') || lowerCommand.includes('expiry')) {
-        handleFilter('expiring-soon');
-        toast.success('Filtering by expiring soon items');
-      }
-      else if (lowerCommand.includes('all') || lowerCommand.includes('everything')) {
-        handleFilter('');
-        handleSearch('');
-        toast.success('Showing all inventory items');
-      }
-    }
-    else if (lowerCommand.includes('sort')) {
-      if (lowerCommand.includes('name')) {
-        handleSort('name');
-        toast.success('Sorting by name');
-      }
-      else if (lowerCommand.includes('quantity') || lowerCommand.includes('stock')) {
-        handleSort('quantity');
-        toast.success('Sorting by quantity');
-      }
-      else if (lowerCommand.includes('price')) {
-        handleSort('price');
-        toast.success('Sorting by price');
-      }
-      else if (lowerCommand.includes('expiry') || lowerCommand.includes('expiration')) {
-        handleSort('expiry');
-        toast.success('Sorting by expiry date');
-      }
-    }
-    else {
-      toast.info(`Command not recognized: "${command}"`);
     }
   };
   
@@ -252,10 +200,6 @@ const Inventory: React.FC = () => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <VoiceCommandButton 
-            onVoiceCommand={handleVoiceCommand}
-          />
-          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
