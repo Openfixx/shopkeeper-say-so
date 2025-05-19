@@ -62,9 +62,9 @@ const ProductDetail = () => {
 
   // Fix the deleteProduct call by only passing one argument
   const handleDelete = () => {
-    if (id && product) {
+    if (id) {
       deleteProduct(id);
-      toast.success(`${product.name} deleted`);
+      toast.success(`${product?.name || 'Product'} deleted`);
       navigate('/products');
     }
   };
