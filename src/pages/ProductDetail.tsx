@@ -60,6 +60,7 @@ const ProductDetail = () => {
     return () => clearTimeout(timer);
   }, [id, products]);
 
+  // Fix the deleteProduct call by only passing one argument
   const handleDelete = () => {
     if (id && product) {
       deleteProduct(id);

@@ -9,15 +9,17 @@ import { useMediaQuery } from 'react-responsive'; // Using react-responsive inst
 function MainLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isMobile = useMediaQuery({ maxWidth: 768 });
-  const [showMobileNav, setShowMobileNav] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   useEffect(() => {
-    setShowMobileNav(false);
-  }, [location.pathname]);
+    // On mobile, close sidebar when navigating
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  }, [location.pathname, isMobile]);
 
   return (
     <div className={`h-screen flex flex-col ${isMobile ? 'overflow-hidden' : ''}`}>
-      {/* No Header component since it's not available */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto p-4 bg-background">

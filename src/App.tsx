@@ -6,7 +6,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { InventoryProvider } from './context/InventoryContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider } from './components/ui/theme-provider';
 
 // Pages
 import Index from './pages/Index';
@@ -23,7 +23,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <LanguageProvider>
         <AuthProvider>
           <InventoryProvider>
