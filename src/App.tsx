@@ -32,15 +32,19 @@ function App() {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/" element={<MainLayout />}>
-                  <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                  <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
-                  <Route path="products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
-                  <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
-                  <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-                  <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                </Route>
+                <Route path="/" element={
+                  <MainLayout>
+                    <Routes>
+                      <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                      <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                      <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+                      <Route path="products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
+                      <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
+                      <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                      <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                    </Routes>
+                  </MainLayout>
+                } />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Router>
