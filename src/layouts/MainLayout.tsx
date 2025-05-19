@@ -21,7 +21,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`h-screen flex flex-col ${isMobile ? 'overflow-hidden' : ''}`}>
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <Sidebar 
+          open={showSidebar} 
+          setOpen={setShowSidebar} 
+        />
         <main className="flex-1 overflow-auto p-4 bg-background">
           <div className="mx-auto max-w-7xl">
             <ErrorBoundary fallback={<div>Something went wrong</div>}>
