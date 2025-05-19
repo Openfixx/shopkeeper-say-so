@@ -46,7 +46,6 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<any>(null);
 
   useEffect(() => {
-    // Simulate loading time
     const timer = setTimeout(() => {
       if (id) {
         const foundProduct = products.find(p => p.id === id);
@@ -68,7 +67,6 @@ const ProductDetail = () => {
     }
   };
 
-  // Show loading skeleton
   if (loading) {
     return (
       <div className="container mx-auto p-4 sm:p-6">
@@ -99,7 +97,6 @@ const ProductDetail = () => {
     );
   }
 
-  // Show not found message if product doesn't exist
   if (!product) {
     return (
       <div className="container mx-auto p-4 sm:p-6 text-center py-16">
@@ -144,9 +141,7 @@ const ProductDetail = () => {
         </div>
       </div>
       
-      {/* Main content grid */}
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Product image and details */}
         <motion.div 
           className="md:col-span-2"
           initial={{ opacity: 0, x: -20 }}
@@ -211,7 +206,6 @@ const ProductDetail = () => {
           </Card>
         </motion.div>
         
-        {/* Product sidebar */}
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -270,7 +264,6 @@ const ProductDetail = () => {
         </motion.div>
       </div>
       
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

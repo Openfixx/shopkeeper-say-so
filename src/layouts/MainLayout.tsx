@@ -4,7 +4,8 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from '@/components/Sidebar';
 import { ErrorBoundary } from 'react-error-boundary';
 import HeaderVoiceControl from '@/components/ui-custom/HeaderVoiceControl';
-import { useMediaQuery } from 'react-responsive'; // Using react-responsive instead of custom hook
+import Header from '@/components/layout/Header';
+import { useMediaQuery } from 'react-responsive';
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -20,6 +21,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`h-screen flex flex-col ${isMobile ? 'overflow-hidden' : ''}`}>
+      <Header onMenuToggle={() => setShowSidebar(!showSidebar)} isSidebarOpen={showSidebar} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar 
           open={showSidebar} 
