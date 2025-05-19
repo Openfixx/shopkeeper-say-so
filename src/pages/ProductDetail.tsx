@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import ProductImage from '@/components/ProductImage';
 import ProductLocationMap from '@/components/ProductLocationMap';
-import EnhancedVoiceCommand from '@/components/ui-custom/EnhancedVoiceCommand';
+import { ImprovedVoiceCommand } from '@/components/ui-custom/ImprovedVoiceCommand';
 import { VoiceProduct } from '@/types/voice';
 
 const ProductDetail = () => {
@@ -74,6 +74,8 @@ const ProductDetail = () => {
 
   const handleVoiceCommand = (command: string, detectedProducts: VoiceProduct[]) => {
     if (!product) return;
+    console.log("Voice command received:", command);
+    console.log("Detected products:", detectedProducts);
     
     const lowerCommand = command.toLowerCase();
     
@@ -191,7 +193,9 @@ const ProductDetail = () => {
         </div>
       </div>
       
+      {/* Main content grid */}
       <div className="grid md:grid-cols-3 gap-6">
+        {/* Product image and details */}
         <motion.div 
           className="md:col-span-2"
           initial={{ opacity: 0, x: -20 }}
@@ -256,6 +260,7 @@ const ProductDetail = () => {
           </Card>
         </motion.div>
         
+        {/* Product sidebar */}
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -336,7 +341,7 @@ const ProductDetail = () => {
       </AlertDialog>
       
       {/* Voice Command */}
-      <EnhancedVoiceCommand
+      <ImprovedVoiceCommand
         variant="floating"
         onCommand={handleVoiceCommand}
         onClose={() => setShowVoiceCommand(false)}
