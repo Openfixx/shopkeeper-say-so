@@ -15,6 +15,7 @@ export default function ImageUploader({ productName }: { productName: string }) 
       price: 0,
       quantity: 0,
       unit: 'unit',
+      position: '', // Add the required position property
       image: URL.createObjectURL(file)
     });
   };
