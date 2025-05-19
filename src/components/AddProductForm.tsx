@@ -1,10 +1,9 @@
+
 import React, { useState } from 'react';
 import { useInventory } from '@/context/InventoryContext';
-import { useVoiceRecognition, CommandResult } from '@/lib/voice';
 
 export const AddProductForm: React.FC = () => {
   const { addProduct } = useInventory();
-  const { listen, commandResult, reset: resetVoice } = useVoiceRecognition();
 
   // local form state
   const [name, setName]       = useState('');
@@ -14,27 +13,6 @@ export const AddProductForm: React.FC = () => {
   const [price, setPrice]     = useState(0);
   const [expiry, setExpiry]   = useState('');
   const [imageUrl, setImageUrl] = useState('');
-
-  // on 🎤 button tap
-  const handleVoice = async () => {
-    try {
-      const result: CommandResult = await listen();
-      console.log('🗣️ Voice result in form:', result);
-      
-      // populate form from voice result
-      setName(result.productName);
-      if (result.quantity) {
-        setQuantity(result.quantity.value);
-        setUnit(result.quantity.unit);
-      }
-      if (result.position) setPosition(result.position);
-      if (result.price  !== undefined) setPrice(result.price);
-      if (result.expiry !== undefined) setExpiry(result.expiry);
-      if (result.imageUrl) setImageUrl(result.imageUrl);
-    } catch (err) {
-      console.error('Voice error', err);
-    }
-  };
 
   // on form submit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +34,6 @@ export const AddProductForm: React.FC = () => {
     setPrice(0);
     setExpiry('');
     setImageUrl('');
-    resetVoice();
   };
 
   return (
@@ -72,9 +49,6 @@ export const AddProductForm: React.FC = () => {
           placeholder="e.g. rice"
           style={{ flex: 1 }}
         />
-        <button type="button" onClick={handleVoice} style={{ marginLeft: 8 }}>
-          🎤
-        </button>
       </div>
 
       <label>Quantity</label>

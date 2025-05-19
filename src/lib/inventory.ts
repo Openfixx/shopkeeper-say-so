@@ -46,3 +46,6 @@ export function isLowStock(quantity: number, threshold: number = 5) {
 export function formatPrice(price: number, currency: string = '₹') {
   return `${currency}${price.toFixed(2)}`;
 }
+
+// Note: The addProduct function is actually provided by the InventoryContext,
+// not in this utility file. The ImageUploader has been updated to use the context.
