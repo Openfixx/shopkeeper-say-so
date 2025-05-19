@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -90,7 +89,6 @@ const ProductDetail = () => {
             quantity: detectedProduct.quantity
           };
           
-          // Fix: Pass only one argument to updateProduct
           updateProduct(updatedProduct);
           toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
         }
@@ -102,7 +100,6 @@ const ProductDetail = () => {
             position: detectedProduct.position
           };
           
-          // Fix: Pass only one argument to updateProduct
           updateProduct(updatedProduct);
           toast.success(`Updated location to ${detectedProduct.position}`);
         }
