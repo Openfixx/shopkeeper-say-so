@@ -10,68 +10,12 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
 import { toast } from '@/components/ui/use-toast';
-import MultiProductAddToast from '@/components/ui-custom/MultiProductAddToast';
-import VoiceCommandPopup from '@/components/ui-custom/VoiceCommandPopup';
-import { VoiceProduct, CommandResult } from '@/types/voice';
-import { validateProductDetails } from '@/utils/voiceCommandUtils';
 
 const Index = () => {
   const { user } = useAuth();
-  const { products, addProduct } = useInventory();
+  const { products } = useInventory();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [multiProducts, setMultiProducts] = useState<VoiceProduct[]>([]);
-  const [showMultiProductToast, setShowMultiProductToast] = useState(false);
-  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
-  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  
-  const handleConfirmProduct = (location?: string) => {
-    if (!commandResult) return;
-    
-    setIsProcessingCommand(true);
-    
-    // Validate product details
-    const productDetails = {
-      name: commandResult.productName || '',
-      quantity: commandResult.quantity?.value || 1,
-      unit: commandResult.quantity?.unit || 'unit',
-      position: location || commandResult.position || 'unspecified',
-      price: commandResult.price || 0
-    };
-    
-    const validation = validateProductDetails(productDetails);
-    
-    if (!validation.isValid) {
-      toast({
-        title: "Missing Information",
-        description: `Please provide: ${validation.missingFields.join(', ')}`,
-        variant: "destructive"
-      });
-      setIsProcessingCommand(false);
-      return;
-    }
-    
-    addProduct({
-      name: productDetails.name,
-      quantity: productDetails.quantity,
-      unit: productDetails.unit,
-      price: productDetails.price || 0,
-      position: productDetails.position,
-      image_url: commandResult.imageUrl || ''
-    });
-    
-    toast({
-      title: "Product Added",
-      description: `Added ${productDetails.quantity} ${productDetails.unit} of ${productDetails.name} to ${productDetails.position}`
-    });
-    
-    setIsProcessingCommand(false);
-    setCommandResult(null);
-  };
-  
-  const handleCancelCommand = () => {
-    setCommandResult(null);
-  };
   
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -148,30 +92,6 @@ const Index = () => {
           </Card>
         </div>
       </motion.div>
-      
-      {showMultiProductToast && (
-        <MultiProductAddToast 
-          products={multiProducts} 
-          onClose={() => setShowMultiProductToast(false)}
-          onComplete={() => {
-            toast({
-              title: "Products Added",
-              description: `Added ${multiProducts.length} products to inventory`
-            });
-            navigate('/products');
-          }}
-        />
-      )}
-      
-      {/* Voice Command Popup */}
-      {commandResult && (
-        <VoiceCommandPopup
-          result={commandResult}
-          onConfirm={handleConfirmProduct}
-          onCancel={handleCancelCommand}
-          loading={isProcessingCommand}
-        />
-      )}
     </div>
   );
 };

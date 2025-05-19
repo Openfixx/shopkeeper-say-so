@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -15,8 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useInventory } from '@/context/InventoryContext';
 import { Camera, Search, ArrowLeft, Save, Loader2, Upload, Trash } from 'lucide-react';
 import { toast } from 'sonner';
-import VoiceCommandButton from '@/components/ui-custom/VoiceCommandButton';
-import { extractProductDetails } from '@/utils/voiceCommandUtils';
 import { motion } from 'framer-motion';
 
 interface ProductFormData {
@@ -44,7 +43,6 @@ const AddProduct: React.FC = () => {
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [lastCommand, setLastCommand] = useState<string>('');
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -160,45 +158,8 @@ const AddProduct: React.FC = () => {
     
     addProduct(formData);
     setFormData(initialFormData);
-    setLastCommand('');
     navigate('/products');
     toast.success(`Product ${formData.name} added to inventory`);
-  };
-  
-  const handleVoiceCommand = async (command: string) => {
-    setIsProcessing(true);
-    try {
-      console.log('Processing voice command:', command);
-      toast.loading('Processing voice command...');
-      
-      const productDetails = await extractProductDetails(command);
-      
-      if (productDetails.name) {
-        setFormData({
-          name: productDetails.name,
-          quantity: productDetails.quantity || 0,
-          unit: productDetails.unit || 'kg',
-          position: productDetails.position || '',
-          expiry: productDetails.expiry || '',
-          price: productDetails.price || 0,
-          image: ''
-        });
-        
-        toast.dismiss();
-        toast.success(`Product details extracted: ${productDetails.name}`);
-      } else {
-        toast.dismiss();
-        toast.info('Could not detect product name. Please try again.');
-      }
-      
-      setLastCommand(command);
-    } catch (error) {
-      console.error('Error processing voice command:', error);
-      toast.dismiss();
-      toast.error('Error processing voice command');
-    } finally {
-      setIsProcessing(false);
-    }
   };
   
   return (
@@ -432,27 +393,6 @@ const AddProduct: React.FC = () => {
           </form>
         </CardContent>
       </Card>
-      
-      <div className="fixed bottom-8 right-8 z-50">
-        <VoiceCommandButton 
-          onVoiceCommand={handleVoiceCommand} 
-          showDialog={true}
-          label="Voice Add Product"
-          variant="default"
-          size="default"
-        />
-      </div>
-      
-      {lastCommand && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-24 right-8 p-4 bg-card border rounded-lg shadow-lg max-w-sm z-40"
-        >
-          <p className="text-xs font-medium mb-1">Last command:</p>
-          <p className="text-sm">{lastCommand}</p>
-        </motion.div>
-      )}
     </div>
   );
 };

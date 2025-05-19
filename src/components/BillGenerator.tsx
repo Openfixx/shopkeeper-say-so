@@ -3,7 +3,6 @@ import React from 'react';
 import { generateBill } from '../lib/inventory';
 import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
-import UnifiedVoiceCommand from './ui-custom/UnifiedVoiceCommand';
 
 interface BillGeneratorProps {
   items: { name: string; price: number }[];
@@ -49,7 +48,6 @@ export default function BillGenerator({ items }: BillGeneratorProps) {
     <div className="space-y-4 p-4 border rounded-lg shadow-sm bg-background">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Your Bill</h2>
-        <UnifiedVoiceCommand compact={true} />
       </div>
       
       <div className="space-y-2 divide-y">

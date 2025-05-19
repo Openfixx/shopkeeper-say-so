@@ -1,5 +1,5 @@
+
 import { supabase } from './supabase';
-import { VoiceProduct } from '@/types/voice';
 
 // Types
 export interface InventoryItem {

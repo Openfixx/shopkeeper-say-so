@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,7 @@ import {
   Trash, 
   Clock, 
   Package2,
-  MapPin,
-  Mic
+  MapPin
 } from 'lucide-react';
 import { useInventory } from '@/context/InventoryContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -36,8 +36,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import ProductImage from '@/components/ProductImage';
 import ProductLocationMap from '@/components/ProductLocationMap';
-import { ImprovedVoiceCommand } from '@/components/ui-custom/ImprovedVoiceCommand';
-import { VoiceProduct } from '@/types/voice';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +45,6 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [product, setProduct] = useState<any>(null);
-  const [showVoiceCommand, setShowVoiceCommand] = useState(false);
 
   useEffect(() => {
     // Simulate loading time
@@ -69,43 +66,6 @@ const ProductDetail = () => {
       deleteProduct(id);
       toast.success(`${product.name} deleted`);
       navigate('/products');
-    }
-  };
-
-  const handleVoiceCommand = (command: string, detectedProducts: VoiceProduct[]) => {
-    if (!product) return;
-    console.log("Voice command received:", command);
-    console.log("Detected products:", detectedProducts);
-    
-    const lowerCommand = command.toLowerCase();
-    
-    // Update quantity command
-    if (lowerCommand.includes('update') || lowerCommand.includes('change') || lowerCommand.includes('set')) {
-      if (detectedProducts.length > 0) {
-        const detectedProduct = detectedProducts[0];
-        
-        // Update product quantity
-        if (detectedProduct.quantity) {
-          const updatedProduct = {
-            ...product,
-            quantity: detectedProduct.quantity
-          };
-          
-          updateProduct(updatedProduct);
-          toast.success(`Updated quantity to ${detectedProduct.quantity} ${detectedProduct.unit || product.unit}`);
-        }
-        
-        // Update product position if detected
-        if (detectedProduct.position) {
-          const updatedProduct = {
-            ...product,
-            position: detectedProduct.position
-          };
-          
-          updateProduct(updatedProduct);
-          toast.success(`Updated location to ${detectedProduct.position}`);
-        }
-      }
     }
   };
 
@@ -167,14 +127,6 @@ const ProductDetail = () => {
         </Button>
         
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => setShowVoiceCommand(true)}
-          >
-            <Mic className="h-4 w-4" />
-          </Button>
-          
           <Button 
             variant="outline" 
             onClick={() => navigate(`/products/edit/${id}`)}
@@ -339,14 +291,6 @@ const ProductDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      {/* Voice Command */}
-      <ImprovedVoiceCommand
-        variant="floating"
-        onCommand={handleVoiceCommand}
-        onClose={() => setShowVoiceCommand(false)}
-        className={showVoiceCommand ? 'visible' : 'invisible'}
-      />
     </div>
   );
 };
