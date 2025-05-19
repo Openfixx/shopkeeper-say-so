@@ -8,17 +8,20 @@ import { Toaster as SonnerToaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthProvider>
-      <InventoryProvider>
-        <LanguageProvider>
-          <App />
-          <SonnerToaster position="top-right" richColors />
-          <Toaster />
-        </LanguageProvider>
-      </InventoryProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <InventoryProvider>
+          <LanguageProvider>
+            <App />
+            <SonnerToaster position="top-right" richColors />
+            <Toaster />
+          </LanguageProvider>
+        </InventoryProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );

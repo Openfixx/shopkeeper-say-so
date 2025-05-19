@@ -6,7 +6,6 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { InventoryProvider } from './context/InventoryContext';
-import { ThemeProvider } from './components/ui/theme-provider';
 
 // Pages
 import Index from './pages/Index';
@@ -23,35 +22,33 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-      <LanguageProvider>
-        <AuthProvider>
-          <InventoryProvider>
-            <Router>
-              <Toaster richColors closeButton position="top-right" />
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/" element={
-                  <MainLayout>
-                    <Routes>
-                      <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                      <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                      <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
-                      <Route path="products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
-                      <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
-                      <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-                      <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                    </Routes>
-                  </MainLayout>
-                } />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Router>
-          </InventoryProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <InventoryProvider>
+          <Router>
+            <Toaster richColors closeButton position="top-right" />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={
+                <MainLayout>
+                  <Routes>
+                    <Route index element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                    <Route path="products/add" element={<ProtectedRoute><AddProduct /></ProtectedRoute>} />
+                    <Route path="products/edit/:id" element={<ProtectedRoute><EditProduct /></ProtectedRoute>} />
+                    <Route path="products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
+                    <Route path="billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                    <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  </Routes>
+                </MainLayout>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Router>
+        </InventoryProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 
